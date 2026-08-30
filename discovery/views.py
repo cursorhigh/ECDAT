@@ -190,3 +190,5 @@ def scan_data(request):
         return JsonResponse({"detail": str(exc)}, status=400)
 
     return JsonResponse(ScanJobSerializer(job).data, status=201)
+
+
