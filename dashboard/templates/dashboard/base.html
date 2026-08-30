@@ -9,141 +9,113 @@
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
   {% block head %}{% endblock %}
 </head>
-<body>
-<div class="flex h-screen">
+<body class="bg-sidebar-bg">
+  <!-- Full-screen base background (optimized WebP) -->
+  <div aria-hidden="true"
+       class="fixed inset-0 -z-10 bg-cover bg-center"
+       style="background-image:url('{% static 'background.webp' %}')"></div>
 
-  <!-- Sidebar -->
-  <aside class="w-60 shrink-0 bg-sidebar-bg text-sidebar-text flex flex-col">
-    <div class="flex items-center gap-2.5 px-4 py-5 border-b border-white/10">
-      <span class="w-3 h-3 rounded-full bg-ecdat-primary shadow-[0_0_0_4px_rgba(47,111,237,0.2)]"></span>
-      <span class="text-lg font-bold text-white tracking-wide">ECDAT</span>
+<div class="flex h-screen relative">
+
+  <!-- Sidebar (premium liquid glass panel) -->
+  <aside id="sidebar"
+         class="liquid-sidebar relative z-20 m-3 flex w-64 shrink-0 flex-col overflow-hidden rounded-2xl text-sidebar-text">
+
+    <!-- Brand -->
+    <div class="relative z-10 px-5 pt-5 pb-3">
+      <span class="text-[15px] font-bold leading-tight tracking-wide text-sidebar-brand">ECDAT</span>
+      <span class="mt-0.5 block text-[10px] uppercase tracking-[0.2em] text-sidebar-subtle">Crypto Discovery</span>
     </div>
 
-    <nav class="flex-1 overflow-y-auto px-3 py-4">
+    <nav class="relative z-10 flex-1 space-y-1 overflow-y-auto px-3 py-2">
 
       <!-- Workflow -->
-      <div class="px-3 mb-3 text-[11px] uppercase tracking-wider text-sidebar-muted">Workflow</div>
-      <div class="relative">
-        <div class="relative flex flex-col">
-          <a href="{% url 'dashboard-overview' %}"
-             class="relative flex items-center gap-3 rounded-lg px-2 py-2.5 group hover:bg-white/5">
-            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm
-              {% if active == 'overview' %}bg-ecdat-primary text-white ring-4 ring-ecdat-primary/25 shadow-[0_0_14px_rgba(47,111,237,0.65)]
-              {% else %}bg-[#14181d] border border-white/20 text-sidebar-muted{% endif %}">1</span>
-            <span class="text-sm {% if active == 'overview' %}text-white font-semibold{% else %}text-sidebar-muted group-hover:text-sidebar-text{% endif %}">Overview</span>
-          </a>
-        </div>
-      </div>
+      <div class="sb-group-label px-3 pt-1 pb-1 text-[10px] uppercase tracking-widest text-sidebar-muted/90">Workflow</div>
+      <a href="{% url 'dashboard-overview' %}" title="Overview"
+         class="glink {% if active == 'overview' %}glink-active{% endif %}">
+        <span class="gicon"><svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l9-9 9 9M5 10v10h5v-6h4v6h5V10"/></svg></span>
+        <span class="sb-label">Overview</span>
+      </a>
 
       <!-- Exploration -->
-      <div class="mt-4 mb-1 px-3 text-[11px] uppercase tracking-wider text-sidebar-muted">Exploration</div>
-      <div class="relative">
-        <span class="absolute left-6 top-3 bottom-3 w-px bg-white/10"></span>
-        <div class="relative flex flex-col">
-          <a href="{% url 'dashboard-discovery' %}"
-             class="relative flex items-center gap-3 rounded-lg px-2 py-2.5 group hover:bg-white/5">
-            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm
-              {% if active == 'discovery' %}bg-ecdat-primary text-white ring-4 ring-ecdat-primary/25 shadow-[0_0_14px_rgba(47,111,237,0.65)]
-              {% else %}bg-[#14181d] border border-white/20 text-sidebar-muted{% endif %}">2</span>
-            <span class="text-sm {% if active == 'discovery' %}text-white font-semibold{% else %}text-sidebar-muted group-hover:text-sidebar-text{% endif %}">Discovery</span>
-          </a>
-
-          <a href="{% url 'dashboard-inventory' %}"
-             class="relative flex items-center gap-3 rounded-lg px-2 py-2.5 group hover:bg-white/5">
-            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm
-              {% if active == 'inventory' %}bg-ecdat-primary text-white ring-4 ring-ecdat-primary/25 shadow-[0_0_14px_rgba(47,111,237,0.65)]
-              {% else %}bg-[#14181d] border border-white/20 text-sidebar-muted{% endif %}">3</span>
-            <span class="text-sm {% if active == 'inventory' %}text-white font-semibold{% else %}text-sidebar-muted group-hover:text-sidebar-text{% endif %}">Inventory</span>
-          </a>
-
-          <a href="{% url 'dashboard-graph' %}"
-             class="relative flex items-center gap-3 rounded-lg px-2 py-2.5 group hover:bg-white/5">
-            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm
-              {% if active == 'graph' %}bg-ecdat-primary text-white ring-4 ring-ecdat-primary/25 shadow-[0_0_14px_rgba(47,111,237,0.65)]
-              {% else %}bg-[#14181d] border border-white/20 text-sidebar-muted{% endif %}">4</span>
-            <span class="text-sm {% if active == 'graph' %}text-white font-semibold{% else %}text-sidebar-muted group-hover:text-sidebar-text{% endif %}">Asset Graph</span>
-          </a>
-        </div>
-      </div>
+      <div class="sb-group-label px-3 pt-3 pb-1 text-[10px] uppercase tracking-widest text-sidebar-muted/90">Exploration</div>
+      <a href="{% url 'dashboard-discovery' %}" title="Discovery"
+         class="glink {% if active == 'discovery' %}glink-active{% endif %}">
+        <span class="gicon"><svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="M21 21l-4.35-4.35"/></svg></span>
+        <span class="sb-label">Discovery</span>
+      </a>
+      <a href="{% url 'dashboard-inventory' %}" title="Inventory"
+         class="glink {% if active == 'inventory' %}glink-active{% endif %}">
+        <span class="gicon"><svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg></span>
+        <span class="sb-label">Inventory</span>
+      </a>
+      <a href="{% url 'dashboard-graph' %}" title="Asset Graph"
+         class="glink {% if active == 'graph' %}glink-active{% endif %}">
+        <span class="gicon"><svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 3v8m0 0L3 8m3 3l3-3m6 13V8m0 0l-3 3m3-3l3 3"/></svg></span>
+        <span class="sb-label">Asset Graph</span>
+      </a>
 
       <!-- Risk & Reasoning -->
-      <div class="mt-4 mb-1 px-3 text-[11px] uppercase tracking-wider text-sidebar-muted">Risk &amp; Reasoning</div>
-      <div class="relative">
-        <div class="relative flex flex-col">
-          <a href="{% url 'dashboard-risk' %}"
-             class="relative flex items-center gap-3 rounded-lg px-2 py-2.5 group hover:bg-white/5">
-            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm
-              {% if active == 'risk' %}bg-ecdat-primary text-white ring-4 ring-ecdat-primary/25 shadow-[0_0_14px_rgba(47,111,237,0.65)]
-              {% else %}bg-[#14181d] border border-white/20 text-sidebar-muted{% endif %}">5</span>
-            <span class="text-sm {% if active == 'risk' %}text-white font-semibold{% else %}text-sidebar-muted group-hover:text-sidebar-text{% endif %}">Risk &amp; Reasoning</span>
-          </a>
-        </div>
-      </div>
+      <div class="sb-group-label px-3 pt-3 pb-1 text-[10px] uppercase tracking-widest text-sidebar-muted/90">Risk &amp; Reasoning</div>
+      <a href="{% url 'dashboard-risk' %}" title="Risk &amp; Reasoning"
+         class="glink {% if active == 'risk' %}glink-active{% endif %}">
+        <span class="gicon"><svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v3m0 12v3m9-9h-3M6 12H3m13.5-5.5l-2.1 2.1m-4.8 4.8l-2.1 2.1M18.5 17.5l-2.1-2.1m-4.8-4.8l-2.1-2.1M12 9a3 3 0 100 6 3 3 0 000-6z"/></svg></span>
+        <span class="sb-label">Risk &amp; Reasoning</span>
+      </a>
 
       <!-- Finalization -->
-      <div class="mt-4 mb-1 px-3 text-[11px] uppercase tracking-wider text-sidebar-muted">Finalization</div>
-      <div class="relative">
-        <span class="absolute left-6 top-3 bottom-3 w-px bg-white/10"></span>
-        <div class="relative flex flex-col">
-          <a href="{% url 'dashboard-mitigation' %}"
-             class="relative flex items-center gap-3 rounded-lg px-2 py-2.5 group hover:bg-white/5">
-            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm
-              {% if active == 'mitigation' %}bg-ecdat-primary text-white ring-4 ring-ecdat-primary/25 shadow-[0_0_14px_rgba(47,111,237,0.65)]
-              {% else %}bg-[#14181d] border border-white/20 text-sidebar-muted{% endif %}">6</span>
-            <span class="text-sm {% if active == 'mitigation' %}text-white font-semibold{% else %}text-sidebar-muted group-hover:text-sidebar-text{% endif %}">Mitigation</span>
-          </a>
-
-          <a href="{% url 'dashboard-reports' %}"
-             class="relative flex items-center gap-3 rounded-lg px-2 py-2.5 group hover:bg-white/5">
-            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm
-              {% if active == 'reports' %}bg-ecdat-primary text-white ring-4 ring-ecdat-primary/25 shadow-[0_0_14px_rgba(47,111,237,0.65)]
-              {% else %}bg-[#14181d] border border-white/20 text-sidebar-muted{% endif %}">7</span>
-            <span class="text-sm {% if active == 'reports' %}text-white font-semibold{% else %}text-sidebar-muted group-hover:text-sidebar-text{% endif %}">Reports</span>
-          </a>
-        </div>
-      </div>
-    </nav>
-
-    <!-- Audit Log (detached at bottom) -->
-    <div class="border-t border-white/10 px-3 py-3">
-      <a href="{% url 'dashboard-audit' %}"
-         class="flex items-center gap-3 rounded-lg px-2 py-2.5 group hover:bg-white/5">
-        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full
-          {% if active == 'audit' %}bg-ecdat-primary text-white ring-4 ring-ecdat-primary/25 shadow-[0_0_14px_rgba(47,111,237,0.65)]
-          {% else %}bg-[#14181d] border border-white/20 text-sidebar-muted{% endif %}">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-        </span>
-        <span class="text-sm {% if active == 'audit' %}text-white font-semibold{% else %}text-sidebar-muted group-hover:text-sidebar-text{% endif %}">Audit Log</span>
+      <div class="sb-group-label px-3 pt-3 pb-1 text-[10px] uppercase tracking-widest text-sidebar-muted/90">Finalization</div>
+      <a href="{% url 'dashboard-mitigation' %}" title="Mitigation"
+         class="glink {% if active == 'mitigation' %}glink-active{% endif %}">
+        <span class="gicon"><svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.6 2A7.6 7.6 0 0112 19.6 7.6 7.6 0 016.4 12 7.6 7.6 0 0112 4.4a7.6 7.6 0 017 4.4"/></svg></span>
+        <span class="sb-label">Mitigation</span>
       </a>
-    </div>
+      <a href="{% url 'dashboard-reports' %}" title="Reports"
+         class="glink {% if active == 'reports' %}glink-active{% endif %}">
+        <span class="gicon"><svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-6m4 6V9m4 8V5M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg></span>
+        <span class="sb-label">Reports</span>
+      </a>
+
+      <!-- Audit (notifications-style, carries badge) -->
+      <div class="sb-group-label px-3 pt-3 pb-1 text-[10px] uppercase tracking-widest text-sidebar-muted/90">System</div>
+      <a href="{% url 'dashboard-audit' %}" title="Audit Log"
+         class="glink {% if active == 'audit' %}glink-active{% endif %}">
+        <span class="gicon">
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1m-16 0H3m15.4-6.4l-.7.7M6.3 17.7l-.7.7m0-12.8l.7.7m11.4 11.4l.7.7M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
+        </span>
+        <span class="sb-label flex-1">Audit Log</span>
+        <span class="nav-badge sb-label flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold">3</span>
+      </a>
+    </nav>
   </aside>
 
   <!-- Main -->
   <main class="flex-1 flex flex-col overflow-hidden">
-    <header class="bg-white border-b border-gray-200 px-6 py-3.5 flex items-center justify-between">
-      <h1 class="text-xl font-semibold text-gray-900">{% block page_title %}Dashboard{% endblock %}</h1>
-      <div class="flex items-center gap-2.5">
-        {% if scan_running %}
-          <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Scan running…</span>
-        {% endif %}
+    <header class="shrink-0 px-6 pt-7 pb-4 text-center">
+      <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
+      <div class="page-desc mt-1.5">{% block page_description %}{% endblock %}</div>
+      {% if scan_running %}
+      <div class="mt-3">
+        <span class="badge badge-amber">Scan running…</span>
       </div>
+      {% endif %}
     </header>
 
-    <div class="p-6 overflow-y-auto flex-1">
+    <div class="p-6 pt-2 overflow-y-auto flex-1">
       {% block content %}{% endblock %}
     </div>
   </main>
 </div>
 
 <!-- Modal -->
-<div class="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center" id="modal-backdrop" hidden>
-  <div class="bg-white rounded-xl w-[520px] max-w-[92vw] shadow-modal">
-    <div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-200 font-semibold">
+<div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center" id="modal-backdrop" hidden>
+  <div class="card-2 w-[520px] max-w-[92vw] shadow-modal !bg-[rgba(18,24,34,0.92)]">
+    <div class="flex items-center justify-between px-5 py-3.5 border-b !border-[rgba(255,255,255,0.08)] font-semibold text-[var(--ec-ink)]">
       <span>Asset Detail</span>
-      <button class="text-gray-500 text-xl leading-none hover:text-gray-800" onclick="closeModal()">&times;</button>
+      <button class="text-[var(--ec-muted)] text-xl leading-none hover:text-[var(--ec-ink)]" onclick="closeModal()">&times;</button>
     </div>
     <div class="p-5" id="modal-body">
-      <p>Select an asset to see details.</p>
+      <p class="text-[var(--ec-muted)] text-sm">Select an asset to see details.</p>
     </div>
   </div>
 </div>

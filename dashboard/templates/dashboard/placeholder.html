@@ -1,13 +1,14 @@
 {% extends "dashboard/base.html" %}
 {% block title %}ECDAT · {{ page_title }}{% endblock %}
 {% block page_title %}{{ page_title }}{% endblock %}
+{% block page_description %}{{ page_desc }}{% endblock %}
 
 {% block content %}
-<div class="bg-white border border-gray-200 rounded-lg p-6">
-  <h3 class="text-[15px] font-semibold text-gray-900 mb-2">{{ page_title }}</h3>
-  <p class="text-sm text-gray-500">{{ page_desc }}</p>
-  <div class="mt-6 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
-    <p class="text-sm text-gray-500">This stage of the workflow is coming soon. It will be powered by the
+<div class="card p-6">
+  <h3 class="card-title mb-2">{{ page_title }}</h3>
+  <p class="text-sm text-[var(--ec-muted)]">{{ page_desc }}</p>
+  <div class="mt-6 rounded-lg border border-dashed border-[var(--ec-border-strong)] bg-white/[0.015] p-6 text-center">
+    <p class="text-sm text-[var(--ec-muted)]">This stage of the workflow is coming soon. It will be powered by the
       assets discovered in earlier stages.</p>
   </div>
 </div>

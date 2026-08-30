@@ -1,21 +1,21 @@
 {% extends "dashboard/base.html" %}
 {% block title %}ECDAT · Asset Graph{% endblock %}
 {% block page_title %}Crypto Asset Graph{% endblock %}
+{% block page_description %}Nodes are crypto assets in your inventory; edges are correlations between them.{% endblock %}
 
 {% block content %}
-<div class="flex items-center justify-between mb-3">
-  <p class="text-sm text-gray-500">Nodes are crypto assets in your inventory; edges are correlations between them.</p>
-  <a href="{% url 'dashboard-inventory' %}" class="px-3.5 py-2 rounded-md text-sm font-semibold border border-gray-300 text-gray-700 hover:bg-gray-100">Back to Inventory</a>
+<div class="flex items-center justify-between mb-4">
+  <a href="{% url 'dashboard-inventory' %}" class="btn btn-ghost">← Back to Inventory</a>
 </div>
 
-<div class="bg-white border border-gray-200 rounded-lg p-4">
-  <h3 class="text-[15px] font-semibold text-gray-900 mb-3">
+<div class="card p-4">
+  <h3 class="card-title mb-3">
     Correlation Graph
-    <span class="ml-1 text-gray-500 font-normal text-xs">relations between crypto assets</span>
+    <span class="ml-1 text-[var(--ec-faint)] font-normal text-xs">relations between crypto assets</span>
   </h3>
   <div class="w-full h-[560px]" id="chart-graph" data-focus="{{ focus_asset|default:'' }}"></div>
   {% if not assets %}
-  <p class="text-sm text-gray-500 mt-3">No assets yet, so there is nothing to graph. Run a scan first.</p>
+  <p class="text-sm text-[var(--ec-muted)] mt-3">No assets yet, so there is nothing to graph. Run a scan first.</p>
   {% endif %}
 </div>
 {% endblock %}
@@ -54,7 +54,7 @@ async function loadGraph() {
         ? `${p.data.value}: ${nodes[p.data.source]?.name} ↔ ${nodes[p.data.target]?.name}`
         : `<b>${p.data.name}</b><br/>Family: ${p.data.category}`,
     },
-    legend: { data: families.map(f => ({ name: f })), top: 0 },
+    legend: { data: families.map(f => ({ name: f })), top: 0, textStyle: { color: '#8b98ab' } },
     series: [{
       type: 'graph',
       layout: 'force',
@@ -66,7 +66,7 @@ async function loadGraph() {
       force: { repulsion: 300, edgeLength: 80 },
       label: { show: false },
       emphasis: { focus: 'adjacency', label: { show: true, position: 'top', fontSize: 12 } },
-      lineStyle: { color: '#9aa3af', width: 1, curveness: 0.1 },
+      lineStyle: { color: '#5a6a80', width: 1, curveness: 0.1 },
     }],
   });
 
