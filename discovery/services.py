@@ -51,8 +51,8 @@ def run_scan(scan_job: ScanJob) -> ScanJob:
         # Normalize + classify each raw finding (all inside the same DB).
         qs = RawFinding.objects.using(db).filter(scan_job=scan_job).select_related("normalized")
         for raw in qs.iterator():
-            norm = normalize_finding(raw, using=db)
-            classify_asset(norm, using=db)
+                norm = normalize_finding(raw, using=db)
+                classify_asset(norm, using=db)
 
         scan_job.progress = 90
         scan_job.save(using=db, update_fields=["progress"])
@@ -217,8 +217,8 @@ def _post_ingest(scan_job: ScanJob, db: str, source_type: str) -> None:
     """Normalize + classify every raw finding, then build correlations."""
     qs = RawFinding.objects.using(db).filter(scan_job=scan_job).select_related("normalized")
     for raw in qs.iterator():
-        norm = normalize_finding(raw, using=db)
-        classify_asset(norm, using=db)
+            norm = normalize_finding(raw, using=db)
+            classify_asset(norm, using=db)
 
     build_correlations(using=db)
 

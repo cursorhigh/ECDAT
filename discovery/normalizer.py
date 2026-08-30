@@ -24,7 +24,7 @@ _FAMILY_MAP = {
     "pqc": NormalizedFinding.AlgorithmFamily.PQC,
     "ml-kem": NormalizedFinding.AlgorithmFamily.PQC,
     "ml-dsa": NormalizedFinding.AlgorithmFamily.PQC,
-    "slh-dsa": NormalizedFinding.AlgorithmFamily.PQC,
+    "slh-dsa": NormalizedFinding.AlgorithmFamily.P
 }
 
 
@@ -45,6 +45,8 @@ def _guess_family_from_algorithm(algorithm: str) -> str:
         return NormalizedFinding.AlgorithmFamily.DH
     if algo.startswith("aes"):
         return NormalizedFinding.AlgorithmFamily.AES
+    if algo.startswith(("3des", "des", "tripledes")):
+        return NormalizedFinding.AlgorithmFamily.DES3
     if algo.startswith("ml-") or algo.startswith("slh-"):
         return NormalizedFinding.AlgorithmFamily.PQC
     if algo.startswith(("sha", "md", "hash")):

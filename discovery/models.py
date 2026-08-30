@@ -88,6 +88,7 @@ class NormalizedFinding(TimeStampedModel):
         HASH = "hash", "Hash"
         MAC = "mac", "MAC"
         PQC = "pqc", "Post-Quantum"
+    
         UNKNOWN = "unknown", "Unknown"
 
     raw_finding = models.OneToOneField(
