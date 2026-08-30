@@ -436,27 +436,28 @@
    Dark-themed scrollbars (match the smoked-glass aesthetic)
    ========================================================================== */
 :root {
-  --ec-scroll-thumb: rgba(120, 140, 165, 0.28);
-  --ec-scroll-thumb-hover: rgba(140, 160, 185, 0.45);
-  --ec-scroll-track: rgba(0, 0, 0, 0.18);
+  --ec-scroll-thumb: #5a6b80;
+  --ec-scroll-thumb-hover: #7a8ea8;
+  --ec-scroll-track: rgba(0, 0, 0, 0.22);
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--ec-scroll-thumb) transparent;
+  scrollbar-color: var(--ec-scroll-thumb) rgba(0, 0, 0, 0.18);
 }
 
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(0, 0, 0, 0.16);
+  border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb {
   background: var(--ec-scroll-thumb);
   border-radius: 9999px;
-  border: 2px solid transparent;
+  border: 3px solid transparent;
   background-clip: padding-box;
   transition: background-color 200ms var(--ec-ease);
 }
@@ -468,10 +469,15 @@
   background: transparent;
 }
 
-/* Slightly lighter thumb inside the fluorescent sidebar panel */
+/* Scrollbars sit on the dark page canvas / translucent surfaces */
+html {
+  color-scheme: dark;
+}
+
+/* Slightly lighter thumb inside the sidebar panel */
 #sidebar {
-  --ec-scroll-thumb: rgba(140, 165, 190, 0.30);
-  --ec-scroll-thumb-hover: rgba(160, 185, 210, 0.5);
+  --ec-scroll-thumb: #64748b;
+  --ec-scroll-thumb-hover: #8496ad;
 }
 
 /* Thin, unobtrusive scrollbars inside modal/dropdown lists */
@@ -479,6 +485,10 @@
 #modal-body {
   scrollbar-width: thin;
   scrollbar-color: var(--ec-scroll-thumb) transparent;
+}
+#picker-list::-webkit-scrollbar,
+#modal-body::-webkit-scrollbar {
+  width: 10px;
 }
 
 @media (prefers-reduced-motion: reduce) {

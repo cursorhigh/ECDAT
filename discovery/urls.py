@@ -25,5 +25,6 @@ urlpatterns = [
     path("", include(router.urls)),
     path("run-demo-scan/", views.run_demo_scan, name="run-demo-scan"),
     path("start-scan/", views.start_scan, name="start-scan"),
+    path("scan-data/", views.scan_data, name="scan-data"),
     path("browse/", views.browse, name="browse"),
 ]

@@ -117,3 +117,44 @@ def start_scan(request):
         return JsonResponse({"detail": str(exc)}, status=400)
 
     return JsonResponse(ScanJobSerializer(job).data, status=201)
+
+
+@csrf_exempt
+def scan_data(request):
+    """Accept externally-supplied scan data (POST) and ingest it as findings.
+
+    Lets an external scanner hand raw findings straight to ECDAT instead of
+    having the app walk a local folder. Body (JSON):
+        {
+            "source_type": "source_code",
+            "target": "optional label for the data source",
+            "findings": [ { ...raw finding dict... }, ... ]
+        }
+    Each `findings` element follows the raw-finding schema used by the
+    built-in scanners (see discovery/scanners/base.py). The normalizer,
+    classifier and correlator then run exactly as for a folder scan.
+    """
+    from .services import ScanInspectionError, ingest_external_findings
+
+    if request.method != "POST":
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+    try:
+        payload = json.loads(request.body or b"{}")
+    except ValueError:
+        return JsonResponse({"detail": "Invalid JSON body"}, status=400)
+
+    findings = payload.get("findings")
+    if not isinstance(findings, list):
+        return JsonResponse({"detail": "`findings` must be a JSON array."}, status=400)
+
+    try:
+        job = ingest_external_findings(
+            source_type=payload.get("source_type", ""),
+            findings=findings,
+            target=payload.get("target", ""),
+        )
+    except ScanInspectionError as exc:
+        return JsonResponse({"detail": str(exc)}, status=400)
+
+    return JsonResponse(ScanJobSerializer(job).data, status=201)

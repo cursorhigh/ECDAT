@@ -155,3 +155,77 @@ def create_and_run_scan(source_type: str, target: str = "", config: dict | None 
     )
     log_action("scan_created", f"Queued {source_type} scan on {target}", "scanjob", job.pk, mode=chosen_mode)
     return run_scan(job)
+
+
+def ingest_external_findings(source_type: str, findings: list[dict], target: str = "",
+                             mode: str | None = None) -> ScanJob:
+    """Create a ScanJob and ingest raw findings supplied directly as JSON data.
+
+    This is the "accept calls with data to scan" entry point: a scanner can
+    push already-extracted artefact findings (rather than have ECDAT walk a
+    local folder). Each `findings` element is a raw finding dict (see
+    scanners/base.py / demo.py for the schema). The normalizer/classifier/
+    correlator run exactly as they would for a folder scan.
+    """
+    from core import modes as modes_mod
+
+    source_type = (source_type or "").strip() or ScanJob.SourceType.SOURCE_CODE
+
+    if source_type not in ScanJob.SourceType.values:
+        raise ScanInspectionError(f"Unknown source type '{source_type}'.")
+
+    if not isinstance(findings, list):
+        raise ScanInspectionError("`findings` must be a list of raw finding objects.")
+
+    chosen_mode = mode or modes_mod.active_mode()
+    db = modes_mod.db_alias_for_mode(chosen_mode)
+    job = ScanJob.objects.using(db).create(
+        source_type=source_type,
+        target=(target or "").strip() or "external-data",
+        mode=chosen_mode,
+        config={"external": True},
+        status=ScanJob.Status.QUEUED,
+    )
+    log_action("scan_created", f"Ingesting {len(findings)} external findings ({source_type})",
+               "scanjob", job.pk, mode=chosen_mode)
+
+    # Persist the raw findings (same behaviour as a scanner's ingest()).
+    job.status = ScanJob.Status.RUNNING
+    job.progress = 5
+    job.started_at = timezone.now()
+    job.save(using=db, update_fields=["status", "progress", "started_at"])
+
+    count = 0
+    for item in findings:
+        RawFinding.objects.using(db).create(
+            scan_job=job,
+            mode=chosen_mode,
+            source_type=source_type,
+            location=(item or {}).get("location", ""),
+            raw_json=item or {},
+        )
+        count += 1
+    job.findings_count = count
+    job.save(using=db, update_fields=["findings_count"])
+
+    # Reuse the shared post-ingest processing (normalize -> classify -> correlate).
+    _post_ingest(scan_job=job, db=db, source_type=source_type)
+    return job
+
+
+def _post_ingest(scan_job: ScanJob, db: str, source_type: str) -> None:
+    """Normalize + classify every raw finding, then build correlations."""
+    qs = RawFinding.objects.using(db).filter(scan_job=scan_job).select_related("normalized")
+    for raw in qs.iterator():
+        norm = normalize_finding(raw, using=db)
+        classify_asset(norm, using=db)
+
+    build_correlations(using=db)
+
+    scan_job.status = ScanJob.Status.COMPLETED
+    scan_job.progress = 100
+    scan_job.finished_at = timezone.now()
+    scan_job.save(using=db, update_fields=["status", "progress", "finished_at"])
+    log_action("scan_completed",
+               f"Scan {source_type} complete: {scan_job.findings_count} raw findings",
+               "scanjob", scan_job.pk, mode=scan_job.mode)

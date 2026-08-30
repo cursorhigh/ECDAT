@@ -1,17 +1,12 @@
-"""Source-code scanner stub.
+"""Source-code scanner.
 
-Production: this would run Semgrep with custom crypto rules against a
-git repo. For this phase it provides a realistic deterministic pipeline
-shape so the dashboard can be built and demoed.
+Delegates to the crypto-artefact scanner (the dedicated hand-off skeleton for
+the security engineer). Kept as a thin alias so existing references keep
+working; the real implementation lives in ``crypto_artefact.py``.
 """
 
-from ..models import ScanJob
-from .base import BaseScanner
+from .crypto_artefact import CryptoArtefactScanner
 
 
-class SourceCodeScanner(BaseScanner):
-    source_type = ScanJob.SourceType.SOURCE_CODE
-
-    def run(self) -> list[dict]:
-        # TODO: wire real Semgrep invocation here.
-        return []
+class SourceCodeScanner(CryptoArtefactScanner):
+    """Backwards-compatible alias for :class:`CryptoArtefactScanner`."""
