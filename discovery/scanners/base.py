@@ -36,5 +36,5 @@ class BaseScanner(ABC):
             )
             count += 1
         self.scan_job.findings_count = count
-        self.scan_job.save(update_fields=["findings_count"])
+        self.scan_job.save(using=db, update_fields=["findings_count"])
         return count

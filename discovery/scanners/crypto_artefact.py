@@ -1,48 +1,32 @@
-"""Crypto-artefact scanner (hand-off skeleton for the security engineer).
+"""Crypto-artefact scanner (real discovery engine).
 
-WHAT THIS IS
-------------
-This is the dedicated "space" for the real scanning implementation. Replace
-the placeholder `_extract_artefacts()` below with the actual logic that walks
-crypto artefacts.
+Uses the ECDAT YARA rule engine (crypto_rules.yar, via crypto_scan.yara_engine)
+to detect cryptographic artefacts — algorithms, keys, hashes, protocols,
+libraries, post-quantum primitives — in local targets. Emits raw finding dicts
+in the discovery schema so the shared pipeline picks them up:
 
-WHICH ARTEFACTS WE CARE ABOUT
------------------------------
-Mostly offline targets — internal & external apps/products/infrastructure —
-containing any of:
+    scan -> intake (raw findings) -> normalize -> classify -> correlate (graph)
 
-  * algorithms        RSA, ECC, AES, DSA, DH, hash (SHA/MD5), MAC/HMAC, PQC...
-  * keys / key pairs  private & public keys, key sizes, curves (P-256, Ed25519...)
-  * certificates/PKI  X.509 certs, trust stores, CA chains, expiry
-  * protocols         TLS versions, SSH, IKEv2, Kerberos, mTLS...
-  * libraries         crypto libraries + resolved versions (OpenSSL, BoringSSL,
-                      mbedTLS, libgcrypt, rustls, cryptography, NSS...)
-  * hardware modules  HSM / TPM / secure enclaves / smartcards
-  * cloud services    KMS, ACM, Secrets Manager, key vaults
+The set of directories scanned is decided per-OS and per-scope by
+``discovery.scanners.platform``:
 
-HOW A FINDING DICT IS MADE
---------------------------
-`run()` walks the target directory (per the ScanJob config) and feeds each
-file path to `_extract_artefacts(path, scan_job)`. That function must return a
-list of *raw finding dicts*. The rest of the pipeline (ingest -> normalize ->
-classify -> correlate) is already wired and needs no changes.
+    quick     -> curated high-yield platform locations (SSH, system PKI,
+                 key containers, keystores, developer credentials) + workspace
+    whole     -> every drive / filesystem root (aggressive prunes + hard caps)
+    specified -> the exact folder the user chose
 
-Raw finding dict schema (all optional except a sensible `family`/`algorithm`):
+Raw finding dict schema:
 {
-    "location":     "relative file path or asset reference",
+    "location":     "display path (label + relative path under the root)",
     "family":       "rsa|ecc|aes|dsa|dh|hash|mac|pqc|unknown",
-    "algorithm":    "RSA", "ECDSA", "AES", "SHA-256", "ML-KEM"...
-    "key_size":     2048,                     # optional
-    "curve":        "P-256", "Ed25519",       # optional
-    "protocol":     "TLS 1.2", "SSH",         # optional
-    "library":      "OpenSSL",                # optional
-    "library_version": "3.0.8",               # optional
-    "confidence":   0.8,                      # 0..1
-    # ...any extra keys you want (owner, raw, line numbers, cert meta)
+    "algorithm":    "RSA", "ECC", "AES", "MD5", "PQC", "TLS", "BoringSSL"...
+    "key_size":     optional
+    "curve":        optional
+    "protocol":     optional
+    "library":      optional
+    "library_version": optional
+    "confidence":   0.0-1.0
 }
-
-Unknown/unmapped families are handled by the normalizer (it guesses from the
-algorithm name), so you do not need to be exhaustive — just be accurate.
 """
 
 import os
@@ -50,88 +34,175 @@ from pathlib import Path
 
 from ..models import ScanJob
 from .base import BaseScanner
+from .platform import (
+    RootTarget,
+    get_scan_limits,
+    prune_names_for,
+    resolve_scan_roots,
+)
 
 # Default walking limits; tune via ScanJob.config, e.g.:
 #   {"extensions": [".java", ".go", ".py"], "max_files": 5000, "max_depth": 20}
 DEFAULT_EXTENSIONS = [
     ".java", ".go", ".py", ".js", ".ts", ".c", ".cpp", ".h", ".rs",
     ".cs", ".rb", ".php", ".kt", ".xml", ".yml", ".yaml", ".json", ".toml",
-    ".pem", ".crt", ".cer", ".key", ".p12", ".jks", ".properties",
+    ".pem", ".crt", ".cer", ".der", ".key", ".p12", ".pfx", ".jks", ".properties",
+    ".conf", ".cfg", ".ini", ".env", ".properties", ".gpg", ".kbx", ".pub", ".csr",
 ]
-MAX_FILES = 10_000
-MAX_DEPTH = 32
+
+
+def _yara_match_to_finding(match: dict, rel_path: str) -> dict:
+    """Map a YARA match dict to a discovery raw-finding dict.
+
+    `match` comes from crypto_scan.yara_engine.match_file:
+        {"rule": "...", "algorithm": "...", "kind": "...", "count": n,
+         "strings": [...]}
+
+    The `family` is derived from the rule so the normalizer/classifier can
+    canonically group it. Extra context (matched strings) is preserved under
+    `raw` so downstream viewers can show evidence.
+    """
+    rule = (match.get("rule") or "").strip()
+    algo = (match.get("algorithm") or "").strip()
+    kind = (match.get("kind") or "").strip()
+    count = int(match.get("count") or 0)
+
+    meta = _RULE_META.get(rule, {})
+    family = meta.get("family", "unknown")
+    confidence = float(meta.get("confidence", 0.6))
+
+    finding = {
+        "location": rel_path,
+        "family": family,
+        "algorithm": algo or meta.get("algorithm", ""),
+        "confidence": confidence,
+    }
+    if kind == "protocol" or (meta.get("protocol")):
+        finding["protocol"] = meta.get("protocol", algo)
+    if kind == "library" or (meta.get("library")):
+        finding["library"] = meta.get("library", algo) or algo
+    if count:
+        finding["raw"] = {"matches": count, "strings": match.get("strings", [])[:8]}
+    return finding
+
+
+# Map each YARA rule to canonical discovery fields (family + confidence +
+# optional protocol/library). Tunable by the security engineer.
+_RULE_META = {
+    "Crypto_RSA":              {"family": "rsa",   "algorithm": "RSA",      "confidence": 0.90},
+    "Crypto_ECC":              {"family": "ecc",   "algorithm": "ECC",      "confidence": 0.85},
+    "Crypto_AES":              {"family": "aes",   "algorithm": "AES",      "confidence": 0.85},
+    "Crypto_Hash":             {"family": "hash",  "algorithm": "HASH",     "confidence": 0.80},
+    "Crypto_WeakHash_MD5":     {"family": "hash",  "algorithm": "MD5",      "confidence": 0.90},
+    "Crypto_PostQuantum":      {"family": "pqc",   "algorithm": "PQC",      "confidence": 0.85},
+    "Crypto_TLS":              {"family": "unknown", "algorithm": "TLS",   "protocol": "TLS", "confidence": 0.75},
+    "Crypto_Library_BoringSSL": {"family": "unknown", "algorithm": "BoringSSL",
+                                 "library": "BoringSSL", "confidence": 0.70},
+    # Platform/key-material rules (added so cert/key/SSH stores actually match)
+    "Crypto_Certificate_RSA":  {"family": "rsa",   "algorithm": "X509-RSA",  "confidence": 0.80},
+    "Crypto_Certificate_EC":   {"family": "ecc",   "algorithm": "X509-EC",   "confidence": 0.80},
+    "Crypto_PrivateKey_RSA":   {"family": "rsa",   "algorithm": "RSA-private", "confidence": 0.90},
+    "Crypto_PrivateKey_EC":    {"family": "ecc",   "algorithm": "EC-private", "confidence": 0.90},
+    "Crypto_PrivateKey_DSA":   {"family": "dsa",   "algorithm": "DSA-private", "confidence": 0.90},
+    "Crypto_PrivateKey_OpenSSH": {"family": "unknown", "algorithm": "OpenSSH-private", "confidence": 0.75},
+    "Crypto_SSH_RSA":          {"family": "rsa",   "algorithm": "RSA-SSH",   "confidence": 0.85},
+    "Crypto_SSH_ECDSA":        {"family": "ecc",   "algorithm": "ECDSA-SSH", "confidence": 0.85},
+    "Crypto_SSH_Ed25519":      {"family": "ecc",   "algorithm": "Ed25519-SSH", "confidence": 0.85},
+    "Crypto_SSH_DSA":          {"family": "dsa",   "algorithm": "DSA-SSH",   "confidence": 0.85},
+    "Crypto_OpenPGP":          {"family": "unknown", "algorithm": "OpenPGP", "confidence": 0.70},
+    "Crypto_PKCS12":           {"family": "unknown", "algorithm": "PKCS12",  "confidence": 0.70},
+    "Crypto_DH_Parameters":    {"family": "dh",    "algorithm": "DH",        "confidence": 0.80},
+}
 
 
 class CryptoArtefactScanner(BaseScanner):
-    """Walks a local target and emits crypto-artefact raw findings.
+    """Walks local targets and detects crypto artefacts with YARA.
 
-    Client of the endpoint does not need this class directly; it is selected
-    automatically via SCANNER_REGISTRY for `source_code` targets. Set the
-    scan's `target` to a folder / repo / library root.
+    Selected automatically via SCANNER_REGISTRY for `source_code` targets.
+    The scope (quick/whole/specified) and the operating system decide which
+    roots are walked (see discovery.scanners.platform).
     """
 
     source_type = ScanJob.SourceType.SOURCE_CODE
 
     def run(self) -> list[dict]:
-        target = (self.scan_job.target or "").strip()
+        """Walk the resolved roots and return detected crypto-artefact findings."""
         config = self.scan_job.config or {}
 
-        path = Path(target).expanduser()
-        if not path.is_dir():
-            return self._extract_artefacts(target, path, config) or []
+        roots = resolve_scan_roots(self.scan_job)
+        if not roots:
+            # No profile root exists (e.g. bare CI box) -> fall back to the
+            # project directory so a quick/whole scan still does something.
+            from django.conf import settings
 
+            base = Path(getattr(settings, "BASE_DIR", Path("."))).resolve()
+            roots = [RootTarget(root=str(base), label=str(base))]
+
+        limits = get_scan_limits(self.scan_job)
+        prune = prune_names_for(self.scan_job)
         extensions = {e.lower() for e in config.get("extensions") or DEFAULT_EXTENSIONS}
-        max_files = int(config.get("max_files") or MAX_FILES)
-        max_depth = int(config.get("max_depth") or MAX_DEPTH)
 
         findings: list[dict] = []
+        seen_paths: set[str] = set()
         scanned = 0
-        root_depth = len(path.parts)
 
-        for dirpath, dirnames, filenames in os.walk(path):
-            depth = len(Path(dirpath).parts) - root_depth
-            if depth > max_depth:
-                dirnames[:] = []
-                continue
-            # Skip VCS / build / dependency dirs by default.
-            dirnames[:] = [d for d in dirnames if not d.startswith((".", "node_modules", "venv"))]
-            for name in filenames:
-                if scanned >= max_files:
-                    return findings
-                if Path(name).suffix.lower() not in extensions:
+        for target in roots:
+            if scanned >= limits.max_files:
+                break
+
+            root = target.root
+            root_depth = len(Path(root).parts)
+
+            for dirpath, dirnames, filenames in os.walk(root):
+                depth = len(Path(dirpath).parts) - root_depth
+                if depth > limits.max_depth:
+                    dirnames[:] = []
                     continue
-                full = os.path.join(dirpath, name)
-                scanned += 1
-                rel = os.path.relpath(full, target)
-                findings.extend(self._extract_artefacts(rel, full, config) or [])
+                dirnames[:] = sorted(
+                    (d for d in dirnames if not d.startswith(".") and d not in prune),
+                    key=lambda d: d.lower(),
+                )
+
+                for name in filenames:
+                    if scanned >= limits.max_files:
+                        break
+                    full = os.path.join(dirpath, name)
+                    real = os.path.realpath(full)
+                    if real in seen_paths:
+                        continue
+                    seen_paths.add(real)
+
+                    try:
+                        if os.path.getsize(full) > limits.max_file_size:
+                            continue
+                    except OSError:
+                        continue
+
+                    if not target.scan_all and Path(name).suffix.lower() not in extensions:
+                        continue
+
+                    scanned += 1
+                    rel = os.path.relpath(full, root)
+                    location = os.path.join(target.label, rel)
+                    findings.extend(self._extract_artefacts(location, full, config) or [])
+
+                if scanned >= limits.max_files:
+                    break
 
         return findings
 
-    def _extract_artefacts(self, rel_path: str, full_path: str, config: dict) -> list[dict]:
-        """FRIEND: implement real extraction here.
+    def _extract_artefacts(self, location: str, full_path: str, config: dict) -> list[dict]:
+        """Detect crypto artefacts in one file using the YARA engine."""
+        # Lazy import to avoid any load-order coupling between discovery and
+        # crypto_scan at import time (the rules compile on first use).
+        from crypto_scan.yara_engine import match_file
 
-        Given a single file (`rel_path` is relative to the scan target,
-        `full_path` is the absolute path), return any crypto-artefact raw
-        finding dicts discovered in it.
+        findings = []
+        try:
+            matches = match_file(full_path)
+        except Exception:  # noqa: BLE001 - unreadable/unsupported files are skipped
+            return []
 
-        Current placeholder returns a single low-confidence shell record so the
-        pipeline can be exercised end to end; replace this body.
-
-        Args:
-            rel_path:  path relative to the scan target (for `location`).
-            full_path: absolute path you can actually read/open.
-            config:    the ScanJob.config dict (extensions, max_files, ...).
-
-        Returns:
-            list of raw finding dicts (see module docstring for schema).
-        """
-        # TODO(security): implement your real scanner here.
-        # Example shape to get started:
-        return [
-            {
-                "location": rel_path,
-                "family": "unknown",
-                "algorithm": "",
-                "confidence": 0.1,
-            }
-        ]
+        for m in matches:
+            findings.append(_yara_match_to_finding(m, location))
+        return findings

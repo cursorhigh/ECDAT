@@ -47,30 +47,6 @@ def run_scan(scan_job: ScanJob) -> ScanJob:
 
         scan_job.progress = 60
         scan_job.save(using=db, update_fields=["progress"])
-
-        # Normalize + classify each raw finding (all inside the same DB).
-        qs = RawFinding.objects.using(db).filter(scan_job=scan_job).select_related("normalized")
-        for raw in qs.iterator():
-            norm = normalize_finding(raw, using=db)
-            classify_asset(norm, using=db)
-
-        scan_job.progress = 90
-        scan_job.save(using=db, update_fields=["progress"])
-
-        build_correlations(using=db)
-
-        scan_job.status = ScanJob.Status.COMPLETED
-        scan_job.progress = 100
-        scan_job.finished_at = timezone.now()
-        scan_job.save(using=db, update_fields=["status", "progress", "finished_at"])
-
-        log_action(
-            "scan_completed",
-            f"Scan {scan_job.source_type} complete: {ingested} raw findings",
-            "scanjob",
-            scan_job.pk,
-            mode=scan_job.mode,
-        )
         log_action(
             "findings_ingested",
             f"Ingested {ingested} raw findings",
@@ -78,6 +54,8 @@ def run_scan(scan_job: ScanJob) -> ScanJob:
             scan_job.pk,
             mode=scan_job.mode,
         )
+
+        _post_ingest(scan_job, db, scan_job.source_type)
     except Exception as exc:  # noqa: BLE001
         scan_job.status = ScanJob.Status.FAILED
         scan_job.progress = 0
@@ -146,11 +124,14 @@ def create_and_run_scan(source_type: str, target: str = "", config: dict | None 
 
     chosen_mode = mode or modes_mod.active_mode()
     db = modes_mod.db_alias_for_mode(chosen_mode)
+
+    scan_config = dict(config or {})
+    scan_config["scan_type"] = scan_type
     job = ScanJob.objects.using(db).create(
         source_type=source_type,
         target=target,
         mode=chosen_mode,
-        config=config or {},
+        config=scan_config,
         status=ScanJob.Status.QUEUED,
     )
     log_action("scan_created", f"Queued {source_type} scan on {target}", "scanjob", job.pk, mode=chosen_mode)

@@ -1,7 +1,7 @@
 {% extends "dashboard/base.html" %}
 {% block title %}ECDAT · Overview{% endblock %}
 {% block page_title %}Overview{% endblock %}
-{% block page_description %}Pipeline progress, inventory metrics and recent activity across your cryptographic asset workspace.{% endblock %}
+{% block page_description %}PQC readiness across your cryptographic assets: discover, assess quantum risk, prioritize and plan migration.{% endblock %}
 
 {% block content %}
 
@@ -10,7 +10,7 @@
 <div class="card p-5 mb-4 flex items-center justify-between flex-wrap gap-3 !bg-[linear-gradient(180deg,rgba(56,189,248,0.12),rgba(37,130,214,0.06))] !border-[rgba(56,189,248,0.22)]">
   <div>
     <h3 class="text-lg font-semibold text-[var(--ec-ink)]">No discovery scans started yet</h3>
-    <p class="text-sm text-[var(--ec-muted)] mt-0.5">Your crypto inventory, findings and graph will appear here once Discovery runs. Everything else stays pending until then.</p>
+    <p class="text-sm text-[var(--ec-muted)] mt-0.5">Scan and inventory your crypto first, then every stage here lights up — quantum risk, priorities and the migration roadmap.</p>
   </div>
   <a href="{% url 'dashboard-discovery' %}" class="btn btn-primary">
     Go to Discovery <span>→</span>
@@ -18,15 +18,15 @@
 </div>
 {% endif %}
 
-<!-- Pipeline progress: only show what we have obtained, rest is pending -->
+<!-- ======= PQC readiness workflow ======= -->
 <div class="card p-4 mb-4">
   <div class="flex items-center justify-between mb-3">
-    <h3 class="card-title">Discovery Progress</h3>
-    <span class="card-kicker">Only data obtained so far is filled in — everything else is pending</span>
+    <h3 class="card-title">PQC Readiness Workflow</h3>
+    <span class="card-kicker">Scan → Assess → Prioritize → Migrate → CBOM</span>
   </div>
   <div class="flex items-stretch gap-2 overflow-x-auto pb-1">
-    {% for s in pipeline %}
-    <div class="flex items-center gap-2 flex-1 min-w-[140px]">
+    {% for s in workflow %}
+    <div class="flex items-center gap-2 flex-1 min-w-[150px]">
       <div class="flex-1 step {% if s.done %}step-done{% else %}step-pending{% endif %}">
         <div class="flex items-center justify-between">
           <span class="step-name">{{ s.name }}</span>
@@ -56,27 +56,39 @@
   </div>
 </div>
 
-<!-- KPI cards: obtained only, the rest pending -->
+<!-- ======= KPI cards ======= -->
 <div class="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
   <div class="card-2 p-4">
     <div class="text-3xl font-bold text-[var(--ec-ink)] tracking-tight">{{ kpi.assets }}</div>
     <div class="text-sm text-[var(--ec-muted)] mt-2">Crypto Assets</div>
   </div>
   <div class="card-2 p-4">
-    {% if kpi.raw_findings %}
-    <div class="text-3xl font-bold text-[var(--ec-ink)] tracking-tight">{{ kpi.raw_findings }}</div>
+    {% if kpi.assets %}
+    <div class="text-3xl font-bold text-[var(--ec-danger)] tracking-tight">{{ kpi.quantum_vuln }}</div>
+    <div class="text-sm text-[var(--ec-muted)] mt-2">Quantum-Vulnerable</div>
+    <div class="text-[11px] text-[var(--ec-faint)] mt-0.5">{{ kpi.quantum_vuln_pct }}% of inventory</div>
     {% else %}
     <div class="badge badge-gray mt-1.5"><span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span> Pending</div>
+    <div class="text-sm text-[var(--ec-muted)] mt-2">Quantum-Vulnerable</div>
     {% endif %}
-    <div class="text-sm text-[var(--ec-muted)] mt-2">Raw Findings</div>
   </div>
   <div class="card-2 p-4">
-    {% if kpi.normalized %}
-    <div class="text-3xl font-bold text-[var(--ec-ink)] tracking-tight">{{ kpi.normalized }}</div>
+    {% if kpi.weak %}
+    <div class="text-3xl font-bold text-[var(--ec-warning)] tracking-tight">{{ kpi.weak }}</div>
     {% else %}
     <div class="badge badge-gray mt-1.5"><span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span> Pending</div>
     {% endif %}
-    <div class="text-sm text-[var(--ec-muted)] mt-2">Normalized</div>
+    <div class="text-sm text-[var(--ec-muted)] mt-2">Weak / Deprecated</div>
+  </div>
+  <div class="card-2 p-4">
+    {% if kpi.assets %}
+    <div class="text-3xl font-bold text-[var(--ec-success)] tracking-tight">{{ kpi.pqc_ready }}</div>
+    <div class="text-sm text-[var(--ec-muted)] mt-2">PQC-Ready</div>
+    <div class="text-[11px] text-[var(--ec-faint)] mt-0.5">{{ kpi.pqc_ready_pct }}% of inventory</div>
+    {% else %}
+    <div class="badge badge-gray mt-1.5"><span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span> Pending</div>
+    <div class="text-sm text-[var(--ec-muted)] mt-2">PQC-Ready</div>
+    {% endif %}
   </div>
   <div class="card-2 p-4">
     {% if kpi.scans %}
@@ -86,39 +98,87 @@
     {% endif %}
     <div class="text-sm text-[var(--ec-muted)] mt-2">Scans Run</div>
   </div>
-  <div class="card-2 p-4">
-    {% if kpi.relations %}
-    <div class="text-3xl font-bold text-[var(--ec-ink)] tracking-tight">{{ kpi.relations }}</div>
-    {% else %}
-    <div class="badge badge-gray mt-1.5"><span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span> Pending</div>
-    {% endif %}
-    <div class="text-sm text-[var(--ec-muted)] mt-2">Graph Relations</div>
-  </div>
 </div>
 
-<!-- Charts: only rendered when the source data has been obtained -->
-{% if asset_by_family or asset_by_source %}
+<!-- ======= Charts: composition + quantum risk ======= -->
 <div class="grid gap-4 md:grid-cols-2 mt-4">
   {% if asset_by_family %}
   <div class="card p-4">
     <h3 class="card-title mb-3">Assets by Algorithm Family</h3>
     <div class="w-full h-[280px]" id="chart-family"></div>
   </div>
-  {% endif %}
-  {% if asset_by_source %}
+  {% else %}
   <div class="card p-4">
-    <h3 class="card-title mb-3">Assets by Source Type</h3>
-    <div class="w-full h-[280px]" id="chart-source"></div>
+    <h3 class="card-title mb-3">Assets by Algorithm Family</h3>
+    <div class="h-[280px] flex items-center justify-center">
+      <p class="text-sm text-[var(--ec-muted)]">Asset composition <span class="font-semibold text-[var(--ec-ink-2)]">(pending)</span>.</p>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if kpi.assets %}
+  <div class="card p-4">
+    <h3 class="card-title mb-3">Quantum Risk Split</h3>
+    <div class="w-full h-[280px]" id="chart-risk"></div>
+  </div>
+  {% else %}
+  <div class="card p-4">
+    <h3 class="card-title mb-3">Quantum Risk Split</h3>
+    <div class="h-[280px] flex items-center justify-center">
+      <p class="text-sm text-[var(--ec-muted)]">Risk assessment <span class="font-semibold text-[var(--ec-ink-2)]">(pending)</span>.</p>
+    </div>
   </div>
   {% endif %}
 </div>
-{% else %}
-<div class="card p-6 mt-4 text-center">
-  <p class="text-sm text-[var(--ec-muted)]">Asset analytics are <span class="font-semibold text-[var(--ec-ink-2)]">pending</span> until assets are discovered.</p>
-</div>
-{% endif %}
 
-<!-- Recent scans: only when present -->
+<!-- ======= Quantum-vulnerable priorities ======= -->
+<div class="card p-4 mt-4">
+  <div class="flex items-center justify-between mb-3">
+    <h3 class="card-title">Quantum-Vulnerable Priorities</h3>
+    <span class="card-kicker">Ranked by urgency · suggested PQC replacement</span>
+  </div>
+  {% if vuln_priorities %}
+  <div class="table-scroll">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Asset</th>
+          <th>Family</th>
+          <th class="right">Key</th>
+          <th>Protocol</th>
+          <th class="right">Priority</th>
+          <th>Risk</th>
+          <th>Suggested PQC replacement</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in vuln_priorities %}
+        <tr class="row-click" onclick="fetchAsset({{ r.asset.id }}).then(showAssetModal)">
+          <td>{{ r.asset.name }}</td>
+          <td><span class="badge badge-gray">{{ r.asset.get_family_display }}</span></td>
+          <td class="muted right">{{ r.asset.key_size|default:"—" }}</td>
+          <td class="muted">{{ r.asset.protocol|default:"—" }}</td>
+          <td class="right">
+            <span class="badge badge-amber">P{{ r.score }}</span>
+          </td>
+          <td>
+            {% if r.risk_badge == 'red' %}<span class="badge badge-red">{{ r.risk_label }}</span>
+            {% else %}<span class="badge badge-amber">{{ r.risk_label }}</span>{% endif %}
+          </td>
+          <td class="mono text-xs text-[var(--ec-muted)]">{{ r.replacement }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="py-6 text-center">
+    <p class="text-sm text-[var(--ec-muted)]">No quantum-vulnerable assets found <span class="font-semibold text-[var(--ec-ink-2)]">(or nothing scanned yet)</span>.</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- ======= Recent scans ======= -->
 <div class="card p-4 mt-4">
   <h3 class="card-title mb-3">Recent Scans</h3>
   {% if scans %}
@@ -157,39 +217,6 @@
   </div>
   {% endif %}
 </div>
-
-<div class="grid gap-4 md:grid-cols-2 mt-4">
-  <div class="card p-4">
-    <h3 class="card-title mb-3">Recent Audit Activity</h3>
-    {% if audit_recent %}
-    <table class="table">
-      <tbody>
-      {% for a in audit_recent %}
-        <tr>
-          <td class="mono muted">{{ a.created_at|date:"m-d H:i:s" }}</td>
-          <td class="mono">{{ a.action }}</td>
-          <td class="muted text-xs">{{ a.message|truncatechars:40 }}</td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <div class="py-6 text-center">
-      <p class="text-sm text-[var(--ec-muted)]">No activity yet <span class="font-semibold text-[var(--ec-ink-2)]">(pending)</span>.</p>
-    </div>
-    {% endif %}
-  </div>
-  <div class="card p-4">
-    <h3 class="card-title mb-3">Raw Findings by Source</h3>
-    {% if raw_by_source %}
-    <div class="w-full h-[280px]" id="chart-raw"></div>
-    {% else %}
-    <div class="h-[280px] flex items-center justify-center">
-      <p class="text-sm text-[var(--ec-muted)]">Raw findings data <span class="font-semibold text-[var(--ec-ink-2)]">(pending)</span>.</p>
-    </div>
-    {% endif %}
-  </div>
-</div>
 {% endblock %}
 
 {% block scripts %}
@@ -198,32 +225,32 @@ const familyData = [
   {% for r in asset_by_family %}{ value: {{ r.count }}, name: "{{ r.family|upper }}" },
   {% endfor %}
 ];
-const sourceData = [
-  {% for r in asset_by_source %}{ value: {{ r.count }}, name: "{{ r.source_type|upper }}" },
+const riskData = [
+  {% for r in risk_split %}{ value: {{ r.count }}, name: "{{ r.label|upper }}" },
   {% endfor %}
 ];
-const rawData = [
-  {% for r in raw_by_source %}{ value: {{ r.count }}, name: "{{ r.source_type|upper }}" },
-  {% endfor %}
-];
+const riskColors = {
+  VULNERABLE: '#f87171',
+  WEAK: '#fb923c',
+  MODERATE: '#fcd34d',
+  'PQC-READY': '#34d399',
+  UNKNOWN: '#94a3b8'
+};
 {% if asset_by_family %}
 initChart('chart-family', {
   tooltip: { trigger: 'item' },
   series: [{ type: 'pie', radius: ['45%', '70%'], data: familyData, label: { formatter: '{b}: {c}' } }]
 });
 {% endif %}
-{% if asset_by_source %}
-initChart('chart-source', {
-  tooltip: {},
-  xAxis: { type: 'value' },
-  yAxis: { type: 'category', data: sourceData.map(d => d.name) },
-  series: [{ type: 'bar', data: sourceData.map(d => d.value), itemStyle: { color: '#38bdf8' } }]
-});
-{% endif %}
-{% if raw_by_source %}
-initChart('chart-raw', {
+{% if kpi.assets %}
+initChart('chart-risk', {
   tooltip: { trigger: 'item' },
-  series: [{ type: 'pie', radius: ['45%', '70%'], data: rawData }]
+  color: riskData.map(d => riskColors[d.name]),
+  series: [{
+    type: 'pie', radius: ['45%', '70%'], data: riskData,
+    label: { formatter: '{b}: {c}' },
+    itemStyle: { borderColor: 'rgba(7,11,17,0.6)', borderWidth: 2 }
+  }]
 });
 {% endif %}
 </script>

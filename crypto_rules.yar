@@ -148,3 +148,198 @@ rule Crypto_Library_BoringSSL
     condition:
         filesize < 4MB and any of them
 }
+
+/*
+ * Platform/key-material rules.
+ *
+ * These catch what the pipeline-level detectors miss: X.509 certificates
+ * (PEM and DER), private keys (PKCS#1/#8, OpenSSH), SSH public keys, OpenPGP
+ * keyrings, PKCS#12 containers and Diffie-Hellman parameters. They make the
+ * per-OS discovery profiles actually return findings from system PKI trees,
+ * key containers and ~/.ssh.
+ */
+
+rule Crypto_Certificate_RSA
+{
+    meta:
+        description = "X.509 certificate carrying an RSA public key (PEM or DER)"
+        algorithm = "X509-RSA"
+        kind = "certificate"
+        reference = "RSA"
+    strings:
+        $pem = "BEGIN CERTIFICATE" ascii nocase
+        $trusted = "BEGIN TRUSTED CERTIFICATE" ascii nocase
+        $oid = {06 09 2a 86 48 86 f7 0d 01 01 01}    /* rsaEncryption */
+    condition:
+        filesize < 4MB and ($pem or $trusted or $oid)
+}
+
+rule Crypto_Certificate_EC
+{
+    meta:
+        description = "X.509 certificate carrying an EC public key (PEM or DER)"
+        algorithm = "X509-EC"
+        kind = "certificate"
+        reference = "ECC"
+    strings:
+        $pem = "BEGIN CERTIFICATE" ascii nocase
+        $trusted = "BEGIN TRUSTED CERTIFICATE" ascii nocase
+        $oid = {06 07 2a 86 48 ce 3d 02 01}          /* id-ecPublicKey */
+    condition:
+        filesize < 4MB and ($pem or $trusted or $oid)
+}
+
+rule Crypto_PrivateKey_RSA
+{
+    meta:
+        description = "RSA private key (PKCS#1 PEM or PKCS#8 with rsaEncryption OID)"
+        algorithm = "RSA-private"
+        kind = "private_key"
+        reference = "RSA"
+    strings:
+        $pkcs1 = "BEGIN RSA PRIVATE KEY" ascii nocase
+        $pkcs8 = "BEGIN PRIVATE KEY" ascii nocase
+        $enc = "BEGIN ENCRYPTED PRIVATE KEY" ascii nocase
+        $oid = {06 09 2a 86 48 86 f7 0d 01 01 01}    /* rsaEncryption */
+    condition:
+        filesize < 4MB and ($pkcs1 or (($pkcs8 or $enc) and $oid))
+}
+
+rule Crypto_PrivateKey_EC
+{
+    meta:
+        description = "EC private key (SEC1 PEM or PKCS#8 with id-ecPublicKey OID)"
+        algorithm = "EC-private"
+        kind = "private_key"
+        reference = "ECC"
+    strings:
+        $sec1 = "BEGIN EC PRIVATE KEY" ascii nocase
+        $pkcs8 = "BEGIN PRIVATE KEY" ascii nocase
+        $enc = "BEGIN ENCRYPTED PRIVATE KEY" ascii nocase
+        $oid = {06 07 2a 86 48 ce 3d 02 01}          /* id-ecPublicKey */
+    condition:
+        filesize < 4MB and ($sec1 or (($pkcs8 or $enc) and $oid))
+}
+
+rule Crypto_PrivateKey_DSA
+{
+    meta:
+        description = "DSA private key (PKCS#1-style PEM header)"
+        algorithm = "DSA-private"
+        kind = "private_key"
+        reference = "DSA"
+    strings:
+        $dsa = "BEGIN DSA PRIVATE KEY" ascii nocase
+    condition:
+        filesize < 4MB and $dsa
+}
+
+rule Crypto_PrivateKey_OpenSSH
+{
+    meta:
+        description = "OpenSSH private key container"
+        algorithm = "OpenSSH-private"
+        kind = "private_key"
+        reference = "OpenSSH"
+    strings:
+        $hdr = "-----BEGIN OPENSSH PRIVATE KEY" ascii
+        $rsa = "ssh-rsa " ascii
+        $ed = "ssh-ed25519 " ascii
+        $kdf = "bcrypt" ascii
+    condition:
+        filesize < 4MB and ($hdr or ($kdf and ($rsa or $ed)))
+}
+
+rule Crypto_SSH_RSA
+{
+    meta:
+        description = "SSH RSA public key line"
+        algorithm = "RSA-SSH"
+        kind = "public_key"
+        reference = "SSH"
+    strings:
+        $r = "ssh-rsa " ascii
+    condition:
+        filesize < 4MB and $r
+}
+
+rule Crypto_SSH_ECDSA
+{
+    meta:
+        description = "SSH ECDSA public key line"
+        algorithm = "ECDSA-SSH"
+        kind = "public_key"
+        reference = "SSH"
+    strings:
+        $e = "ecdsa-sha2-nistp" ascii
+    condition:
+        filesize < 4MB and #e >= 1
+}
+
+rule Crypto_SSH_Ed25519
+{
+    meta:
+        description = "SSH Ed25519 public key line"
+        algorithm = "Ed25519-SSH"
+        kind = "public_key"
+        reference = "SSH"
+    strings:
+        $e = "ssh-ed25519 " ascii
+    condition:
+        filesize < 4MB and $e
+}
+
+rule Crypto_SSH_DSA
+{
+    meta:
+        description = "SSH DSA public key line"
+        algorithm = "DSA-SSH"
+        kind = "public_key"
+        reference = "SSH"
+    strings:
+        $d = "ssh-dss " ascii
+    condition:
+        filesize < 4MB and $d
+}
+
+rule Crypto_OpenPGP
+{
+    meta:
+        description = "OpenPGP armored key block"
+        algorithm = "OpenPGP"
+        kind = "public_key"
+        reference = "OpenPGP"
+    strings:
+        $arm = "-----BEGIN PGP" ascii nocase
+    condition:
+        filesize < 4MB and $arm
+}
+
+rule Crypto_PKCS12
+{
+    meta:
+        description = "PKCS#12/PFX container"
+        algorithm = "PKCS12"
+        kind = "container"
+        reference = "PKCS12"
+    strings:
+        $pem = "-----BEGIN PKCS12" ascii nocase
+        $oid = {06 0a 2a 86 48 86 f7 0d 01 0c 0a 01} /* pkcs-12-PBE/pfx */
+    condition:
+        filesize < 4MB and ($pem or $oid)
+}
+
+rule Crypto_DH_Parameters
+{
+    meta:
+        description = "Diffie-Hellman parameters"
+        algorithm = "DH"
+        kind = "public_key"
+        reference = "DH"
+    strings:
+        $pem = "BEGIN DH PARAMETERS" ascii nocase
+        $ffdhe = "ffdhe" ascii nocase
+        $rfc = "rfc3526" ascii nocase
+    condition:
+        filesize < 4MB and any of them
+}

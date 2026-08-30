@@ -19,7 +19,7 @@
         <span class="scan-type-num">1</span>
         <span class="font-semibold text-[var(--ec-ink)]">Quick Scan</span>
       </div>
-      <p class="text-xs text-[var(--ec-muted)] mt-2">A fast scan of the current workspace to get crypto assets quickly.</p>
+      <p class="text-xs text-[var(--ec-muted)] mt-2">Fast scan of proven crypto locations on this OS (~/.ssh, system PKI/key stores, keystores, cloud credentials) plus the current workspace.</p>
     </button>
 
     <button type="button" data-scan-type="whole"
@@ -28,7 +28,7 @@
         <span class="scan-type-num">2</span>
         <span class="font-semibold text-[var(--ec-ink)]">Whole System</span>
       </div>
-      <p class="text-xs text-[var(--ec-muted)] mt-2">Deep scan across the entire system to build a full inventory.</p>
+      <p class="text-xs text-[var(--ec-muted)] mt-2">Full sweep of every drive/root to build a complete inventory. Temp dirs and OS caches are pruned automatically.</p>
     </button>
 
     <button type="button" data-scan-type="specified"
@@ -37,8 +37,14 @@
         <span class="scan-type-num">3</span>
         <span class="font-semibold text-[var(--ec-ink)]">Specified Path</span>
       </div>
-      <p class="text-xs text-[var(--ec-muted)] mt-2">Scan a specific folder you choose on this machine.</p>
+      <p class="text-xs text-[var(--ec-muted)] mt-2">Scan exactly the folder you choose on this machine. Everything inside it is walked.</p>
     </button>
+  </div>
+
+  <!-- What this scope will cover (platform-aware) -->
+  <div id="scan-preview" class="hidden mb-4">
+    <div class="text-[11px] uppercase tracking-wider text-[var(--ec-faint)] mb-2">This scan will look in</div>
+    <div id="preview-roots" class="flex flex-wrap gap-1.5"></div>
   </div>
 
   <!-- Folder path (only for specified scan) -->
@@ -131,6 +137,34 @@
 let selectedScanType = 'quick';
 const targetInput = document.getElementById('scan-target');
 const folderPicker = document.getElementById('folder-picker');
+const scanPreview = document.getElementById('scan-preview');
+const previewRoots = document.getElementById('preview-roots');
+const PLATFORM_LABELS = { windows: 'Windows', linux: 'Linux', darwin: 'macOS', other: 'Other (POSIX)' };
+
+function loadScanPreview(type) {
+  if (type === 'specified') {
+    scanPreview.classList.add('hidden');
+    return;
+  }
+  fetch('/api/scan-preview/?scan_type=' + encodeURIComponent(type))
+    .then(r => r.json())
+    .then(data => {
+      previewRoots.innerHTML = '';
+      const platform = document.createElement('span');
+      platform.className = 'chip';
+      platform.textContent = PLATFORM_LABELS[data.platform] || data.platform;
+      previewRoots.appendChild(platform);
+      (data.roots || []).forEach(root => {
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        chip.textContent = root.label;
+        chip.title = root.root;
+        previewRoots.appendChild(chip);
+      });
+      scanPreview.classList.remove('hidden');
+    })
+    .catch(() => scanPreview.classList.add('hidden'));
+}
 
 function selectScanType(type) {
   selectedScanType = type;
@@ -146,7 +180,10 @@ function selectScanType(type) {
   } else {
     folderPicker.classList.add('hidden');
   }
+  loadScanPreview(type);
 }
+
+loadScanPreview('quick');
 
 document.querySelectorAll('.scan-type-card').forEach(card => {
   card.addEventListener('click', () => selectScanType(card.dataset.scanType));

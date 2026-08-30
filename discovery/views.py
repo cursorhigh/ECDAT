@@ -69,6 +69,38 @@ def _list_roots():
 
 
 @csrf_exempt
+def scan_preview(request):
+    """Return the platform and the roots a given scan scope will walk (GET).
+
+    ?scan_type=quick|whole|specified
+    Lets the Discovery page explain what a Quick/Whole scan will actually
+    cover on this machine before the user clicks Start.
+    """
+    from types import SimpleNamespace
+
+    from .scanners.platform import detect_platform, resolve_scan_roots
+
+    if request.method != "GET":
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+    scan_type = (request.GET.get("scan_type") or "quick").strip().lower()
+    if scan_type not in ("quick", "whole", "specified"):
+        return JsonResponse({"detail": f"Unknown scan type '{scan_type}'."}, status=400)
+
+    job = SimpleNamespace(config={"scan_type": scan_type}, target=scan_type)
+    roots = resolve_scan_roots(job)
+    return JsonResponse(
+        {
+            "platform": detect_platform(),
+            "scan_type": scan_type,
+            "roots": [
+                {"root": r.root, "label": r.label, "scan_all": r.scan_all} for r in roots
+            ],
+        }
+    )
+
+
+@csrf_exempt
 def run_demo_scan(request):
     """Trigger the demo-mode scan (POST) and return the created ScanJob."""
     from .services import run_demo_scan as create_and_run

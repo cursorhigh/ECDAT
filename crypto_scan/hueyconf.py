@@ -26,7 +26,7 @@ HUEY = {
     # inline/synchronously (handy for tests).
     "immediate": os.getenv("HUEY_IMMEDIATE", "0") == "1",
     "consumer": {
-        "workers": max(1, (os.cpu_count() or 1) // 2 or 1),
+        "workers": max(1, (os.cpu_count() or 1) // 2),
         "worker_type": "thread",
         "loglevel": "INFO",
     },

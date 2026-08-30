@@ -44,6 +44,8 @@ def build_correlations(assets=None, using=None) -> int:
     # context: same location repo prefix
     by_repo: dict[str, list[CryptoAsset]] = {}
     for a in assets_list:
+        if not a.location:
+            continue  # Skip assets with no location — they share no context.
         repo = (a.location or "").split("/src")[0] or a.location
         by_repo.setdefault(repo, []).append(a)
     for _repo, group in by_repo.items():

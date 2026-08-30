@@ -27,4 +27,5 @@ urlpatterns = [
     path("start-scan/", views.start_scan, name="start-scan"),
     path("scan-data/", views.scan_data, name="scan-data"),
     path("browse/", views.browse, name="browse"),
+    path("scan-preview/", views.scan_preview, name="scan-preview"),
 ]

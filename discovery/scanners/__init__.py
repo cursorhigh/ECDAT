@@ -4,7 +4,6 @@ from ..models import ScanJob
 from .base import BaseScanner
 from .crypto_artefact import CryptoArtefactScanner
 from .demo import DemoScreenshotScanner
-from .source_code import SourceCodeScanner
 
 SCANNER_REGISTRY = {
     ScanJob.SourceType.SOURCE_CODE: CryptoArtefactScanner,

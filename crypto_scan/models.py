@@ -28,6 +28,11 @@ class Scan(models.Model):
     )
     chunk_count = models.PositiveIntegerField(default=0, help_text="Total number of chunks (N).")
     created_at = models.DateTimeField(auto_now_add=True)
+    ingested_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the aggregated findings were forwarded into the discovery inventory (null = not yet).",
+    )
 
     class Meta:
         ordering = ["-created_at"]

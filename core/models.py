@@ -67,12 +67,19 @@ class AuditLog(models.Model):
 
 
 def log_action(action: str, message: str = "", target_type: str = "", target_id: str = "", actor=None, mode=None):
-    """Convenience helper to write an audit entry synchronously."""
+    """Convenience helper to write an audit entry synchronously.
+
+    The row is written to the database that belongs to `mode`, so the row's
+    mode field always agrees with the DB it lands in.
+    """
     if mode is None:
         from .modes import active_mode
 
         mode = active_mode()
-    AuditLog.objects.create(
+    from .modes import db_alias_for_mode
+
+    db = db_alias_for_mode(mode)
+    AuditLog.objects.using(db).create(
         action=action,
         mode=mode,
         actor=actor,

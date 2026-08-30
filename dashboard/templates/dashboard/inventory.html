@@ -9,56 +9,59 @@
 </div>
 
 <!-- ======= Inventory ======= -->
-<div class="card p-4">
-  <h3 class="card-title mb-3">Crypto Asset Inventory ({{ assets|length }})</h3>
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Family</th>
-        <th class="right">Key</th>
-        <th>Curve</th>
-        <th>Protocol</th>
-        <th>Library</th>
-        <th>Source</th>
-        <th>Status</th>
-        <th class="right">Graph</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for a in assets %}
-      <tr class="row-click" onclick="fetchAsset({{ a.id }}).then(showAssetModal)">
-        <td>{{ a.name }}</td>
-        <td>
-          <span class="badge badge-gray">{{ a.get_family_display }}</span>
-        </td>
-        <td class="muted right">{{ a.key_size|default:"—" }}</td>
-        <td class="muted">{{ a.curve|default:"—" }}</td>
-        <td class="muted">{{ a.protocol|default:"—" }}</td>
-        <td class="mono">{{ a.library }} {{ a.library_version }}</td>
-        <td class="muted">{{ a.get_source_type_display }}</td>
-        <td>
-          {% if a.inventory_status == 'needs_review' %}<span class="badge badge-amber">Review</span>
-          {% elif a.inventory_status == 'active' %}<span class="badge badge-green">Active</span>
-          {% else %}<span class="badge badge-gray">Dormant</span>{% endif %}
-        </td>
-        <td class="right">
-          <a href="{% url 'dashboard-graph' %}?asset={{ a.id }}"
-             class="btn btn-ghost !px-2.5 !py-1 !text-xs"
-             onclick="event.stopPropagation()"
-             title="Open this asset in the correlation graph">Graph</a>
-        </td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="9" class="muted">No assets yet. Start a scan to populate the inventory.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="card p-4 overflow-x-auto">
+    <h3 class="card-title mb-3">Crypto Asset Inventory ({{ assets|length }})</h3>
+    <div class="table-scroll">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Family</th>
+          <th class="right">Key</th>
+          <th>Curve</th>
+          <th>Protocol</th>
+          <th>Library</th>
+          <th>Source</th>
+          <th>Status</th>
+          <th class="right">Graph</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in assets %}
+        <tr class="row-click" onclick="fetchAsset({{ a.id }}).then(showAssetModal)">
+          <td>{{ a.name }}</td>
+          <td>
+            <span class="badge badge-gray">{{ a.get_family_display }}</span>
+          </td>
+          <td class="muted right">{{ a.key_size|default:"—" }}</td>
+          <td class="muted">{{ a.curve|default:"—" }}</td>
+          <td class="muted">{{ a.protocol|default:"—" }}</td>
+          <td class="mono">{{ a.library }} {{ a.library_version }}</td>
+          <td class="muted">{{ a.get_source_type_display }}</td>
+          <td>
+            {% if a.inventory_status == 'needs_review' %}<span class="badge badge-amber">Review</span>
+            {% elif a.inventory_status == 'active' %}<span class="badge badge-green">Active</span>
+            {% else %}<span class="badge badge-gray">Dormant</span>{% endif %}
+          </td>
+          <td class="right">
+            <a href="{% url 'dashboard-graph' %}?asset={{ a.id }}"
+               class="btn btn-ghost !px-2.5 !py-1 !text-xs"
+               onclick="event.stopPropagation()"
+               title="Open this asset in the correlation graph">Graph</a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="9" class="muted">No assets yet. Start a scan to populate the inventory.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
 </div>
 
 <div class="grid gap-4 md:grid-cols-2 mt-4">
   <div class="card p-4">
     <h3 class="card-title mb-3">Raw Findings (latest {{ raw_findings|length }})</h3>
+    <div class="table-scroll table-scroll-sm">
     <table class="table">
       <thead><tr>
         <th>Source</th>
@@ -83,10 +86,12 @@
       {% endfor %}
       </tbody>
     </table>
+    </div>
   </div>
 
   <div class="card p-4">
     <h3 class="card-title mb-3">Scan History</h3>
+    <div class="table-scroll table-scroll-sm">
     <table class="table">
       <thead><tr>
         <th>#</th>
@@ -114,6 +119,7 @@
       {% endfor %}
       </tbody>
     </table>
+    </div>
   </div>
 </div>
 {% endblock %}

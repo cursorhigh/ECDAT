@@ -7,6 +7,19 @@ Design rules (from the spec):
   ScanChunk.results (capped; no full file dumps).
 - check_scan_complete marks the Scan complete when every chunk is done, then
   triggers report aggregation.
+
+Wiring into discovery inventory
+-------------------------------
+When an async Scan completes, its aggregated findings are forwarded into the
+`discovery` pipeline via `discovery.services.ingest_external_findings(...)` so
+real async scans populate the crypto asset inventory (the dashboard's source).
+
+Mode note: the `crypto_scan` app is exempt from the demo/actual split (the DB
+router always routes crypto_scan models to `default`), so real async scan data
+belongs in the `actual` mode. We therefore always ingest with mode="actual".
+
+Idempotency: `_scan_complete_check` can re-fire (task path + crash sweep).
+The `Scan.ingested_at` guard ensures we forward aggregated findings only once.
 """
 
 import logging
@@ -25,6 +38,41 @@ STALE_MINUTES = 5
 # Cap how much context is retained per finding (no full file dumps).
 MAX_CONTEXT_LINES = 20
 MAX_FINDINGS_PER_CHUNK = 5000
+
+# YARA rule name -> explicit discovery family. Unknown families are left to the
+# normalizer's algorithm guess; the benign cases are pinned exactly so that
+# classification stays accurate for common crypto artefacts.
+_RULE_FAMILY = {
+    "Crypto_RSA": "rsa",
+    "Crypto_ECC": "ecc",
+    "Crypto_AES": "aes",
+    "Crypto_Hash": "hash",
+    "Crypto_WeakHash_MD5": "hash",
+    "Crypto_PostQuantum": "pqc",
+}
+
+
+def _to_raw_finding(f: dict) -> dict:
+    """Adapt an aggregated crypto_scan finding into a discovery raw finding.
+
+    Discovery's normalizer derives the family from `family`/`algorithm` keys;
+    we set an explicit family for well-known rules and carry over protocol /
+    library metadata so classification stays accurate.
+    """
+    rule = f.get("rule", "")
+    family = _RULE_FAMILY.get(rule, "")
+    raw = {
+        "location": f.get("file", ""),
+        "family": family,
+        "algorithm": f.get("algorithm", ""),
+        "confidence": 0.7,
+    }
+    if rule == "Crypto_TLS":
+        raw["protocol"] = "TLS"
+    elif rule == "Crypto_Library_BoringSSL":
+        raw["library"] = "BoringSSL"
+    raw["raw"] = f
+    return raw
 
 
 def _cap_context(finding: dict) -> dict:
@@ -107,6 +155,48 @@ def _scan_complete_check(scan_id: int) -> None:
         logger.info("scan %s complete (%s/%s chunks); aggregating report",
                     scan_id, done, total)
         aggregate_report(scan_id)
+        _forward_to_inventory(scan_id)
+
+
+def _forward_to_inventory(scan_id: int) -> None:
+    """Forward an async Scan's aggregated findings into the discovery inventory.
+
+    Idempotent: only forwarded once per Scan (guarded by `ingested_at`). The
+    ingest call is best-effort -- a completed scan must not fail because of an
+    inventory hiccup, so failures are logged and never raised.
+    """
+    scan = Scan.objects.filter(pk=scan_id).first()
+    if scan is None:
+        return
+    if scan.ingested_at is not None:
+        return
+
+    findings = aggregate_report(scan_id)
+    if not findings:
+        return
+
+    # Mark intent before ingesting to avoid a race between the task path and
+    # the crash sweep both passing the guard. A rare crash may leave a scan
+    # "claimed" but uningested; acceptable for this minimal fix.
+    scan.ingested_at = timezone.now()
+    scan.save(update_fields=["ingested_at"])
+
+    try:
+        from discovery.services import ScanInspectionError, ingest_external_findings
+
+        adapted = [_to_raw_finding(f) for f in findings]
+        ingest_external_findings(
+            source_type="source_code",
+            findings=adapted,
+            target=scan.path or f"scan-{scan.pk}",
+            mode="actual",
+        )
+        logger.info("scan %s forwarded %s finding(s) into discovery inventory",
+                    scan_id, len(adapted))
+    except ScanInspectionError as exc:
+        logger.warning("scan %s: inventory ingest rejected (%s)", scan_id, exc)
+    except Exception as exc:  # noqa: BLE001 - scan is already complete
+        logger.warning("scan %s: inventory ingest failed: %s", scan_id, exc)
 
 
 def check_scan_complete(scan_id: int) -> bool:
