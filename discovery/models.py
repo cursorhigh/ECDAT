@@ -6,7 +6,7 @@ Models the crypto-discovery pipeline:
 
 from django.db import models
 
-from core.models import TimeStampedModel
+from core.models import Mode, TimeStampedModel
 
 
 class ScanJob(TimeStampedModel):
@@ -28,6 +28,7 @@ class ScanJob(TimeStampedModel):
         FAILED = "failed", "Failed"
 
     source_type = models.CharField(max_length=16, choices=SourceType.choices)
+    mode = models.CharField(max_length=8, choices=Mode.choices, default=Mode.ACTUAL)
     target = models.CharField(
         max_length=512,
         help_text="Repo URL, image ref, cert store path, host:port, etc.",
@@ -42,7 +43,7 @@ class ScanJob(TimeStampedModel):
 
     class Meta:
         ordering = ["-created_at"]
-        indexes = [models.Index(fields=["source_type", "status"])]
+        indexes = [models.Index(fields=["source_type", "status"]), models.Index(fields=["mode"])]
 
     def __str__(self) -> str:
         return f"{self.source_type}:{self.target} [{self.status}]"
@@ -60,6 +61,7 @@ class RawFinding(TimeStampedModel):
     scan_job = models.ForeignKey(
         ScanJob, on_delete=models.CASCADE, related_name="raw_findings"
     )
+    mode = models.CharField(max_length=8, choices=Mode.choices, default=Mode.ACTUAL)
     source_type = models.CharField(max_length=16, choices=ScanJob.SourceType.choices)
     location = models.CharField(max_length=1024, blank=True, default="")
     raw_json = models.JSONField(default=dict, blank=True)
@@ -68,7 +70,7 @@ class RawFinding(TimeStampedModel):
 
     class Meta:
         ordering = ["-ingested_at"]
-        indexes = [models.Index(fields=["source_type", "status"])]
+        indexes = [models.Index(fields=["source_type", "status"]), models.Index(fields=["mode"])]
 
     def __str__(self) -> str:
         return f"Raw[{self.source_type}] {self.location[:60]}"
@@ -91,6 +93,7 @@ class NormalizedFinding(TimeStampedModel):
     raw_finding = models.OneToOneField(
         RawFinding, on_delete=models.CASCADE, related_name="normalized"
     )
+    mode = models.CharField(max_length=8, choices=Mode.choices, default=Mode.ACTUAL)
     family = models.CharField(max_length=16, choices=AlgorithmFamily.choices)
     algorithm = models.CharField(max_length=64, blank=True, default="")
     key_size = models.PositiveIntegerField(null=True, blank=True)
@@ -117,6 +120,7 @@ class CryptoAsset(TimeStampedModel):
         REVIEW = "needs_review", "Needs review"
 
     name = models.CharField(max_length=256)
+    mode = models.CharField(max_length=8, choices=Mode.choices, default=Mode.ACTUAL)
     family = models.CharField(max_length=16, choices=NormalizedFinding.AlgorithmFamily.choices)
     algorithm = models.CharField(max_length=64, blank=True, default="")
     key_size = models.PositiveIntegerField(null=True, blank=True)
@@ -155,6 +159,7 @@ class AssetRelation(models.Model):
     to_asset = models.ForeignKey(
         CryptoAsset, on_delete=models.CASCADE, related_name="incoming_relations"
     )
+    mode = models.CharField(max_length=8, choices=Mode.choices, default=Mode.ACTUAL)
     relation_type = models.CharField(max_length=16, choices=RelationType.choices)
     description = models.CharField(max_length=256, blank=True, default="")
 

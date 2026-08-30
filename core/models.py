@@ -9,6 +9,17 @@ from django.conf import settings
 from django.db import models
 
 
+class Mode(models.TextChoices):
+    """Whether a record belongs to demo (synthetic) or actual (real) data.
+
+    The database each row lives in is the hard boundary; this field is kept
+    on rows as a safety label/assertion.
+    """
+
+    DEMO = "demo", "Demo"
+    ACTUAL = "actual", "Actual"
+
+
 class TimeStampedModel(models.Model):
     """Abstract base adding created_at / updated_at to any model."""
 
@@ -33,6 +44,7 @@ class AuditLog(models.Model):
         SYSTEM = "system", "System event"
 
     action = models.CharField(max_length=32, choices=Action.choices)
+    mode = models.CharField(max_length=8, choices=Mode.choices, default=Mode.ACTUAL)
     actor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -54,10 +66,15 @@ class AuditLog(models.Model):
         return f"{self.created_at:%Y-%m-%d %H:%M} {self.action} {self.target_type} {self.target_id}"
 
 
-def log_action(action: str, message: str = "", target_type: str = "", target_id: str = "", actor=None):
+def log_action(action: str, message: str = "", target_type: str = "", target_id: str = "", actor=None, mode=None):
     """Convenience helper to write an audit entry synchronously."""
+    if mode is None:
+        from .modes import active_mode
+
+        mode = active_mode()
     AuditLog.objects.create(
         action=action,
+        mode=mode,
         actor=actor,
         target_type=target_type,
         target_id=str(target_id) if target_id is not None else "",

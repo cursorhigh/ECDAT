@@ -1,0 +1,154 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}ECDAT Dashboard{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'dashboard/css/tailwind.css' %}">
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  {% block head %}{% endblock %}
+</head>
+<body>
+<div class="flex h-screen">
+
+  <!-- Sidebar -->
+  <aside class="w-60 shrink-0 bg-sidebar-bg text-sidebar-text flex flex-col">
+    <div class="flex items-center gap-2.5 px-4 py-5 border-b border-white/10">
+      <span class="w-3 h-3 rounded-full bg-ecdat-primary shadow-[0_0_0_4px_rgba(47,111,237,0.2)]"></span>
+      <span class="text-lg font-bold text-white tracking-wide">ECDAT</span>
+    </div>
+
+    <nav class="flex-1 overflow-y-auto px-3 py-4">
+
+      <!-- Workflow -->
+      <div class="px-3 mb-3 text-[11px] uppercase tracking-wider text-sidebar-muted">Workflow</div>
+      <div class="relative">
+        <div class="relative flex flex-col">
+          <a href="{% url 'dashboard-overview' %}"
+             class="relative flex items-center gap-3 rounded-lg px-2 py-2.5 group hover:bg-white/5">
+            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm
+              {% if active == 'overview' %}bg-ecdat-primary text-white ring-4 ring-ecdat-primary/25 shadow-[0_0_14px_rgba(47,111,237,0.65)]
+              {% else %}bg-[#14181d] border border-white/20 text-sidebar-muted{% endif %}">1</span>
+            <span class="text-sm {% if active == 'overview' %}text-white font-semibold{% else %}text-sidebar-muted group-hover:text-sidebar-text{% endif %}">Overview</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Exploration -->
+      <div class="mt-4 mb-1 px-3 text-[11px] uppercase tracking-wider text-sidebar-muted">Exploration</div>
+      <div class="relative">
+        <span class="absolute left-6 top-3 bottom-3 w-px bg-white/10"></span>
+        <div class="relative flex flex-col">
+          <a href="{% url 'dashboard-discovery' %}"
+             class="relative flex items-center gap-3 rounded-lg px-2 py-2.5 group hover:bg-white/5">
+            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm
+              {% if active == 'discovery' %}bg-ecdat-primary text-white ring-4 ring-ecdat-primary/25 shadow-[0_0_14px_rgba(47,111,237,0.65)]
+              {% else %}bg-[#14181d] border border-white/20 text-sidebar-muted{% endif %}">2</span>
+            <span class="text-sm {% if active == 'discovery' %}text-white font-semibold{% else %}text-sidebar-muted group-hover:text-sidebar-text{% endif %}">Discovery</span>
+          </a>
+
+          <a href="{% url 'dashboard-inventory' %}"
+             class="relative flex items-center gap-3 rounded-lg px-2 py-2.5 group hover:bg-white/5">
+            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm
+              {% if active == 'inventory' %}bg-ecdat-primary text-white ring-4 ring-ecdat-primary/25 shadow-[0_0_14px_rgba(47,111,237,0.65)]
+              {% else %}bg-[#14181d] border border-white/20 text-sidebar-muted{% endif %}">3</span>
+            <span class="text-sm {% if active == 'inventory' %}text-white font-semibold{% else %}text-sidebar-muted group-hover:text-sidebar-text{% endif %}">Inventory</span>
+          </a>
+
+          <a href="{% url 'dashboard-graph' %}"
+             class="relative flex items-center gap-3 rounded-lg px-2 py-2.5 group hover:bg-white/5">
+            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm
+              {% if active == 'graph' %}bg-ecdat-primary text-white ring-4 ring-ecdat-primary/25 shadow-[0_0_14px_rgba(47,111,237,0.65)]
+              {% else %}bg-[#14181d] border border-white/20 text-sidebar-muted{% endif %}">4</span>
+            <span class="text-sm {% if active == 'graph' %}text-white font-semibold{% else %}text-sidebar-muted group-hover:text-sidebar-text{% endif %}">Asset Graph</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Risk & Reasoning -->
+      <div class="mt-4 mb-1 px-3 text-[11px] uppercase tracking-wider text-sidebar-muted">Risk &amp; Reasoning</div>
+      <div class="relative">
+        <div class="relative flex flex-col">
+          <a href="{% url 'dashboard-risk' %}"
+             class="relative flex items-center gap-3 rounded-lg px-2 py-2.5 group hover:bg-white/5">
+            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm
+              {% if active == 'risk' %}bg-ecdat-primary text-white ring-4 ring-ecdat-primary/25 shadow-[0_0_14px_rgba(47,111,237,0.65)]
+              {% else %}bg-[#14181d] border border-white/20 text-sidebar-muted{% endif %}">5</span>
+            <span class="text-sm {% if active == 'risk' %}text-white font-semibold{% else %}text-sidebar-muted group-hover:text-sidebar-text{% endif %}">Risk &amp; Reasoning</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Finalization -->
+      <div class="mt-4 mb-1 px-3 text-[11px] uppercase tracking-wider text-sidebar-muted">Finalization</div>
+      <div class="relative">
+        <span class="absolute left-6 top-3 bottom-3 w-px bg-white/10"></span>
+        <div class="relative flex flex-col">
+          <a href="{% url 'dashboard-mitigation' %}"
+             class="relative flex items-center gap-3 rounded-lg px-2 py-2.5 group hover:bg-white/5">
+            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm
+              {% if active == 'mitigation' %}bg-ecdat-primary text-white ring-4 ring-ecdat-primary/25 shadow-[0_0_14px_rgba(47,111,237,0.65)]
+              {% else %}bg-[#14181d] border border-white/20 text-sidebar-muted{% endif %}">6</span>
+            <span class="text-sm {% if active == 'mitigation' %}text-white font-semibold{% else %}text-sidebar-muted group-hover:text-sidebar-text{% endif %}">Mitigation</span>
+          </a>
+
+          <a href="{% url 'dashboard-reports' %}"
+             class="relative flex items-center gap-3 rounded-lg px-2 py-2.5 group hover:bg-white/5">
+            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm
+              {% if active == 'reports' %}bg-ecdat-primary text-white ring-4 ring-ecdat-primary/25 shadow-[0_0_14px_rgba(47,111,237,0.65)]
+              {% else %}bg-[#14181d] border border-white/20 text-sidebar-muted{% endif %}">7</span>
+            <span class="text-sm {% if active == 'reports' %}text-white font-semibold{% else %}text-sidebar-muted group-hover:text-sidebar-text{% endif %}">Reports</span>
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Audit Log (detached at bottom) -->
+    <div class="border-t border-white/10 px-3 py-3">
+      <a href="{% url 'dashboard-audit' %}"
+         class="flex items-center gap-3 rounded-lg px-2 py-2.5 group hover:bg-white/5">
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full
+          {% if active == 'audit' %}bg-ecdat-primary text-white ring-4 ring-ecdat-primary/25 shadow-[0_0_14px_rgba(47,111,237,0.65)]
+          {% else %}bg-[#14181d] border border-white/20 text-sidebar-muted{% endif %}">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+        </span>
+        <span class="text-sm {% if active == 'audit' %}text-white font-semibold{% else %}text-sidebar-muted group-hover:text-sidebar-text{% endif %}">Audit Log</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="flex-1 flex flex-col overflow-hidden">
+    <header class="bg-white border-b border-gray-200 px-6 py-3.5 flex items-center justify-between">
+      <h1 class="text-xl font-semibold text-gray-900">{% block page_title %}Dashboard{% endblock %}</h1>
+      <div class="flex items-center gap-2.5">
+        {% if scan_running %}
+          <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Scan running…</span>
+        {% endif %}
+      </div>
+    </header>
+
+    <div class="p-6 overflow-y-auto flex-1">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+</div>
+
+<!-- Modal -->
+<div class="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center" id="modal-backdrop" hidden>
+  <div class="bg-white rounded-xl w-[520px] max-w-[92vw] shadow-modal">
+    <div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-200 font-semibold">
+      <span>Asset Detail</span>
+      <button class="text-gray-500 text-xl leading-none hover:text-gray-800" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="p-5" id="modal-body">
+      <p>Select an asset to see details.</p>
+    </div>
+  </div>
+</div>
+
+<script src="{% static 'dashboard/js/app.js' %}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

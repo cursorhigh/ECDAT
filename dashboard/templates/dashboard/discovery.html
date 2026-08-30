@@ -1,0 +1,265 @@
+{% extends "dashboard/base.html" %}
+{% block title %}ECDAT · Discovery{% endblock %}
+{% block page_title %}Discovery{% endblock %}
+
+{% block content %}
+<!-- ======= Scan launcher ======= -->
+<div class="bg-white border border-gray-200 rounded-lg p-5 mb-4">
+  <div class="flex items-center justify-between mb-4">
+    <h3 class="text-[15px] font-semibold text-gray-900">Start a Discovery Scan</h3>
+    <span class="text-xs text-gray-500">Choose the scope of the scan to run</span>
+  </div>
+
+  <!-- Scan type selector -->
+  <div class="grid gap-3 md:grid-cols-3 mb-4">
+    <button type="button" data-scan-type="quick"
+            class="scan-type-card text-left rounded-lg border p-4 border-ecdat-primary bg-ecdat-primary/5 ring-1 ring-ecdat-primary">
+      <div class="flex items-center gap-2">
+        <span class="w-6 h-6 rounded-full bg-ecdat-primary text-white text-xs font-bold flex items-center justify-center">1</span>
+        <span class="font-semibold text-gray-900">Quick Scan</span>
+      </div>
+      <p class="text-xs text-gray-500 mt-2">A fast scan of the current workspace to get crypto assets quickly.</p>
+    </button>
+
+    <button type="button" data-scan-type="whole"
+            class="scan-type-card text-left rounded-lg border border-gray-200 p-4 hover:border-gray-300">
+      <div class="flex items-center gap-2">
+        <span class="w-6 h-6 rounded-full bg-gray-600 text-white text-xs font-bold flex items-center justify-center">2</span>
+        <span class="font-semibold text-gray-900">Whole System</span>
+      </div>
+      <p class="text-xs text-gray-500 mt-2">Deep scan across the entire system to build a full inventory.</p>
+    </button>
+
+    <button type="button" data-scan-type="specified"
+            class="scan-type-card text-left rounded-lg border border-gray-200 p-4 hover:border-gray-300">
+      <div class="flex items-center gap-2">
+        <span class="w-6 h-6 rounded-full bg-gray-600 text-white text-xs font-bold flex items-center justify-center">3</span>
+        <span class="font-semibold text-gray-900">Specified Path</span>
+      </div>
+      <p class="text-xs text-gray-500 mt-2">Scan a specific folder you choose on this machine.</p>
+    </button>
+  </div>
+
+  <!-- Folder path (only for specified scan) -->
+  <div id="folder-picker" class="hidden mb-4">
+    <label class="block text-xs font-medium text-gray-600 mb-1.5">Target root folder</label>
+    <div class="flex items-center gap-2">
+      <div class="flex-1">
+        <input id="scan-target" type="text"
+               placeholder="e.g. C:\projects\app  or  /home/user/code"
+               class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ecdat-primary">
+      </div>
+      <button type="button" id="pick-folder"
+              class="shrink-0 px-4 py-2 rounded-md font-semibold text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300">
+        Pick Folder…
+      </button>
+    </div>
+    <p class="text-[11px] text-gray-500 mt-1.5">Type/paste a path, or pick a folder from this machine. Nothing is uploaded.</p>
+  </div>
+
+  <div class="flex items-center gap-3">
+    <button
+      class="px-5 py-2.5 rounded-md font-semibold text-sm bg-ecdat-primary hover:bg-ecdat-primary-dark text-white"
+      onclick="startScan()">
+      Start Scan
+    </button>
+    <div id="scan-result"></div>
+  </div>
+</div>
+
+<!-- ======= Pipeline abstraction ======= -->
+<div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+  <div class="flex items-center justify-between mb-3">
+    <h3 class="text-[15px] font-semibold text-gray-900">Discovery Pipeline</h3>
+    <span class="text-xs text-gray-500">Where your discovered data lives in the pipeline</span>
+  </div>
+  <div class="flex items-stretch gap-2 overflow-x-auto pb-1">
+    {% for s in pipeline %}
+    <div class="flex items-center gap-2 flex-1 min-w-[140px]">
+      <div class="flex-1 rounded-lg border p-3 {% if s.done %}border-green-200 bg-green-50{% else %}border-gray-200 bg-gray-50{% endif %}">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold {% if s.done %}text-green-700{% else %}text-gray-500{% endif %}">{{ s.name }}</span>
+          {% if s.done %}
+          <span class="w-2 h-2 rounded-full bg-green-500"></span>
+          {% else %}
+          <span class="w-2 h-2 rounded-full bg-gray-300"></span>
+          {% endif %}
+        </div>
+        <div class="mt-1 text-2xl font-bold {% if s.done %}text-green-700{% else %}text-gray-400{% endif %}">{{ s.count }}</div>
+        <div class="text-[11px] text-gray-500 mt-0.5">{{ s.detail }}</div>
+        {% if s.sub %}
+        <div class="mt-1.5 flex flex-wrap gap-1">
+          {% for c in s.sub %}
+          <span class="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 text-[10px] font-medium">{{ c.count }} {{ c.label }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% if not forloop.last %}
+      <div class="text-gray-300 text-lg">→</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- ======= Folder path browser modal ======= -->
+<div class="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center" id="picker-modal" hidden>
+  <div class="bg-white rounded-xl w-[620px] max-w-[94vw] shadow-modal flex flex-col max-h-[85vh]">
+    <div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-200 font-semibold">
+      <span>Pick a folder to scan</span>
+      <button class="text-gray-500 text-xl leading-none hover:text-gray-800" onclick="closePicker()">&times;</button>
+    </div>
+    <div class="p-4 border-b border-gray-200">
+      <div class="flex items-center gap-2">
+        <div class="flex-1">
+          <input id="picker-current" type="text" readonly
+                 class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-gray-50 focus:outline-none">
+        </div>
+        <button id="picker-up"
+                class="px-3 py-2 rounded-md text-sm font-semibold border border-gray-300 bg-gray-100 hover:bg-gray-200">Up</button>
+      </div>
+    </div>
+    <div id="picker-list" class="flex-1 overflow-y-auto p-2 min-h-[240px]"></div>
+    <div class="flex items-center justify-between px-5 py-3.5 border-t border-gray-200">
+      <div class="text-sm text-gray-600">Scans the folders and files inside the selected folder.</div>
+      <div class="flex items-center gap-2">
+        <button class="px-3.5 py-2 rounded-md text-sm font-semibold border border-gray-300 hover:bg-gray-100" onclick="closePicker()">Cancel</button>
+        <button id="picker-select"
+                class="px-3.5 py-2 rounded-md text-sm font-semibold bg-ecdat-primary hover:bg-ecdat-primary-dark text-white"
+                disabled>Select this folder</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let selectedScanType = 'quick';
+const targetInput = document.getElementById('scan-target');
+const folderPicker = document.getElementById('folder-picker');
+
+function selectScanType(type) {
+  selectedScanType = type;
+  document.querySelectorAll('.scan-type-card').forEach(card => {
+    if (card.dataset.scanType === type) {
+      card.classList.add('border-ecdat-primary', 'bg-ecdat-primary/5', 'ring-1', 'ring-ecdat-primary');
+      card.classList.remove('border-gray-200');
+    } else {
+      card.classList.remove('border-ecdat-primary', 'bg-ecdat-primary/5', 'ring-1', 'ring-ecdat-primary');
+      card.classList.add('border-gray-200');
+    }
+  });
+  if (type === 'specified') {
+    folderPicker.classList.remove('hidden');
+  } else {
+    folderPicker.classList.add('hidden');
+  }
+}
+
+document.querySelectorAll('.scan-type-card').forEach(card => {
+  card.addEventListener('click', () => selectScanType(card.dataset.scanType));
+});
+
+/* ---- Folder path browser ---- */
+let pickerPath = '';
+const pickerModal = document.getElementById('picker-modal');
+const pickerList = document.getElementById('picker-list');
+const pickerCurrent = document.getElementById('picker-current');
+const pickerSelect = document.getElementById('picker-select');
+
+function joinPath(base, name) {
+  if (!base) return name;
+  return base.replace(/[\\\/]$/, '') + '\\' + name;
+}
+
+function pickerRender(folders) {
+  pickerList.innerHTML = '';
+  if (!folders || folders.length === 0) {
+    pickerList.innerHTML = '<div class="p-4 text-sm text-gray-500">No subfolders here.</div>';
+    return;
+  }
+  folders.forEach(name => {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm hover:bg-gray-100 text-left';
+    row.innerHTML = '<span class="text-gray-400">\u{1F4C1}</span><span>' + name + '</span>';
+    row.addEventListener('click', () => loadPicker(joinPath(pickerPath, name)));
+    pickerList.appendChild(row);
+  });
+}
+
+function loadPicker(path) {
+  const url = path ? ('/api/browse/?path=' + encodeURIComponent(path)) : '/api/browse/';
+  fetch(url).then(r => r.json()).then(data => {
+    if (data.detail) { pickerList.innerHTML = '<div class="p-4 text-sm text-red-600">' + data.detail + '</div>'; return; }
+    pickerPath = data.path || '';
+    pickerCurrent.value = pickerPath || '(drives)';
+    pickerSelect.disabled = !pickerPath;
+    pickerRender(data.folders);
+  }).catch(() => {
+    pickerList.innerHTML = '<div class="p-4 text-sm text-red-600">Could not read that folder.</div>';
+  });
+}
+
+function openPicker() {
+  pickerModal.hidden = false;
+  loadPicker('');
+}
+
+function closePicker() {
+  pickerModal.hidden = true;
+}
+
+document.getElementById('pick-folder').addEventListener('click', openPicker);
+document.getElementById('picker-up').addEventListener('click', () => {
+  if (!pickerPath) return;
+  if (pickerPath === '/' || /^[A-Za-z]:\\$/.test(pickerPath) || /^[A-Za-z]:$/.test(pickerPath)) {
+    loadPicker('');
+  } else {
+    loadPicker(pickerPath.replace(/[\\\/][^\\\/]*$/, '') || '');
+  }
+});
+document.getElementById('picker-select').addEventListener('click', () => {
+  if (pickerPath) {
+    targetInput.value = pickerPath;
+    closePicker();
+  }
+});
+pickerModal.addEventListener('click', e => { if (e.target.id === 'picker-modal') closePicker(); });
+
+function startScan() {
+  const box = document.getElementById('scan-result');
+  const options = {};
+  const target = selectedScanType === 'specified' ? targetInput.value.trim() : '';
+
+  if (selectedScanType === 'specified' && !target) {
+    box.innerHTML = '<span class="text-sm text-red-600">Please choose a folder to scan.</span>';
+    return;
+  }
+
+  box.innerHTML = '<span class="text-sm text-amber-600">Starting scan… this may take a moment.</span>';
+
+  fetch('/api/start-scan/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+    body: JSON.stringify({ scan_type: selectedScanType, source_type: 'source_code', target, options }),
+  })
+    .then(r => r.json().then(d => ({ ok: r.ok, d })))
+    .then(({ ok, d }) => {
+      if (ok) {
+        box.innerHTML =
+          '<span class="text-sm text-green-700">Scan #' + d.id + ' ' + d.status_display.toLowerCase() +
+          ' — ' + (d.findings_count || 0) + ' findings. Reloading…</span>';
+        setTimeout(() => window.location.reload(), 1200);
+      } else {
+        box.innerHTML = '<span class="text-sm text-red-600">' + (d.detail || 'Scan failed') + '</span>';
+      }
+    })
+    .catch(() => {
+      box.innerHTML = '<span class="text-sm text-red-600">Network error — is the server running?</span>';
+    });
+}
+</script>
+{% endblock %}

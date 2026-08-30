@@ -1,0 +1,35 @@
+{% extends "dashboard/base.html" %}
+{% block title %}ECDAT · Audit Log{% endblock %}
+{% block page_title %}Audit Log{% endblock %}
+
+{% block content %}
+<div class="bg-white border border-gray-200 rounded-lg p-4">
+  <h3 class="text-[15px] font-semibold text-gray-900 mb-3">Activity History</h3>
+  <table class="w-full text-sm border-collapse">
+    <thead>
+      <tr>
+        <th class="text-left px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">Time</th>
+        <th class="text-left px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">Action</th>
+        <th class="text-left px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">Actor</th>
+        <th class="text-left px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">Target</th>
+        <th class="text-left px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">Message</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in audit %}
+      <tr class="hover:bg-gray-50">
+        <td class="px-2.5 py-2 border-b border-gray-200 mono">{{ a.created_at|date:"Y-m-d H:i:s" }}</td>
+        <td class="px-2.5 py-2 border-b border-gray-200">
+          <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">{{ a.action }}</span>
+        </td>
+        <td class="px-2.5 py-2 border-b border-gray-200">{{ a.actor.username|default:"system" }}</td>
+        <td class="px-2.5 py-2 border-b border-gray-200 mono">{{ a.target_type }}#{{ a.target_id }}</td>
+        <td class="px-2.5 py-2 border-b border-gray-200 text-gray-500">{{ a.message }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="px-2.5 py-2 text-gray-500">No audit entries yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

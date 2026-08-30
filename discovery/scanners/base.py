@@ -24,10 +24,12 @@ class BaseScanner(ABC):
 
     def ingest(self, findings: list[dict]) -> int:
         """Persist raw findings against the scan job; returns count."""
+        db = self.scan_job._state.db or "default"
         count = 0
         for item in findings:
-            RawFinding.objects.create(
+            RawFinding.objects.using(db).create(
                 scan_job=self.scan_job,
+                mode=self.scan_job.mode,
                 source_type=self.source_type,
                 location=item.get("location", ""),
                 raw_json=item,

@@ -1,0 +1,119 @@
+{% extends "dashboard/base.html" %}
+{% block title %}ECDAT · Inventory{% endblock %}
+{% block page_title %}Cryptographic Asset Inventory{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-3">
+  <p class="text-sm text-gray-500">Every crypto asset discovered and classified. Click a row for details, or open it in the Asset Graph.</p>
+  <a href="{% url 'dashboard-graph' %}" class="px-3.5 py-2 rounded-md text-sm font-semibold bg-ecdat-primary hover:bg-ecdat-primary-dark text-white">Open Asset Graph</a>
+</div>
+
+<!-- ======= Inventory ======= -->
+<div class="bg-white border border-gray-200 rounded-lg p-4">
+  <h3 class="text-[15px] font-semibold text-gray-900 mb-3">Crypto Asset Inventory ({{ assets|length }})</h3>
+  <table class="w-full text-sm border-collapse">
+    <thead>
+      <tr>
+        <th class="text-left px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">Name</th>
+        <th class="text-left px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">Family</th>
+        <th class="text-left px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">Key</th>
+        <th class="text-left px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">Curve</th>
+        <th class="text-left px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">Protocol</th>
+        <th class="text-left px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">Library</th>
+        <th class="text-left px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">Source</th>
+        <th class="text-left px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">Status</th>
+        <th class="text-right px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">Graph</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in assets %}
+      <tr style="cursor:pointer" class="hover:bg-gray-50" onclick="fetchAsset({{ a.id }}).then(showAssetModal)">
+        <td class="px-2.5 py-2 border-b border-gray-200">{{ a.name }}</td>
+        <td class="px-2.5 py-2 border-b border-gray-200">
+          <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">{{ a.get_family_display }}</span>
+        </td>
+        <td class="px-2.5 py-2 border-b border-gray-200 text-right">{{ a.key_size|default:"—" }}</td>
+        <td class="px-2.5 py-2 border-b border-gray-200">{{ a.curve|default:"—" }}</td>
+        <td class="px-2.5 py-2 border-b border-gray-200">{{ a.protocol|default:"—" }}</td>
+        <td class="px-2.5 py-2 border-b border-gray-200 mono">{{ a.library }} {{ a.library_version }}</td>
+        <td class="px-2.5 py-2 border-b border-gray-200">{{ a.get_source_type_display }}</td>
+        <td class="px-2.5 py-2 border-b border-gray-200">
+          {% if a.inventory_status == 'needs_review' %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Review</span>
+          {% elif a.inventory_status == 'active' %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Active</span>
+          {% else %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">Dormant</span>{% endif %}
+        </td>
+        <td class="px-2.5 py-2 border-b border-gray-200 text-right">
+          <a href="{% url 'dashboard-graph' %}?asset={{ a.id }}"
+             class="inline-block px-2.5 py-1 rounded-md text-xs font-semibold border border-gray-300 text-gray-600 hover:bg-gray-100"
+             onclick="event.stopPropagation()"
+             title="Open this asset in the correlation graph">Graph</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="9" class="px-2.5 py-2 text-gray-500">No assets yet. Start a scan to populate the inventory.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="grid gap-4 md:grid-cols-2 mt-4">
+  <div class="bg-white border border-gray-200 rounded-lg p-4">
+    <h3 class="text-[15px] font-semibold text-gray-900 mb-3">Raw Findings (latest {{ raw_findings|length }})</h3>
+    <table class="w-full text-sm border-collapse">
+      <thead><tr>
+        <th class="text-left px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">Source</th>
+        <th class="text-left px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">Location</th>
+        <th class="text-left px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">Status</th>
+        <th class="text-left px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">Ingested</th>
+      </tr></thead>
+      <tbody>
+      {% for f in raw_findings %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-2.5 py-2 border-b border-gray-200">{{ f.get_source_type_display }}</td>
+          <td class="px-2.5 py-2 border-b border-gray-200 mono">{{ f.location|truncatechars:50 }}</td>
+          <td class="px-2.5 py-2 border-b border-gray-200">
+            {% if f.status == 'normalized' %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Normalized</span>
+            {% elif f.status == 'new' %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">New</span>
+            {% else %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">{{ f.status }}</span>{% endif %}
+          </td>
+          <td class="px-2.5 py-2 border-b border-gray-200">{{ f.ingested_at|date:"m-d H:i" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4" class="px-2.5 py-2 text-gray-500">No raw findings yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="bg-white border border-gray-200 rounded-lg p-4">
+    <h3 class="text-[15px] font-semibold text-gray-900 mb-3">Scan History</h3>
+    <table class="w-full text-sm border-collapse">
+      <thead><tr>
+        <th class="text-left px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">#</th>
+        <th class="text-left px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">Type</th>
+        <th class="text-left px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">Target</th>
+        <th class="text-left px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">Status</th>
+        <th class="text-right px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">Findings</th>
+      </tr></thead>
+      <tbody>
+      {% for s in scanjobs %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-2.5 py-2 border-b border-gray-200">#{{ s.id }}</td>
+          <td class="px-2.5 py-2 border-b border-gray-200">{{ s.get_source_type_display }}</td>
+          <td class="px-2.5 py-2 border-b border-gray-200 mono">{{ s.target|truncatechars:30 }}</td>
+          <td class="px-2.5 py-2 border-b border-gray-200">
+            {% if s.status == 'completed' %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Done</span>
+            {% elif s.status == 'failed' %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">Failed</span>
+            {% elif s.status == 'running' %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Running</span>
+            {% else %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">{{ s.status }}</span>{% endif %}
+          </td>
+          <td class="px-2.5 py-2 border-b border-gray-200 text-right">{{ s.findings_count }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="px-2.5 py-2 text-gray-500">No scans yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

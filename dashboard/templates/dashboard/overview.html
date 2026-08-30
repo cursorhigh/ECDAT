@@ -1,0 +1,235 @@
+{% extends "dashboard/base.html" %}
+{% block title %}ECDAT · Overview{% endblock %}
+{% block page_title %}Overview{% endblock %}
+
+{% block content %}
+
+<!-- Empty no-scan state: prompt to go to Discovery -->
+{% if kpi.scans == 0 %}
+<div class="bg-gradient-to-r from-ecdat-primary to-ecdat-primary-dark text-white rounded-lg p-5 mb-4 flex items-center justify-between flex-wrap gap-3">
+  <div>
+    <h3 class="text-lg font-semibold">No discovery scans started yet</h3>
+    <p class="text-sm text-white/80 mt-0.5">Your crypto inventory, findings and graph will appear here once Discovery runs. Everything else stays pending until then.</p>
+  </div>
+  <a href="{% url 'dashboard-discovery' %}"
+     class="inline-flex items-center gap-2 bg-white text-ecdat-primary-dark font-semibold text-sm px-4 py-2.5 rounded-md hover:bg-gray-100">
+    Go to Discovery
+    <span>→</span>
+  </a>
+</div>
+{% endif %}
+
+<!-- Pipeline progress: only show what we have obtained, rest is pending -->
+<div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+  <div class="flex items-center justify-between mb-3">
+    <h3 class="text-[15px] font-semibold text-gray-900">Discovery Progress</h3>
+    <span class="text-xs text-gray-500">Only data obtained so far is filled in — everything else is pending</span>
+  </div>
+  <div class="flex items-stretch gap-2 overflow-x-auto pb-1">
+    {% for s in pipeline %}
+    <div class="flex items-center gap-2 flex-1 min-w-[140px]">
+      <div class="flex-1 rounded-lg border p-3 {% if s.done %}border-green-200 bg-green-50{% else %}border-gray-200 bg-gray-50{% endif %}">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold {% if s.done %}text-green-700{% else %}text-gray-400{% endif %}">{{ s.name }}</span>
+          {% if s.done %}<span class="w-2 h-2 rounded-full bg-green-500"></span>{% else %}<span class="w-2 h-2 rounded-full bg-gray-300"></span>{% endif %}
+        </div>
+        {% if s.done %}
+        <div class="mt-1 text-2xl font-bold text-green-700">{{ s.count }}</div>
+        {% else %}
+        <div class="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-200 text-gray-600 text-xs font-semibold">
+          <span class="w-1.5 h-1.5 rounded-full bg-gray-400 animate-pulse"></span> Pending
+        </div>
+        {% endif %}
+        <div class="text-[11px] text-gray-500 mt-1">{{ s.detail }}</div>
+        {% if s.sub %}
+        <div class="mt-1.5 flex flex-wrap gap-1">
+          {% for c in s.sub %}
+          <span class="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 text-[10px] font-medium">{{ c.count }} {{ c.label }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% if not forloop.last %}
+      <div class="text-gray-300 text-lg">→</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- KPI cards: obtained only, the rest pending -->
+<div class="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+  <div class="bg-white border border-gray-200 rounded-lg p-4">
+    {% if kpi.assets %}
+    <div class="text-3xl font-bold text-gray-900">{{ kpi.assets }}</div>
+    {% else %}
+    <div class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-200 text-gray-600 text-xs font-semibold"><span class="w-1.5 h-1.5 rounded-full bg-gray-400 animate-pulse"></span> Pending</div>
+    {% endif %}
+    <div class="text-sm text-gray-500 mt-1">Crypto Assets</div>
+  </div>
+  <div class="bg-white border border-gray-200 rounded-lg p-4">
+    {% if kpi.raw_findings %}
+    <div class="text-3xl font-bold text-gray-900">{{ kpi.raw_findings }}</div>
+    {% else %}
+    <div class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-200 text-gray-600 text-xs font-semibold"><span class="w-1.5 h-1.5 rounded-full bg-gray-400 animate-pulse"></span> Pending</div>
+    {% endif %}
+    <div class="text-sm text-gray-500 mt-1">Raw Findings</div>
+  </div>
+  <div class="bg-white border border-gray-200 rounded-lg p-4">
+    {% if kpi.normalized %}
+    <div class="text-3xl font-bold text-gray-900">{{ kpi.normalized }}</div>
+    {% else %}
+    <div class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-200 text-gray-600 text-xs font-semibold"><span class="w-1.5 h-1.5 rounded-full bg-gray-400 animate-pulse"></span> Pending</div>
+    {% endif %}
+    <div class="text-sm text-gray-500 mt-1">Normalized</div>
+  </div>
+  <div class="bg-white border border-gray-200 rounded-lg p-4">
+    {% if kpi.scans %}
+    <div class="text-3xl font-bold text-gray-900">{{ kpi.scans }}</div>
+    {% else %}
+    <div class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-200 text-gray-600 text-xs font-semibold"><span class="w-1.5 h-1.5 rounded-full bg-gray-400 animate-pulse"></span> Pending</div>
+    {% endif %}
+    <div class="text-sm text-gray-500 mt-1">Scans Run</div>
+  </div>
+  <div class="bg-white border border-gray-200 rounded-lg p-4">
+    {% if kpi.relations %}
+    <div class="text-3xl font-bold text-gray-900">{{ kpi.relations }}</div>
+    {% else %}
+    <div class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-200 text-gray-600 text-xs font-semibold"><span class="w-1.5 h-1.5 rounded-full bg-gray-400 animate-pulse"></span> Pending</div>
+    {% endif %}
+    <div class="text-sm text-gray-500 mt-1">Graph Relations</div>
+  </div>
+</div>
+
+<!-- Charts: only rendered when the source data has been obtained -->
+{% if asset_by_family or asset_by_source %}
+<div class="grid gap-4 md:grid-cols-2 mt-4">
+  {% if asset_by_family %}
+  <div class="bg-white border border-gray-200 rounded-lg p-4">
+    <h3 class="text-[15px] font-semibold text-gray-900 mb-3">Assets by Algorithm Family</h3>
+    <div class="w-full h-[280px]" id="chart-family"></div>
+  </div>
+  {% endif %}
+  {% if asset_by_source %}
+  <div class="bg-white border border-gray-200 rounded-lg p-4">
+    <h3 class="text-[15px] font-semibold text-gray-900 mb-3">Assets by Source Type</h3>
+    <div class="w-full h-[280px]" id="chart-source"></div>
+  </div>
+  {% endif %}
+</div>
+{% else %}
+<div class="bg-white border border-gray-200 rounded-lg p-6 mt-4 text-center">
+  <p class="text-sm text-gray-500">Asset analytics are <span class="font-semibold text-gray-700">pending</span> until assets are discovered.</p>
+</div>
+{% endif %}
+
+<!-- Recent scans: only when present -->
+<div class="bg-white border border-gray-200 rounded-lg p-4 mt-4">
+  <h3 class="text-[15px] font-semibold text-gray-900 mb-3">Recent Scans</h3>
+  {% if scans %}
+  <table class="w-full text-sm border-collapse">
+    <thead>
+      <tr>
+        <th class="text-left px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">ID</th>
+        <th class="text-left px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">Source</th>
+        <th class="text-left px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">Target</th>
+        <th class="text-left px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">Status</th>
+        <th class="text-right px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">Findings</th>
+        <th class="text-left px-2.5 py-2 border-b-2 border-gray-200 text-gray-500 text-xs uppercase tracking-wide">Created</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in scans %}
+      <tr class="hover:bg-gray-50">
+        <td class="px-2.5 py-2 border-b border-gray-200">#{{ s.id }}</td>
+        <td class="px-2.5 py-2 border-b border-gray-200">{{ s.get_source_type_display }}</td>
+        <td class="px-2.5 py-2 border-b border-gray-200 mono">{{ s.target }}</td>
+        <td class="px-2.5 py-2 border-b border-gray-200">
+          {% if s.status == 'completed' %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Completed</span>
+          {% elif s.status == 'failed' %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">Failed</span>
+          {% elif s.status == 'running' %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Running</span>
+          {% else %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">Queued</span>{% endif %}
+        </td>
+        <td class="px-2.5 py-2 border-b border-gray-200 text-right">{{ s.findings_count }}</td>
+        <td class="px-2.5 py-2 border-b border-gray-200">{{ s.created_at|date:"Y-m-d H:i" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="py-6 text-center">
+    <p class="text-sm text-gray-500">No scans yet <span class="font-semibold text-gray-700">(pending)</span>.</p>
+  </div>
+  {% endif %}
+</div>
+
+<div class="grid gap-4 md:grid-cols-2 mt-4">
+  <div class="bg-white border border-gray-200 rounded-lg p-4">
+    <h3 class="text-[15px] font-semibold text-gray-900 mb-3">Recent Audit Activity</h3>
+    {% if audit_recent %}
+    <table class="w-full text-sm border-collapse">
+      <tbody>
+      {% for a in audit_recent %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-2.5 py-2 border-b border-gray-200 mono">{{ a.created_at|date:"m-d H:i:s" }}</td>
+          <td class="px-2.5 py-2 border-b border-gray-200 mono">{{ a.action }}</td>
+          <td class="px-2.5 py-2 border-b border-gray-200 text-gray-500 text-xs">{{ a.message|truncatechars:40 }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="py-6 text-center">
+      <p class="text-sm text-gray-500">No activity yet <span class="font-semibold text-gray-700">(pending)</span>.</p>
+    </div>
+    {% endif %}
+  </div>
+  <div class="bg-white border border-gray-200 rounded-lg p-4">
+    <h3 class="text-[15px] font-semibold text-gray-900 mb-3">Raw Findings by Source</h3>
+    {% if raw_by_source %}
+    <div class="w-full h-[280px]" id="chart-raw"></div>
+    {% else %}
+    <div class="h-[280px] flex items-center justify-center">
+      <p class="text-sm text-gray-500">Raw findings data <span class="font-semibold text-gray-700">(pending)</span>.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const familyData = [
+  {% for r in asset_by_family %}{ value: {{ r.count }}, name: "{{ r.family|upper }}" },
+  {% endfor %}
+];
+const sourceData = [
+  {% for r in asset_by_source %}{ value: {{ r.count }}, name: "{{ r.source_type|upper }}" },
+  {% endfor %}
+];
+const rawData = [
+  {% for r in raw_by_source %}{ value: {{ r.count }}, name: "{{ r.source_type|upper }}" },
+  {% endfor %}
+];
+{% if asset_by_family %}
+initChart('chart-family', {
+  tooltip: { trigger: 'item' },
+  series: [{ type: 'pie', radius: ['45%', '70%'], data: familyData, label: { formatter: '{b}: {c}' } }]
+});
+{% endif %}
+{% if asset_by_source %}
+initChart('chart-source', {
+  tooltip: {},
+  xAxis: { type: 'value' },
+  yAxis: { type: 'category', data: sourceData.map(d => d.name) },
+  series: [{ type: 'bar', data: sourceData.map(d => d.value), itemStyle: { color: '#2f6fed' } }]
+});
+{% endif %}
+{% if raw_by_source %}
+initChart('chart-raw', {
+  tooltip: { trigger: 'item' },
+  series: [{ type: 'pie', radius: ['45%', '70%'], data: rawData }]
+});
+{% endif %}
+</script>
+{% endblock %}

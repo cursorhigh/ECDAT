@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Ensure the `hidden` attribute always wins over any display utility.
+   Without this a `display: flex` class would override `hidden` and leave
+   the modal backdrop visible, blocking all clicks. */
+@layer base {
+  [hidden] { display: none !important; }
+}
+
+@layer base {
+  body {
+    @apply bg-gray-100 text-gray-900 antialiased;
+  }
+
+  code, .mono {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+}

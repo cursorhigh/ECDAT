@@ -64,8 +64,12 @@ def _build_dedup_key(raw: dict) -> str:
     return "|".join(parts)
 
 
-def normalize_finding(raw: RawFinding) -> NormalizedFinding:
-    """Create/return a NormalizedFinding for a raw finding."""
+def normalize_finding(raw: RawFinding, using=None) -> NormalizedFinding:
+    """Create/return a NormalizedFinding for a raw finding.
+
+    `using` selects the database to write to (defaults to the raw finding's
+    own database so the pipeline stays inside the correct mode boundary).
+    """
     data = raw.raw_json or {}
 
     family = _normalize_family(data.get("family", ""))
@@ -73,10 +77,12 @@ def normalize_finding(raw: RawFinding) -> NormalizedFinding:
         family = _guess_family_from_algorithm(data.get("algorithm", ""))
 
     dedup_key = _build_dedup_key(data)
+    db = using or raw._state.db or "default"
 
-    norm, created = NormalizedFinding.objects.get_or_create(
+    norm, created = NormalizedFinding.objects.using(db).get_or_create(
         raw_finding=raw,
         defaults={
+            "mode": raw.mode,
             "family": family,
             "algorithm": data.get("algorithm", ""),
             "key_size": data.get("key_size") or None,
@@ -90,5 +96,5 @@ def normalize_finding(raw: RawFinding) -> NormalizedFinding:
     )
     if created:
         raw.status = RawFinding.Status.NORMALIZED
-        raw.save(update_fields=["status"])
+        raw.save(using=db, update_fields=["status"])
     return norm

@@ -29,7 +29,10 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-yx1_&c3=7vr**k96qhk
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DJANGO_DEBUG', '1') == '1'
 
-ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
+if DEBUG:
+    ALLOWED_HOSTS = ['*']
+else:
+    ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
 
 
 # Application definition
@@ -86,10 +89,22 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+        'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.sqlite3'),
+        'NAME': os.getenv('DB_NAME', BASE_DIR / 'db.sqlite3'),
+        'USER': os.getenv('DB_USER', ''),
+        'PASSWORD': os.getenv('DB_PASSWORD', ''),
+        'HOST': os.getenv('DB_HOST', ''),
+        'PORT': os.getenv('DB_PORT', ''),
+    },
+    'demo': {
+        'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.sqlite3'),
+        'NAME': BASE_DIR / 'demo.sqlite3',
+    },
 }
+
+# Route reads/writes/migrations by the active mode for a hard demo/actual
+# data boundary (see config/db_router.py and core/modes.py).
+DATABASE_ROUTERS = ['config.db_router.ECDATRouter']
 
 
 # Password validation
@@ -126,7 +141,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
@@ -148,4 +163,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # ECDAT configuration
 ECDAT = {
     'DEMO_MODE': os.getenv('ECDAT_DEMO_MODE', '1') == '1',
+    # The active data boundary: 'demo' (synthetic) or 'actual' (real).
+    # All reads/writes route to the matching database.
+    'ACTIVE_MODE': os.getenv('ECDAT_ACTIVE_MODE', 'demo'),
 }

@@ -1,0 +1,94 @@
+{% extends "dashboard/base.html" %}
+{% block title %}ECDAT · Asset Graph{% endblock %}
+{% block page_title %}Crypto Asset Graph{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-3">
+  <p class="text-sm text-gray-500">Nodes are crypto assets in your inventory; edges are correlations between them.</p>
+  <a href="{% url 'dashboard-inventory' %}" class="px-3.5 py-2 rounded-md text-sm font-semibold border border-gray-300 text-gray-700 hover:bg-gray-100">Back to Inventory</a>
+</div>
+
+<div class="bg-white border border-gray-200 rounded-lg p-4">
+  <h3 class="text-[15px] font-semibold text-gray-900 mb-3">
+    Correlation Graph
+    <span class="ml-1 text-gray-500 font-normal text-xs">relations between crypto assets</span>
+  </h3>
+  <div class="w-full h-[560px]" id="chart-graph" data-focus="{{ focus_asset|default:'' }}"></div>
+  {% if not assets %}
+  <p class="text-sm text-gray-500 mt-3">No assets yet, so there is nothing to graph. Run a scan first.</p>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let _chart = null;
+let _idToIndex = {};
+
+async function loadGraph() {
+  const [assetsRes, relsRes] = await Promise.all([
+    fetch('/api/assets/?page_size=500'),
+    fetch('/api/relations/?page_size=1000'),
+  ]);
+  const assets = (await assetsRes.json()).results || [];
+  const rels = (await relsRes.json()).results || [];
+
+  _idToIndex = {};
+  const nodes = assets.map((a, i) => {
+    _idToIndex[a.id] = i;
+    return { id: a.id, name: a.name, category: a.family, symbolSize: 18 };
+  });
+  const links = rels.map(r => ({
+    source: _idToIndex[r.from_asset],
+    target: _idToIndex[r.to_asset],
+    value: r.relation_type,
+    relation_type: r.relation_type,
+  })).filter(l => l.source !== undefined && l.target !== undefined);
+
+  const families = [...new Set(nodes.map(n => n.category))];
+  const categories = families.map(f => ({ name: f }));
+
+  _chart = initChart('chart-graph', {
+    tooltip: {
+      formatter: (p) => p.dataType === 'edge'
+        ? `${p.data.value}: ${nodes[p.data.source]?.name} ↔ ${nodes[p.data.target]?.name}`
+        : `<b>${p.data.name}</b><br/>Family: ${p.data.category}`,
+    },
+    legend: { data: families.map(f => ({ name: f })), top: 0 },
+    series: [{
+      type: 'graph',
+      layout: 'force',
+      roam: true,
+      draggable: true,
+      categories,
+      data: nodes,
+      links,
+      force: { repulsion: 300, edgeLength: 80 },
+      label: { show: false },
+      emphasis: { focus: 'adjacency', label: { show: true, position: 'top', fontSize: 12 } },
+      lineStyle: { color: '#9aa3af', width: 1, curveness: 0.1 },
+    }],
+  });
+
+  _chart.on('click', (params) => {
+    if (params.dataType === 'node') {
+      fetchAsset(params.data.id).then(showAssetModal);
+    }
+  });
+
+  const focusId = document.getElementById('chart-graph').dataset.focus;
+  if (focusId && _idToIndex[focusId] !== undefined) {
+    focusAsset(Number(focusId));
+  }
+}
+
+function focusAsset(id) {
+  const idx = _idToIndex[id];
+  if (idx === undefined || !_chart) return;
+  _chart.dispatchAction({ type: 'focusNodeAdjacency', seriesIndex: 0, dataIndex: idx });
+  fetchAsset(id).then(showAssetModal);
+}
+
+loadGraph();
+</script>
+{% endblock %}
