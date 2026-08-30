@@ -15,20 +15,32 @@ from core.modes import active_db
 
 
 class ECDATRouter:
-    """Route all model operations to the active mode's database."""
+    """Route all model operations to the active mode's database.
 
-    def _alias(self):
+    The `crypto_scan` app is exempt: it represents real scan/report data and
+    always lives on the `default` database regardless of demo/actual mode.
+    """
+
+    # App labels that bypass the demo/actual split and always use `default`.
+    ALWAYS_DEFAULT_APPS = {"crypto_scan"}
+
+    def _alias(self, model=None):
+        if model is not None and model._meta.app_label in self.ALWAYS_DEFAULT_APPS:
+            return "default"
         return active_db()
 
     def db_for_read(self, model, **hints):
-        return self._alias()
+        return self._alias(model)
 
     def db_for_write(self, model, **hints):
-        return self._alias()
+        return self._alias(model)
 
     def allow_relation(self, obj1, obj2, **hints):
         return True
 
     def allow_migrate(self, db, app_label, model_name=None, **hints):
+        # crypto_scan always migrates to `default` only.
+        if app_label in self.ALWAYS_DEFAULT_APPS:
+            return db == "default"
         # Run migrations on both databases so either mode is self-contained.
         return db in ("default", "demo")

@@ -9,4 +9,5 @@ urlpatterns = [
     path('', include('dashboard.urls')),
     path('api/', include('discovery.urls')),
     path('reports/', include('reports.urls')),
+    path('crypto/', include('crypto_scan.urls')),
 ]
