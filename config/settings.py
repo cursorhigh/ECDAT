@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'discovery',
     'dashboard',
     'reports',
+    'crypto_scan',
 ]
 
 MIDDLEWARE = [
@@ -167,3 +168,7 @@ ECDAT = {
     # All reads/writes route to the matching database.
     'ACTIVE_MODE': os.getenv('ECDAT_ACTIVE_MODE', 'demo'),
 }
+
+# Huey task queue (SqliteHuey). Load after ECDAT so env defaults are ready.
+from crypto_scan.hueyconf import HUEY as _HUEY  # noqa: E402
+HUEY = _HUEY
