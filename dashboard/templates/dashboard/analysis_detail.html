@@ -14,9 +14,14 @@
         <span id="run-status-chip">
           {% if run.status == 'completed' %}<span class="badge badge-green">Completed</span>
           {% elif run.status == 'failed' %}<span class="badge badge-red">Failed</span>
+          {% elif run.status == 'cancelled' %}<span class="badge badge-gray">Cancelled</span>
           {% elif run.status == 'running' %}<span class="badge badge-amber">Running</span>
+          {% elif run.status == 'awaiting_context' %}<span class="badge badge-amber">Awaiting input</span>
           {% else %}<span class="badge badge-amber">Queued</span>{% endif %}
         </span>
+        {% if run.status == 'awaiting_context' or run.status == 'queued' or run.status == 'running' %}
+        <button class="btn btn-ghost" onclick="cancelRun()">Cancel</button>
+        {% endif %}
         {% if mitigation_plan %}
         <a href="/mitigation/{{ mitigation_plan.id }}/" class="btn" style="background:linear-gradient(180deg,rgba(52,211,153,0.85),rgba(16,64,43,0.9));border-color:rgba(52,211,153,0.4);color:#eafff6">Mitigation plan</a>
         {% endif %}
@@ -54,6 +59,18 @@
       <div class="h-full rounded-full bg-[var(--ec-accent)] transition-all" id="run-progress-bar" style="width: {{ run.progress }}%"></div>
     </div>
     <p class="text-xs text-[var(--ec-muted)] mt-2">This page auto-refreshes when the run completes. An agent pipeline (CBOM classify → risk classification → HNDL + MOSCA assessment) runs asynchronously via the huey worker — start it with <span class="mono">python manage.py run_huey</span> if the run stays queued.</p>
+  </section>
+  {% endif %}
+
+  {% if run.status == 'cancelled' %}
+  <section class="tile col12 accent-red">
+    <div class="flex items-start justify-between flex-wrap gap-3">
+      <div>
+        <h3 class="card-title text-[var(--ec-danger)]">Analysis cancelled</h3>
+        <p class="text-sm text-[var(--ec-muted)] mt-1">The run was stopped before completing. No mitigation plan was produced. You can start a new analysis for this scan from the Analysis tab.</p>
+      </div>
+      <a href="{% url 'dashboard-analysis' %}" class="btn btn-ghost">← Back to Analysis</a>
+    </div>
   </section>
   {% endif %}
 
@@ -298,6 +315,24 @@
 {% endblock %}
 
 {% block scripts %}
+{% if run.status == 'awaiting_context' or run.status == 'queued' or run.status == 'running' %}
+<script>
+function cancelRun() {
+  const btn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === 'Cancel');
+  if (btn) { btn.disabled = true; btn.textContent = 'Cancelling…'; }
+  fetch('/api/analysis/{{ run.id }}/cancel/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+  })
+    .then(r => r.json().then(d => ({ ok: r.ok, d })))
+    .then(({ ok }) => {
+      if (ok) { setTimeout(() => window.location.reload(), 400); }
+      else if (btn) { btn.disabled = false; btn.textContent = 'Cancel'; }
+    })
+    .catch(() => { if (btn) { btn.disabled = false; btn.textContent = 'Cancel'; } });
+}
+</script>
+{% endif %}
 {% if run.status == 'awaiting_context' %}
 <script>
 function approveDefault() {
@@ -348,11 +383,11 @@ function approveDefault() {
         label.textContent = (d.progress || 0) + '%';
       }
       if (chip && d.status) {
-        const colors = { queued: 'amber', running: 'indigo', completed: 'green', failed: 'red' };
+        const colors = { queued: 'amber', running: 'indigo', completed: 'green', failed: 'red', cancelled: 'gray' };
         chip.innerHTML = '<span class="badge badge-' + (colors[d.status] || 'gray') + '">' +
           d.status.charAt(0).toUpperCase() + d.status.slice(1) + '</span>';
       }
-      if (d.status === 'completed' || d.status === 'failed') {
+      if (d.status === 'completed' || d.status === 'failed' || d.status === 'cancelled') {
         window.location.reload();
         return;
       }

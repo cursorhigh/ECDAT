@@ -11,6 +11,7 @@ class MitigationPlan(TimeStampedModel):
         GENERATING = "generating", "Generating"
         COMPLETE = "complete", "Complete"
         FAILED = "failed", "Failed"
+        CANCELLED = "cancelled", "Cancelled"
 
     run = models.OneToOneField(
         "analysis.AnalysisRun",

@@ -21,6 +21,7 @@ class Scan(models.Model):
         PENDING = "pending", "Pending"
         RUNNING = "running", "Running"
         COMPLETE = "complete", "Complete"
+        CANCELLED = "cancelled", "Cancelled"
 
     path = models.CharField(max_length=4096)
     session_id = models.PositiveIntegerField(
@@ -53,6 +54,7 @@ class ScanChunk(models.Model):
         PENDING = "pending", "Pending"
         RUNNING = "running", "Running"
         DONE = "done", "Done"
+        CANCELLED = "cancelled", "Cancelled"
 
     scan = models.ForeignKey(Scan, on_delete=models.CASCADE, related_name="chunks")
     chunk_id = models.PositiveIntegerField(help_text="0-based chunk index within the scan.")

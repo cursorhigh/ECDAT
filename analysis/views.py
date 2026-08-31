@@ -13,7 +13,7 @@ from core.sessions import scope, thread_session_id
 from discovery.models import ScanJob
 
 from .models import AnalysisRun, AssetAssessment
-from .runner import _auto_continue, continue_pending, start_analysis
+from .runner import _auto_continue, cancel_run, continue_pending, start_analysis
 
 
 def _load_run(run_id):
@@ -228,6 +228,31 @@ def analysis_start(request):
         },
         status=201,
     )
+
+
+@csrf_exempt
+@require_POST
+def analysis_cancel(request, run_id):
+    """Cancel an analysis run (POST /api/analysis/<id>/cancel/).
+
+    Cancels awaiting-context / queued / running runs. The running executor
+    honours the cancel at its next asset-assessment checkpoint; a cancelled
+    run never auto-advances to mitigation.
+    """
+    try:
+        run, db = _load_run(run_id)
+    except AnalysisRun.DoesNotExist:
+        return JsonResponse({"detail": f"Analysis run {run_id} not found."}, status=400)
+
+    if thread_session_id() and run.session_id != thread_session_id():
+        return JsonResponse({"detail": "not found"}, status=404)
+
+    if not cancel_run(run, db):
+        return JsonResponse(
+            {"detail": f"Analysis run {run_id} is not cancellable (status: {run.status})."},
+            status=400,
+        )
+    return JsonResponse({"id": run.pk, "status": run.status})
 
 
 @csrf_exempt

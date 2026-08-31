@@ -196,6 +196,7 @@
           <th>Target</th>
           <th>Status</th>
           <th class="right">Findings</th>
+          <th class="right">Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -207,10 +208,16 @@
           <td>
             {% if s.status == 'completed' %}<span class="badge badge-green">Completed</span>
             {% elif s.status == 'failed' %}<span class="badge badge-red">Failed</span>
+            {% elif s.status == 'cancelled' %}<span class="badge badge-gray">Cancelled</span>
             {% elif s.status == 'running' %}<span class="badge badge-amber">Running</span>
             {% else %}<span class="badge badge-gray">Queued</span>{% endif %}
           </td>
           <td class="right">{{ s.findings_count }}</td>
+          <td class="right">
+            {% if s.status == 'queued' or s.status == 'running' %}
+            <button class="btn btn-ghost text-xs px-2.5 py-1" onclick="cancelScan({{ s.id }})">Cancel</button>
+            {% else %}<span class="text-xs text-[var(--ec-faint)]">—</span>{% endif %}
+          </td>
         </tr>
         {% endfor %}
       </tbody>
@@ -256,6 +263,24 @@
 
 {% block scripts %}
 <script>
+function cancelScan(id) {
+  const btn = document.querySelector('button[onclick="cancelScan(' + id + ')"]');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  fetch('/api/scans/' + id + '/cancel/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+  })
+    .then(r => r.json().then(d => ({ ok: r.ok, d })))
+    .then(({ ok, d }) => {
+      if (ok) {
+        if (btn) { btn.textContent = '✓'; }
+        setTimeout(() => window.location.reload(), 900);
+      } else {
+        if (btn) { btn.disabled = false; btn.textContent = 'Cancel'; }
+      }
+    })
+    .catch(() => { if (btn) { btn.disabled = false; btn.textContent = 'Cancel'; } });
+}
 const familyData = [
   {% for r in asset_by_family %}{ value: {{ r.count }}, name: "{{ r.family|upper }}" },
   {% endfor %}

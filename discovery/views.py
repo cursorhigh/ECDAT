@@ -123,6 +123,11 @@ def start_scan(request):
         "target": "folder path (only for specified scan)",
         "options": { "<option>": true }
     }
+
+    The job is created queued and dispatched through the configured executor
+    (daemon thread by default, huey under ECDAT_QUEUE_ASYNC=1), so the request
+    returns immediately and the scan can be cancelled via
+    POST /api/scans/<id>/cancel/.
     """
     from .services import ScanInspectionError, create_and_run_scan
 
@@ -161,6 +166,34 @@ def start_scan(request):
     data = ScanJobSerializer(job).data
     data["session"] = {"id": ws.pk, "name": ws.name}
     return JsonResponse(data, status=201)
+
+
+@csrf_exempt
+def cancel_scan(request, scan_id):
+    """Cancel a scan job (POST /api/scans/<id>/cancel/).
+
+    Only queued/running scans are cancelled; the running executor aborts at
+    its next interrupt checkpoint. Cancelled jobs do not auto-queue analysis.
+    """
+    from core.modes import active_db
+    from core.sessions import thread_session_id
+    from .services import cancel_scan_job
+
+    if request.method != "POST":
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+    db = active_db()
+    try:
+        job = ScanJob.objects.using(db).get(pk=scan_id)
+    except ScanJob.DoesNotExist:
+        return JsonResponse({"detail": f"Scan job {scan_id} not found."}, status=404)
+
+    if not cancel_scan_job(job):
+        return JsonResponse(
+            {"detail": f"Scan {scan_id} is not cancellable (status: {job.status})."},
+            status=400,
+        )
+    return JsonResponse({"id": job.pk, "status": job.status})
 
 
 @csrf_exempt

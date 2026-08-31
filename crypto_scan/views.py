@@ -121,3 +121,35 @@ def scan_status(request, scan_id: int):
             "status": current,
         }
     )
+
+
+@csrf_exempt
+def cancel_scan(request, scan_id):
+    """Cancel a crypto-discovery scan (POST /crypto/scan/<id>/cancel/).
+
+    Only pending/running scans are cancelled; their un-finished chunks are
+    marked cancelled so the sweep recovery never resurrects them and the
+    scan can never complete or forward a partial inventory.
+    """
+    if request.method != "POST":
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+    scan = Scan.objects.filter(pk=scan_id).first()
+    if scan is None:
+        return JsonResponse({"detail": "Scan not found."}, status=404)
+
+    won = (
+        Scan.objects.filter(
+            pk=scan.pk,
+            status__in=[Scan.Status.PENDING, Scan.Status.RUNNING],
+        ).update(status=Scan.Status.CANCELLED)
+    )
+    if not won:
+        return JsonResponse(
+            {"detail": f"Scan {scan_id} is not cancellable (status: {scan.status})."},
+            status=400,
+        )
+    ScanChunk.objects.filter(
+        scan_id=scan.pk,
+    ).exclude(status=ScanChunk.Status.DONE).update(status=ScanChunk.Status.CANCELLED)
+    return JsonResponse({"scan_id": scan.pk, "status": Scan.Status.CANCELLED})

@@ -12,10 +12,13 @@
     <div>
       <h3 class="card-title">
         {% if plan.status == 'failed' %}<span class="text-[var(--ec-danger)]">Plan failed</span>
+        {% elif plan.status == 'cancelled' %}<span class="text-[var(--ec-muted)]">Plan cancelled</span>
         {% else %}Generating plan…{% endif %}
       </h3>
       <p class="text-sm text-[var(--ec-muted)] mt-1">
-        {% if plan.error %}<span class="text-[var(--ec-danger)]">Error:</span> {{ plan.error }}{% else %}Blast radius → migration impact → suggestions → narration. This page refreshes itself.{% endif %}
+        {% if plan.status == 'cancelled' %}This plan was stopped before completion. Use <b>Generate mitigation plan</b> on the Mitigation tab to revive it.
+        {% elif plan.error %}<span class="text-[var(--ec-danger)]">Error:</span> {{ plan.error }}
+        {% else %}Blast radius → migration impact → suggestions → narration. This page refreshes itself.{% endif %}
       </p>
     </div>
     <div class="flex items-center gap-2">
@@ -23,6 +26,9 @@
         <div class="h-full rounded-full" style="width:{{ plan.progress }}%;background:var(--ec-accent)"></div>
       </div>
       <span class="mono text-sm text-[var(--ec-ink)]">{{ plan.progress }}%</span>
+      {% if plan.status == 'pending' or plan.status == 'generating' %}
+      <button class="btn btn-ghost" onclick="cancelPlan()">Cancel</button>
+      {% endif %}
     </div>
   </div>
 </section>
@@ -271,12 +277,26 @@
 {% block scripts %}
 {% if plan.status != 'complete' %}
 <script>
+function cancelPlan() {
+  const btn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === 'Cancel');
+  if (btn) { btn.disabled = true; btn.textContent = 'Cancelling…'; }
+  fetch('/api/mitigation/{{ plan.id }}/cancel/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+  })
+    .then(r => r.json().then(d => ({ ok: r.ok, d })))
+    .then(({ ok }) => {
+      if (ok) { setTimeout(() => window.location.reload(), 400); }
+      else if (btn) { btn.disabled = false; btn.textContent = 'Cancel'; }
+    })
+    .catch(() => { if (btn) { btn.disabled = false; btn.textContent = 'Cancel'; } });
+}
 (function () {
   const pollDetail = () => {
     fetch('/api/mitigation/{{ plan.id }}/', { cache: 'no-store' })
       .then(r => r.json())
       .then(p => {
-        if (p.status === 'complete') window.location.reload();
+        if (p.status === 'complete' || p.status === 'failed' || p.status === 'cancelled') window.location.reload();
       })
       .catch(() => {})
       .finally(() => setTimeout(pollDetail, 2500));

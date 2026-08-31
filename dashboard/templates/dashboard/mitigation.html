@@ -125,6 +125,7 @@
               {% if p.status == 'complete' %}<span class="badge badge-green">Complete</span>
               {% elif p.status == 'generating' %}<span class="badge badge-amber" data-role="pstatus" data-pid="{{ p.id }}">Generating</span>
               {% elif p.status == 'failed' %}<span class="badge badge-red">Failed</span>
+              {% elif p.status == 'cancelled' %}<span class="badge badge-gray">Cancelled</span>
               {% else %}<span class="badge badge-amber" data-role="pstatus" data-pid="{{ p.id }}">Queued</span>{% endif %}
             </td>
             <td>
@@ -145,6 +146,10 @@
               <button class="btn btn-ghost text-xs px-2.5 py-1" onclick="event.stopPropagation(); regenerate({{ p.run_id }})">Regenerate</button>
               {% elif p.status == 'failed' %}
               <button class="btn btn-ghost text-xs px-2.5 py-1" onclick="event.stopPropagation(); regenerate({{ p.run_id }})">Retry</button>
+              {% elif p.status == 'cancelled' %}
+              <button class="btn btn-ghost text-xs px-2.5 py-1" onclick="event.stopPropagation(); regenerate({{ p.run_id }})">Re-generate</button>
+              {% elif p.status == 'pending' or p.status == 'generating' %}
+              <button class="btn btn-ghost text-xs px-2.5 py-1" onclick="event.stopPropagation(); cancelPlan({{ p.id }})">Cancel</button>
               {% else %}
               <span class="text-xs text-[var(--ec-faint)]">…</span>
               {% endif %}
@@ -195,6 +200,20 @@ function regenerate(runId) {
   })
     .then(() => setTimeout(() => window.location.reload(), 1200))
     .catch(() => { if (btn) { btn.disabled = false; btn.textContent = 'Retry'; } });
+}
+function cancelPlan(id) {
+  const btn = document.querySelector('button[onclick="cancelPlan(' + id + ')"]');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  fetch('/api/mitigation/' + id + '/cancel/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+  })
+    .then(r => r.json().then(d => ({ ok: r.ok, d })))
+    .then(({ ok }) => {
+      if (ok) { if (btn) { btn.textContent = '✓'; } setTimeout(() => window.location.reload(), 900); }
+      else { if (btn) { btn.disabled = false; btn.textContent = 'Cancel'; } }
+    })
+    .catch(() => { if (btn) { btn.disabled = false; btn.textContent = 'Cancel'; } });
 }
 function pollStatus() {
   const anyGenerating = document.querySelector('[data-role="pstatus"]');

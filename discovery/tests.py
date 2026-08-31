@@ -97,7 +97,11 @@ class EndToEndScanTests(TestCase):
         self.client = Client()
 
     @mock.patch("discovery.services._auto_analyze")
-    def test_start_scan_produces_assets_via_pipeline(self, _mock_auto):
+    @mock.patch(
+        "discovery.services._dispatch_scan",
+        side_effect=lambda scan_job, db: discovery_services.run_scan(scan_job),
+    )
+    def test_start_scan_produces_assets_via_pipeline(self, _mock_auto, _mock_dispatch):
         r = self.client.post(
             "/api/start-scan/",
             data=json.dumps(
@@ -115,6 +119,23 @@ class EndToEndScanTests(TestCase):
         nfs = NormalizedFinding.objects.filter(raw_finding__scan_job_id=body["id"])
         self.assertGreaterEqual(nfs.count(), 1)
         self.assertTrue(nfs.filter(family="hash").exists())
+
+    @mock.patch("discovery.services._dispatch_scan", side_effect=lambda scan_job, db: scan_job)
+    @mock.patch("discovery.services._auto_analyze")
+    def test_start_scan_returns_queued_when_dispatched_async(self, _mock_auto, _mock_dispatch):
+        r = self.client.post(
+            "/api/start-scan/",
+            data=json.dumps(
+                {"scan_type": "specified", "source_type": "source_code",
+                 "target": self.root, "options": {}}
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 201)
+        body = r.json()
+        self.assertEqual(body["status"], "queued")
+        job = _mock_dispatch.call_args.args[0]
+        self.assertEqual(job.status, "queued")
 
 
 OPENSSH_PRIVATE_KEY = (

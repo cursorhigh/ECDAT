@@ -121,16 +121,36 @@ def scan_chunk(scan_id: int, chunk_id: int, file_paths: list[str]):
                     scan_id, chunk_id)
         return
 
+    if chunk.status == ScanChunk.Status.CANCELLED or chunk.scan.status == Scan.Status.CANCELLED:
+        logger.info("scan_chunk: chunk %s/%s cancelled; skipping", scan_id, chunk_id)
+        return
+
     ScanChunk.objects.filter(pk=chunk.pk).update(status=ScanChunk.Status.RUNNING)
 
     results = []
-    for path in file_paths:
+    for i, path in enumerate(file_paths):
+        # Honour a user cancel roughly every 16 files (cheap DB check).
+        if i % 16 == 0 and Scan.objects.filter(
+            pk=scan_id, status=Scan.Status.CANCELLED
+        ).exists():
+            ScanChunk.objects.filter(pk=chunk.pk).update(
+                status=ScanChunk.Status.CANCELLED, updated_at=timezone.now()
+            )
+            logger.info("scan_chunk: scan %s cancelled; chunk %s abandoned", scan_id, chunk_id)
+            return
         try:
             results.extend(_process_file(path))
         except Exception as exc:  # noqa: BLE001 - keep scanning remaining files
             logger.warning("scan_chunk: error scanning %s: %s", path, exc)
         if len(results) >= MAX_FINDINGS_PER_CHUNK:
             break
+
+    # A cancel that landed after the last loop check must win over DONE.
+    if Scan.objects.filter(pk=scan_id, status=Scan.Status.CANCELLED).exists():
+        ScanChunk.objects.filter(pk=chunk.pk).update(
+            status=ScanChunk.Status.CANCELLED, updated_at=timezone.now()
+        )
+        return
 
     ScanChunk.objects.filter(pk=chunk.pk).update(
         status=ScanChunk.Status.DONE,
@@ -144,6 +164,8 @@ def _scan_complete_check(scan_id: int) -> None:
     """Inner check used by both the task path and the crash-recovery sweep."""
     scan = Scan.objects.filter(pk=scan_id).first()
     if scan is None:
+        return
+    if scan.status == Scan.Status.CANCELLED:
         return
 
     total = scan.chunk_count
@@ -243,10 +265,15 @@ def aggregate_report(scan_id: int) -> list[dict]:
 
 def sweep_stale_chunks():
     """Reset ScanChunks stuck in 'running' for >STALE_MINUTES back to 'pending'
-    and re-enqueue them. Intended for the huey worker startup path."""
+    and re-enqueue them. Intended for the huey worker startup path.
+
+    Chunks of user-cancelled scans are never resurrected by the sweep.
+    """
     cutoff = timezone.now() - timedelta(minutes=STALE_MINUTES)
     stale = ScanChunk.objects.filter(
-        status=ScanChunk.Status.RUNNING, updated_at__lt=cutoff
+        status=ScanChunk.Status.RUNNING,
+        scan__status__in=[Scan.Status.RUNNING, Scan.Status.PENDING],
+        updated_at__lt=cutoff,
     )
     scan_ids = set(stale.values_list("scan_id", flat=True))
     retried = stale.count()
@@ -260,6 +287,9 @@ def sweep_stale_chunks():
 
 def _requeue_pending_chunks(scan_id: int) -> int:
     """Enqueue a huey task for every pending chunk of a scan. Returns count."""
+    scan = Scan.objects.filter(pk=scan_id).first()
+    if scan is None or scan.status == Scan.Status.CANCELLED:
+        return 0
     chunk_ids = list(
         ScanChunk.objects.filter(
             scan_id=scan_id, status=ScanChunk.Status.PENDING
@@ -271,7 +301,6 @@ def _requeue_pending_chunks(scan_id: int) -> int:
     # Load the file list. We store it only inside the Scan config for
     # re-enqueue; a lightweight approach is to persist paths on the chunk.
     # For crash recovery we reconstruct file_paths from scan.path + chunk.
-    scan = Scan.objects.filter(pk=scan_id).first()
     files_by_chunk = _load_chunk_file_paths(scan_id, chunk_ids, scan)
     for cid in chunk_ids:
         scan_chunk(scan_id, cid, files_by_chunk.get(cid, []))

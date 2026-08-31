@@ -10,6 +10,7 @@ class AnalysisRun(TimeStampedModel):
         RUNNING = "running", "Running"
         COMPLETED = "completed", "Completed"
         FAILED = "failed", "Failed"
+        CANCELLED = "cancelled", "Cancelled"
 
     scan_job = models.ForeignKey(
         "discovery.ScanJob", on_delete=models.CASCADE, related_name="analysis_runs"

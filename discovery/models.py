@@ -26,6 +26,7 @@ class ScanJob(TimeStampedModel):
         RUNNING = "running", "Running"
         COMPLETED = "completed", "Completed"
         FAILED = "failed", "Failed"
+        CANCELLED = "cancelled", "Cancelled"
 
     source_type = models.CharField(max_length=16, choices=SourceType.choices)
     mode = models.CharField(max_length=8, choices=Mode.choices, default=Mode.ACTUAL)

@@ -213,6 +213,7 @@
             {% if r.status == 'awaiting_context' %}<span class="badge badge-amber">Awaiting input</span>
             {% elif r.status == 'completed' %}<span class="badge badge-green">Completed</span>
             {% elif r.status == 'failed' %}<span class="badge badge-red">Failed</span>
+            {% elif r.status == 'cancelled' %}<span class="badge badge-gray">Cancelled</span>
             {% elif r.status == 'running' %}<span class="badge badge-amber">Running</span>
             {% else %}<span class="badge badge-amber">Queued</span>{% endif %}
           </td>
@@ -229,8 +230,11 @@
           <td class="right">
             {% if r.status == 'awaiting_context' %}
             <a href="/analysis/?awaiting={{ r.id }}" class="btn btn-ghost text-xs px-2.5 py-1" onclick="event.stopPropagation()">Decide</a>
-            {% elif r.status == 'running' %}
-            <a href="/analysis/{{ r.id }}/" class="btn btn-ghost text-xs px-2.5 py-1" onclick="event.stopPropagation()">Live</a>
+            {% elif r.status == 'running' or r.status == 'queued' %}
+            <div class="flex items-center justify-end gap-1.5">
+              <a href="/analysis/{{ r.id }}/" class="btn btn-ghost text-xs px-2.5 py-1" onclick="event.stopPropagation()">Live</a>
+              <button class="btn btn-ghost text-xs px-2.5 py-1" onclick="event.stopPropagation(); cancelRun({{ r.id }})">Cancel</button>
+            </div>
             {% else %}
             <a href="/analysis/{{ r.id }}/" class="btn btn-ghost text-xs px-2.5 py-1" onclick="event.stopPropagation()">Inspect</a>
             {% endif %}
@@ -248,6 +252,21 @@
 
 {% block scripts %}
 <script>
+function cancelRun(id) {
+  fetch('/api/analysis/' + id + '/cancel/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+  })
+    .then(r => r.json().then(d => ({ ok: r.ok, d })))
+    .then(({ ok }) => {
+      if (ok) {
+        window.location.reload();
+      } else {
+        window.location.reload();
+      }
+    })
+    .catch(() => window.location.reload());
+}
 const DEFAULT_CONTEXT = JSON.parse('{{ default_context_json|escapejs }}');
 const sc = el => document.getElementById(el);
 const val = id => sc(id).value;

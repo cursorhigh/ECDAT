@@ -10,7 +10,7 @@ from core.sessions import scope, thread_session_id
 from analysis.models import AnalysisRun
 
 from .models import MitigationPlan
-from .planner import trigger_mitigation
+from .planner import cancel_plan, trigger_mitigation
 
 
 def _load_plan(plan_id):
@@ -89,6 +89,30 @@ def plan_detail(request, plan_id):
         return JsonResponse({"detail": "not found"}, status=404)
 
     return JsonResponse(_plan_public(plan, include_document=True))
+
+
+@csrf_exempt
+@require_POST
+def plan_cancel(request, plan_id):
+    """Cancel a mitigation plan (POST /api/mitigation/<id>/cancel/).
+
+    Cancels pending/generating plans; the generating agent thread honours it
+    at its next checkpoint (or at completion) and leaves the row cancelled.
+    """
+    try:
+        plan, db = _load_plan(plan_id)
+    except MitigationPlan.DoesNotExist:
+        return JsonResponse({"detail": f"Mitigation plan {plan_id} not found."}, status=400)
+
+    if thread_session_id() and plan.session_id != thread_session_id():
+        return JsonResponse({"detail": "not found"}, status=404)
+
+    if not cancel_plan(plan, db):
+        return JsonResponse(
+            {"detail": f"Plan {plan_id} is not cancellable (status: {plan.status})."},
+            status=400,
+        )
+    return JsonResponse({"id": plan.pk, "status": plan.status})
 
 
 @csrf_exempt

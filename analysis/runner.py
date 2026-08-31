@@ -227,7 +227,8 @@ def execute_analysis(run_id, mode):
     """Run the full analysis pipeline synchronously and persist results.
 
     Never raises: any stage failure marks the run failed (with error text)
-    and returns it. Returns None when the run row cannot be found.
+    and returns it. Returns None when the run row cannot be found. A run a
+    user cancelled before execution starts is honoured (stays cancelled).
     """
     db = db_alias_for_mode(mode)
     try:
@@ -235,6 +236,9 @@ def execute_analysis(run_id, mode):
     except AnalysisRun.DoesNotExist:
         logger.warning("execute_analysis: run %s not found in db '%s'", run_id, db)
         return None
+
+    if run.status in (AnalysisRun.Status.CANCELLED, AnalysisRun.Status.COMPLETED):
+        return run
 
     try:
         return _run_pipeline(run, db, mode)
@@ -249,12 +253,78 @@ def execute_analysis(run_id, mode):
         return run
 
 
+def _run_is_cancelled(run, db) -> bool:
+    """True once the run row has been flipped to cancelled (by any request)."""
+    return (
+        AnalysisRun.objects.using(db)
+        .filter(pk=run.pk, status=AnalysisRun.Status.CANCELLED)
+        .exists()
+    )
+
+
+def _mark_cancelled(run, db) -> None:
+    """Persist the cancelled state for a run the caller has already CAS'd."""
+    run.status = AnalysisRun.Status.CANCELLED
+    run.progress = 0
+    run.error = "Cancelled by user"
+    run.finished_at = timezone.now()
+    run.await_until = None
+    run.save(using=db, update_fields=["status", "progress", "error", "finished_at", "await_until"])
+    log_action("analysis_cancelled", "Analysis run cancelled by user",
+               "analysisrun", run.pk, mode=run.mode, session_id=run.session_id)
+
+
+def cancel_run(run, db=None) -> bool:
+    """Cancel an analysis run (compare-and-swap) and return True if it won.
+
+    Cancellable states: awaiting_context, queued, running. No-op (False) for
+    completed/failed/cancelled runs. The running worker thread stops at the
+    next interrupt check; the awaiting-context auto-continue timer loses the
+    CAS and never dispatches.
+    """
+    db = db or run._state.db or "default"
+    won = (
+        AnalysisRun.objects.using(db)
+        .filter(
+            pk=run.pk,
+            status__in=[
+                AnalysisRun.Status.AWAITING_CONTEXT,
+                AnalysisRun.Status.QUEUED,
+                AnalysisRun.Status.RUNNING,
+            ],
+        )
+        .update(
+            status=AnalysisRun.Status.CANCELLED,
+            progress=0,
+            error="Cancelled by user",
+            finished_at=timezone.now(),
+            await_until=None,
+        )
+    )
+    if not won:
+        return False
+    _mark_cancelled(run, db)
+    return True
+
+
 def _run_pipeline(run, db, mode):
-    """Execute the five-stage analysis pipeline on an already-loaded run."""
+    """Execute the five-stage analysis pipeline on an already-loaded run.
+
+    The queued->running transition is a compare-and-swap so a cancelled or
+    already-owned run is never started twice; cancellation is honoured
+    between asset assessments so a mid-analysis cancel lands promptly.
+    """
+    won = (
+        AnalysisRun.objects.using(db)
+        .filter(pk=run.pk, status=AnalysisRun.Status.QUEUED)
+        .update(status=AnalysisRun.Status.RUNNING, progress=5, started_at=timezone.now())
+    )
+    if not won:
+        # Either someone else owns it, or the user cancelled it first.
+        return run
     run.status = AnalysisRun.Status.RUNNING
     run.progress = 5
     run.started_at = timezone.now()
-    run.save(using=db, update_fields=["status", "progress", "started_at"])
 
     payload = run.input_payload or {}
     if not payload:
@@ -281,6 +351,9 @@ def _run_pipeline(run, db, mode):
     hndl_applicable = 0
 
     for i, asset in enumerate(assets):
+        if _run_is_cancelled(run, db):
+            _mark_cancelled(run, db)
+            return run
         if not isinstance(asset, dict):
             continue
         h_res = hndl.analyze(cbom_asset=asset, risk_context=risk_ctx)
@@ -332,6 +405,11 @@ def _run_pipeline(run, db, mode):
 
         run.progress = 50 + int(45 * (i + 1) / total)
         run.save(using=db, update_fields=["progress"])
+
+    # Honour a cancel that landed between the last assessment and completion.
+    if _run_is_cancelled(run, db):
+        _mark_cancelled(run, db)
+        return run
 
     run.executive_summary = {
         "rows": rows,
@@ -396,3 +474,58 @@ def run_analysis_task(run_id, mode):
         execute_analysis(run_id, mode)
     except Exception as exc:  # noqa: BLE001 - worker must survive unexpected errors
         logger.exception("run_analysis_task: analysis %s (mode=%s) crashed: %s", run_id, mode, exc)
+
+
+def sweep_pending_runs() -> int:
+    """Re-queue analysis runs a previous process left unfinished.
+
+    Startup recovery (run_all.sh / run_huey boot):
+      - QUEUED runs a previous process never started are re-dispatched.
+      - RUNNING runs stuck midway (process died) have their partial
+        assessments dropped and restart clean from the top.
+      - AWAITING_CONTEXT runs whose deadline passed continue with the
+        default context (the in-process timer died with the old process).
+
+    New work is enqueued on the huey queue (persistent between processes) so
+    the worker that `run_all.sh` starts completes it. Returns the count of
+    runs re-queued.
+    """
+    from core import modes as modes_mod
+
+    recovered = 0
+    for mode in modes_mod.MODES:
+        db = modes_mod.db_alias_for_mode(mode)
+
+        for run in list(
+            AnalysisRun.objects.using(db).filter(status=AnalysisRun.Status.QUEUED)[:200]
+        ):
+            log_action("analysis_requeued", f"Re-queued stuck analysis {run.pk} to complete it",
+                       "analysisrun", run.pk, mode=mode, session_id=run.session_id)
+            run_analysis_task(run.pk, run.mode)
+            recovered += 1
+
+        for run in list(
+            AnalysisRun.objects.using(db).filter(status=AnalysisRun.Status.RUNNING)[:200]
+        ):
+            AssetAssessment.objects.using(db).filter(run=run).delete()
+            run.status = AnalysisRun.Status.QUEUED
+            run.progress = 0
+            run.error = ""
+            run.save(using=db, update_fields=["status", "progress", "error"])
+            log_action("analysis_requeued", f"Restarted stuck analysis {run.pk} to complete it",
+                       "analysisrun", run.pk, mode=mode, session_id=run.session_id)
+            run_analysis_task(run.pk, run.mode)
+            recovered += 1
+
+        overdue = list(
+            AnalysisRun.objects.using(db).filter(
+                status=AnalysisRun.Status.AWAITING_CONTEXT,
+                await_until__isnull=False,
+                await_until__lte=timezone.now(),
+            )[:50]
+        )
+        for run in overdue:
+            _auto_continue(run.pk, run.mode, db, 0)
+            recovered += 1
+
+    return recovered
