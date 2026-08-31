@@ -23,6 +23,11 @@ class Scan(models.Model):
         COMPLETE = "complete", "Complete"
 
     path = models.CharField(max_length=4096)
+    session_id = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="WorkSession pk (resolved in the active mode DB) that this scan belongs to.",
+    )
     status = models.CharField(
         max_length=16, choices=Status.choices, default=Status.PENDING
     )

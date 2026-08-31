@@ -17,8 +17,11 @@ def _asset_name(norm: NormalizedFinding, source_type: str) -> str:
     return f"{algo}{bits}{curve} — {source}"
 
 
-def classify_asset(norm: NormalizedFinding, using=None) -> CryptoAsset:
-    """Create or refresh the canonical CryptoAsset for a normalized finding."""
+def classify_asset(norm: NormalizedFinding, using=None, session_id=None) -> CryptoAsset:
+    """Create or refresh the canonical CryptoAsset for a normalized finding.
+
+    `session_id` scopes the created asset to a work session.
+    """
     location = norm.raw_finding.location
     source_type = norm.raw_finding.source_type
     db = using or norm._state.db or "default"
@@ -28,6 +31,7 @@ def classify_asset(norm: NormalizedFinding, using=None) -> CryptoAsset:
         name=name,
         defaults={
             "mode": norm.mode,
+            "session_id": session_id,
             "family": norm.family,
             "algorithm": norm.algorithm,
             "key_size": norm.key_size,
@@ -41,7 +45,8 @@ def classify_asset(norm: NormalizedFinding, using=None) -> CryptoAsset:
         },
     )
     if created:
-        log_action("system", f"Created crypto asset {name}", "cryptoasset", asset.pk, mode=norm.mode)
+        log_action("system", f"Created crypto asset {name}", "cryptoasset", asset.pk,
+                   mode=norm.mode, session_id=session_id)
     asset.normalized_findings.add(norm)
     return asset
 

@@ -1,36 +1,46 @@
 {% extends "dashboard/base.html" %}
 {% block title %}ECDAT · Audit Log{% endblock %}
 {% block page_title %}Audit Log{% endblock %}
-{% block page_description %}A chronological record of actions across the workspace.{% endblock %}
+{% block page_description %}{% if current_ws %}<span class="block">Workspace: <span class="font-semibold text-[var(--ec-ink)]">{{ current_ws.name }}</span> — audit trail is scoped to this session.</span>{% endif %}{% endblock %}
 
 {% block content %}
-<div class="card p-4">
-  <h3 class="card-title mb-3">Activity History</h3>
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Time</th>
-        <th>Action</th>
-        <th>Actor</th>
-        <th>Target</th>
-        <th>Message</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for a in audit %}
-      <tr>
-        <td class="mono muted">{{ a.created_at|date:"Y-m-d H:i:s" }}</td>
-        <td>
-          <span class="badge badge-gray">{{ a.action }}</span>
-        </td>
-        <td>{{ a.actor.username|default:"system" }}</td>
-        <td class="mono">{{ a.target_type }}#{{ a.target_id }}</td>
-        <td class="muted">{{ a.message }}</td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="5" class="muted">No audit entries yet.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="bento">
+  <section class="tile col12">
+    <div class="tile-head">
+      <div>
+        <div class="tl">Activity History</div>
+        <div class="thint" style="margin-top:2px">full-scope trail of every pipeline action</div>
+      </div>
+      <span class="card-kicker">{{ audit|length }} entries</span>
+    </div>
+    <div class="table-scroll">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Action</th>
+          <th>Actor</th>
+          <th>Target</th>
+          <th>Message</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in audit %}
+        <tr>
+          <td class="mono muted">{{ a.created_at|date:"Y-m-d H:i:s" }}</td>
+          <td>
+            <span class="badge badge-gray">{{ a.action }}</span>
+          </td>
+          <td>{{ a.actor.username|default:"system" }}</td>
+          <td class="mono">{{ a.target_type }}#{{ a.target_id }}</td>
+          <td class="muted">{{ a.message }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="muted">No audit entries yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </section>
 </div>
 {% endblock %}

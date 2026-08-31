@@ -18,204 +18,239 @@
 </div>
 {% endif %}
 
-<!-- ======= PQC readiness workflow ======= -->
-<div class="card p-4 mb-4">
-  <div class="flex items-center justify-between mb-3">
-    <h3 class="card-title">PQC Readiness Workflow</h3>
-    <span class="card-kicker">Scan → Assess → Prioritize → Migrate → CBOM</span>
-  </div>
-  <div class="flex items-stretch gap-2 overflow-x-auto pb-1">
-    {% for s in workflow %}
-    <div class="flex items-center gap-2 flex-1 min-w-[150px]">
-      <div class="flex-1 step {% if s.done %}step-done{% else %}step-pending{% endif %}">
-        <div class="flex items-center justify-between">
-          <span class="step-name">{{ s.name }}</span>
-          <span class="step-dot"></span>
-        </div>
-        {% if s.done %}
-        <div class="step-count mt-1">{{ s.count }}</div>
-        {% else %}
-        <div class="mt-2 inline-flex items-center gap-1.5 badge badge-gray">
-          <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span> Pending
-        </div>
-        {% endif %}
-        <div class="step-detail mt-1">{{ s.detail }}</div>
-        {% if s.sub %}
-        <div class="mt-1.5 flex flex-wrap gap-1">
-          {% for c in s.sub %}
-          <span class="chip">{{ c.count }} {{ c.label }}</span>
-          {% endfor %}
-        </div>
-        {% endif %}
+<!-- ======= Connected bento board ======= -->
+<div class="bento">
+
+  <!-- Workflow strip: the whole pipeline in one connected row -->
+  <section class="tile col12">
+    <div class="tile-head">
+      <div>
+        <div class="tl">PQC Readiness Pipeline</div>
+        <div class="thint" style="margin-top:2px">Scan → Assess → Prioritize → Mitigate → Report — every stage auto-advances; each cell opens its tab.</div>
       </div>
-      {% if not forloop.last %}
-      <div class="step-arrow text-lg">→</div>
-      {% endif %}
+      <span class="card-kicker" style="flex-shrink:0">
+        {% if mitigation_done %}pipeline complete
+        {% elif analysis_done %}awaiting mitigation
+        {% else %}awaiting analysis{% endif %}
+      </span>
     </div>
-    {% endfor %}
-  </div>
-</div>
+    <div class="flow">
+      {% for s in workflow %}
+      <a class="fstep {% if s.done %}done{% else %}pending{% endif %}" href="{{ s.href }}" title="{{ s.detail }}">
+        <span class="idx">{{ forloop.counter|stringformat:"02d" }}</span>
+        {% if s.done %}<span class="fdone">✓</span>{% endif %}
+        <div class="fname">{{ s.name }}</div>
+        <div class="fcount">{{ s.count }}</div>
+        <div class="fdetail">{{ s.detail }}</div>
+        {% if s.sub %}
+        <div class="fsub">{% for c in s.sub %}<span>{{ c.count }} {{ c.label }}</span>{% endfor %}</div>
+        {% endif %}
+      </a>
+      {% endfor %}
+    </div>
+  </section>
 
-<!-- ======= KPI cards ======= -->
-<div class="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
-  <div class="card-2 p-4">
-    <div class="text-3xl font-bold text-[var(--ec-ink)] tracking-tight">{{ kpi.assets }}</div>
-    <div class="text-sm text-[var(--ec-muted)] mt-2">Crypto Assets</div>
-  </div>
-  <div class="card-2 p-4">
-    {% if kpi.assets %}
-    <div class="text-3xl font-bold text-[var(--ec-danger)] tracking-tight">{{ kpi.quantum_vuln }}</div>
-    <div class="text-sm text-[var(--ec-muted)] mt-2">Quantum-Vulnerable</div>
-    <div class="text-[11px] text-[var(--ec-faint)] mt-0.5">{{ kpi.quantum_vuln_pct }}% of inventory</div>
-    {% else %}
-    <div class="badge badge-gray mt-1.5"><span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span> Pending</div>
-    <div class="text-sm text-[var(--ec-muted)] mt-2">Quantum-Vulnerable</div>
-    {% endif %}
-  </div>
-  <div class="card-2 p-4">
-    {% if kpi.weak %}
-    <div class="text-3xl font-bold text-[var(--ec-warning)] tracking-tight">{{ kpi.weak }}</div>
-    {% else %}
-    <div class="badge badge-gray mt-1.5"><span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span> Pending</div>
-    {% endif %}
-    <div class="text-sm text-[var(--ec-muted)] mt-2">Weak / Deprecated</div>
-  </div>
-  <div class="card-2 p-4">
-    {% if kpi.assets %}
-    <div class="text-3xl font-bold text-[var(--ec-success)] tracking-tight">{{ kpi.pqc_ready }}</div>
-    <div class="text-sm text-[var(--ec-muted)] mt-2">PQC-Ready</div>
-    <div class="text-[11px] text-[var(--ec-faint)] mt-0.5">{{ kpi.pqc_ready_pct }}% of inventory</div>
-    {% else %}
-    <div class="badge badge-gray mt-1.5"><span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span> Pending</div>
-    <div class="text-sm text-[var(--ec-muted)] mt-2">PQC-Ready</div>
-    {% endif %}
-  </div>
-  <div class="card-2 p-4">
-    {% if kpi.scans %}
-    <div class="text-3xl font-bold text-[var(--ec-ink)] tracking-tight">{{ kpi.scans }}</div>
-    {% else %}
-    <div class="badge badge-gray mt-1.5"><span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span> Pending</div>
-    {% endif %}
-    <div class="text-sm text-[var(--ec-muted)] mt-2">Scans Run</div>
-  </div>
-</div>
+  <!-- KPI tiles -->
+  <section class="tile col3 accent-cyan">
+    <div class="tl">Crypto assets</div>
+    <div class="tn">{{ kpi.assets }}</div>
+    <div class="thint">canonical assets consolidated from findings</div>
+  </section>
 
-<!-- ======= Charts: composition + quantum risk ======= -->
-<div class="grid gap-4 md:grid-cols-2 mt-4">
-  {% if asset_by_family %}
-  <div class="card p-4">
-    <h3 class="card-title mb-3">Assets by Algorithm Family</h3>
+  <section class="tile col3 accent-{% if kpi.quantum_vuln %}red{% else %}green{% endif %}">
+    <div class="tl">Quantum-vulnerable</div>
+    <div class="tn">{{ kpi.quantum_vuln }}{% if kpi.assets %}<small>  {{ kpi.quantum_vuln_pct }}%</small>{% endif %}</div>
+    <div class="thint">Shor-broken asymmetry + weak hashes</div>
+  </section>
+
+  <section class="tile col3 accent-amber">
+    <div class="tl">Weak / deprecated</div>
+    <div class="tn">{{ kpi.weak }}</div>
+    <div class="thint">MD5 · SHA-1 — already broken</div>
+  </section>
+
+  <section class="tile col3 accent-green">
+    <div class="tl">PQC-ready</div>
+    <div class="tn">{{ kpi.pqc_ready }}{% if kpi.assets %}<small>  {{ kpi.pqc_ready_pct }}%</small>{% endif %}</div>
+    <div class="thint">already post-quantum hardened</div>
+  </section>
+
+  <section class="tile col3 accent-cyan">
+    <div class="tl">Scans run</div>
+    <div class="tn">{{ kpi.scans }}</div>
+    <div class="thint">discovery passes against targets</div>
+  </section>
+
+  <section class="tile col3 accent-green">
+    <div class="tl">Analysed</div>
+    <div class="tn">{{ kpi.analysed }}</div>
+    <div class="thint">completed HNDL / MOSCA runs</div>
+  </section>
+
+  <section class="tile col3 accent-{% if mitigation_done %}green{% else %}amber{% endif %}">
+    <div class="tl">Mitigation plans</div>
+    <div class="tn">{{ plan_count|default:0 }}</div>
+    <div class="thint">{{ mitigation_assets|default:0 }} asset(s) sequenced into waves</div>
+  </section>
+
+  <section class="tile col3 accent-green">
+    <div class="tl">Full report</div>
+    <div class="tn">{% if mitigation_done %}✓{% else %}—{% endif %}</div>
+    <div class="thint">enterprise PDF · analysis + mitigation</div>
+  </section>
+
+  <!-- Charts -->
+  <section class="tile col8">
+    <div class="tile-head">
+      <div>
+        <div class="tl">Assets by algorithm family</div>
+        <div class="thint" style="margin-top:2px">composition of the canonical inventory</div>
+      </div>
+    </div>
+    {% if asset_by_family %}
     <div class="w-full h-[280px]" id="chart-family"></div>
-  </div>
-  {% else %}
-  <div class="card p-4">
-    <h3 class="card-title mb-3">Assets by Algorithm Family</h3>
+    {% else %}
     <div class="h-[280px] flex items-center justify-center">
       <p class="text-sm text-[var(--ec-muted)]">Asset composition <span class="font-semibold text-[var(--ec-ink-2)]">(pending)</span>.</p>
     </div>
-  </div>
-  {% endif %}
+    {% endif %}
+  </section>
 
-  {% if kpi.assets %}
-  <div class="card p-4">
-    <h3 class="card-title mb-3">Quantum Risk Split</h3>
+  <section class="tile col4 accent-{% if kpi.quantum_vuln %}red{% else %}green{% endif %}">
+    <div class="tile-head">
+      <div>
+        <div class="tl">Quantum risk split</div>
+        <div class="thint" style="margin-top:2px">vulnerable · weak · moderate · PQC-ready</div>
+      </div>
+    </div>
+    {% if kpi.assets %}
     <div class="w-full h-[280px]" id="chart-risk"></div>
-  </div>
-  {% else %}
-  <div class="card p-4">
-    <h3 class="card-title mb-3">Quantum Risk Split</h3>
+    {% else %}
     <div class="h-[280px] flex items-center justify-center">
       <p class="text-sm text-[var(--ec-muted)]">Risk assessment <span class="font-semibold text-[var(--ec-ink-2)]">(pending)</span>.</p>
     </div>
-  </div>
-  {% endif %}
-</div>
+    {% endif %}
+  </section>
 
-<!-- ======= Quantum-vulnerable priorities ======= -->
-<div class="card p-4 mt-4">
-  <div class="flex items-center justify-between mb-3">
-    <h3 class="card-title">Quantum-Vulnerable Priorities</h3>
-    <span class="card-kicker">Ranked by urgency · suggested PQC replacement</span>
-  </div>
-  {% if vuln_priorities %}
-  <div class="table-scroll">
+  <!-- Priorities -->
+  <section class="tile col12">
+    <div class="tile-head">
+      <div>
+        <div class="tl">Quantum-vulnerable priorities</div>
+        <div class="thint" style="margin-top:2px">ranked by urgency · suggested PQC replacement</div>
+      </div>
+    </div>
+    {% if vuln_priorities %}
+    <div class="table-scroll">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Asset</th>
+            <th>Family</th>
+            <th class="right">Key</th>
+            <th>Protocol</th>
+            <th class="right">Priority</th>
+            <th>Risk</th>
+            <th>Suggested PQC replacement</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in vuln_priorities %}
+          <tr class="row-click" onclick="fetchAsset({{ r.asset.id }}).then(showAssetModal)">
+            <td>{{ r.asset.name }}</td>
+            <td><span class="badge badge-gray">{{ r.asset.get_family_display }}</span></td>
+            <td class="muted right">{{ r.asset.key_size|default:"—" }}</td>
+            <td class="muted">{{ r.asset.protocol|default:"—" }}</td>
+            <td class="right"><span class="badge badge-amber">P{{ r.score }}</span></td>
+            <td>
+              {% if r.risk_badge == 'red' %}<span class="badge badge-red">{{ r.risk_label }}</span>
+              {% else %}<span class="badge badge-amber">{{ r.risk_label }}</span>{% endif %}
+            </td>
+            <td class="mono text-xs text-[var(--ec-muted)]">{{ r.replacement }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="py-6 text-center">
+      <p class="text-sm text-[var(--ec-muted)]">No quantum-vulnerable assets found <span class="font-semibold text-[var(--ec-ink-2)]">(or nothing scanned yet)</span>.</p>
+    </div>
+    {% endif %}
+  </section>
+
+  <!-- Recent scans + pipeline status -->
+  <section class="tile col7">
+    <div class="tile-head">
+      <div>
+        <div class="tl">Recent scans</div>
+        <div class="thint" style="margin-top:2px">latest discovery passes</div>
+      </div>
+    </div>
+    {% if scans %}
     <table class="table">
       <thead>
         <tr>
-          <th>Asset</th>
-          <th>Family</th>
-          <th class="right">Key</th>
-          <th>Protocol</th>
-          <th class="right">Priority</th>
-          <th>Risk</th>
-          <th>Suggested PQC replacement</th>
+          <th>ID</th>
+          <th>Source</th>
+          <th>Target</th>
+          <th>Status</th>
+          <th class="right">Findings</th>
         </tr>
       </thead>
       <tbody>
-        {% for r in vuln_priorities %}
-        <tr class="row-click" onclick="fetchAsset({{ r.asset.id }}).then(showAssetModal)">
-          <td>{{ r.asset.name }}</td>
-          <td><span class="badge badge-gray">{{ r.asset.get_family_display }}</span></td>
-          <td class="muted right">{{ r.asset.key_size|default:"—" }}</td>
-          <td class="muted">{{ r.asset.protocol|default:"—" }}</td>
-          <td class="right">
-            <span class="badge badge-amber">P{{ r.score }}</span>
-          </td>
+        {% for s in scans %}
+        <tr>
+          <td class="muted">#{{ s.id }}</td>
+          <td>{{ s.get_source_type_display }}</td>
+          <td class="mono">{{ s.target }}</td>
           <td>
-            {% if r.risk_badge == 'red' %}<span class="badge badge-red">{{ r.risk_label }}</span>
-            {% else %}<span class="badge badge-amber">{{ r.risk_label }}</span>{% endif %}
+            {% if s.status == 'completed' %}<span class="badge badge-green">Completed</span>
+            {% elif s.status == 'failed' %}<span class="badge badge-red">Failed</span>
+            {% elif s.status == 'running' %}<span class="badge badge-amber">Running</span>
+            {% else %}<span class="badge badge-gray">Queued</span>{% endif %}
           </td>
-          <td class="mono text-xs text-[var(--ec-muted)]">{{ r.replacement }}</td>
+          <td class="right">{{ s.findings_count }}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
-  </div>
-  {% else %}
-  <div class="py-6 text-center">
-    <p class="text-sm text-[var(--ec-muted)]">No quantum-vulnerable assets found <span class="font-semibold text-[var(--ec-ink-2)]">(or nothing scanned yet)</span>.</p>
-  </div>
-  {% endif %}
-</div>
+    {% else %}
+    <div class="py-6 text-center">
+      <p class="text-sm text-[var(--ec-muted)]">No scans yet <span class="font-semibold text-[var(--ec-ink-2)]">(pending)</span>.</p>
+    </div>
+    {% endif %}
+  </section>
 
-<!-- ======= Recent scans ======= -->
-<div class="card p-4 mt-4">
-  <h3 class="card-title mb-3">Recent Scans</h3>
-  {% if scans %}
-  <table class="table">
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Source</th>
-        <th>Target</th>
-        <th>Status</th>
-        <th class="right">Findings</th>
-        <th>Created</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for s in scans %}
-      <tr>
-        <td class="muted">#{{ s.id }}</td>
-        <td>{{ s.get_source_type_display }}</td>
-        <td class="mono">{{ s.target }}</td>
-        <td>
-          {% if s.status == 'completed' %}<span class="badge badge-green">Completed</span>
-          {% elif s.status == 'failed' %}<span class="badge badge-red">Failed</span>
-          {% elif s.status == 'running' %}<span class="badge badge-amber">Running</span>
-          {% else %}<span class="badge badge-gray">Queued</span>{% endif %}
-        </td>
-        <td class="right">{{ s.findings_count }}</td>
-        <td class="muted">{{ s.created_at|date:"Y-m-d H:i" }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <div class="py-6 text-center">
-    <p class="text-sm text-[var(--ec-muted)]">No scans yet <span class="font-semibold text-[var(--ec-ink-2)]">(pending)</span>.</p>
-  </div>
-  {% endif %}
+  <section class="tile col5 accent-{% if mitigation_done %}green{% else %}cyan{% endif %}">
+    <div class="tile-head">
+      <div>
+        <div class="tl">Pipeline status</div>
+        <div class="thint" style="margin-top:2px">automatic hand-off after every analysis</div>
+      </div>
+    </div>
+    <div class="pleg">
+      <div class="proll {% if analysis_done %}ready{% endif %}">
+        <span class="pdot"></span>
+        <span class="pname">Analysis</span>
+        <span class="pmeta">{% if analysis_done %}{{ kpi.analysed }} run(s) · {{ analysis_assets }} asset(s) assessed{% else %}queued after each scan{% endif %}</span>
+      </div>
+      <div class="proll {% if mitigation_done %}ready{% endif %}">
+        <span class="pdot"></span>
+        <span class="pname">Mitigation</span>
+        <span class="pmeta">{% if mitigation_done %}{{ mitigation_assets }} asset(s) in waves{% else %}auto-runs on analysis completion{% endif %}</span>
+      </div>
+      <div class="proll {% if mitigation_done %}ready{% endif %}">
+        <span class="pdot"></span>
+        <span class="pname">Report</span>
+        <span class="pmeta">{% if mitigation_done %}full PDF ready{% else %}enabled once mitigation lands{% endif %}</span>
+      </div>
+    </div>
+    <div class="flex flex-wrap gap-2 mt-4">
+      <a href="{% url 'dashboard-mitigation' %}" class="btn btn-ghost text-xs">Mitigation</a>
+      <a href="{% url 'dashboard-reports' %}" class="btn btn-primary text-xs">Open Reports</a>
+    </div>
+  </section>
 </div>
 {% endblock %}
 

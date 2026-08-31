@@ -4,105 +4,139 @@
 {% block page_description %}Launch scans and watch where discovered data lands in the pipeline.{% endblock %}
 
 {% block content %}
-<!-- ======= Scan launcher ======= -->
-<div class="card p-5 mb-4">
-  <div class="flex items-center justify-between mb-4">
-    <h3 class="card-title">Start a Discovery Scan</h3>
-    <span class="card-kicker">Choose the scope of the scan to run</span>
-  </div>
-
-  <!-- Scan type selector -->
-  <div class="grid gap-3 md:grid-cols-3 mb-4">
-    <button type="button" data-scan-type="quick"
-            class="scan-type-card scan-type-card-active">
-      <div class="flex items-center gap-2">
-        <span class="scan-type-num">1</span>
-        <span class="font-semibold text-[var(--ec-ink)]">Quick Scan</span>
+<div class="bento">
+  <!-- ======= Discovery pipeline strip ======= -->
+  <section class="tile col12">
+    <div class="tile-head">
+      <div>
+        <div class="tl">Discovery Pipeline</div>
+        <div class="thint" style="margin-top:2px">where discovered data lives after every scan</div>
       </div>
-      <p class="text-xs text-[var(--ec-muted)] mt-2">Fast scan of proven crypto locations on this OS (~/.ssh, system PKI/key stores, keystores, cloud credentials) plus the current workspace.</p>
-    </button>
-
-    <button type="button" data-scan-type="whole"
-            class="scan-type-card">
-      <div class="flex items-center gap-2">
-        <span class="scan-type-num">2</span>
-        <span class="font-semibold text-[var(--ec-ink)]">Whole System</span>
-      </div>
-      <p class="text-xs text-[var(--ec-muted)] mt-2">Full sweep of every drive/root to build a complete inventory. Temp dirs and OS caches are pruned automatically.</p>
-    </button>
-
-    <button type="button" data-scan-type="specified"
-            class="scan-type-card">
-      <div class="flex items-center gap-2">
-        <span class="scan-type-num">3</span>
-        <span class="font-semibold text-[var(--ec-ink)]">Specified Path</span>
-      </div>
-      <p class="text-xs text-[var(--ec-muted)] mt-2">Scan exactly the folder you choose on this machine. Everything inside it is walked.</p>
-    </button>
-  </div>
-
-  <!-- What this scope will cover (platform-aware) -->
-  <div id="scan-preview" class="hidden mb-4">
-    <div class="text-[11px] uppercase tracking-wider text-[var(--ec-faint)] mb-2">This scan will look in</div>
-    <div id="preview-roots" class="flex flex-wrap gap-1.5"></div>
-  </div>
-
-  <!-- Folder path (only for specified scan) -->
-  <div id="folder-picker" class="hidden mb-4">
-    <label class="input-label">Target root folder</label>
-    <div class="flex items-center gap-2">
-      <div class="flex-1">
-        <input id="scan-target" type="text"
-               placeholder="e.g. C:\projects\app  or  /home/user/code"
-               class="input">
-      </div>
-      <button type="button" id="pick-folder" class="btn btn-ghost shrink-0">
-        Pick Folder…
-      </button>
+      <span class="card-kicker">{{ pipeline|length }} stages · live counts</span>
     </div>
-    <p class="text-[11px] text-[var(--ec-faint)] mt-1.5">Type/paste a path, or pick a folder from this machine. Nothing is uploaded.</p>
-  </div>
-
-  <div class="flex items-center gap-3">
-    <button
-      class="btn btn-primary"
-      onclick="startScan()">
-      Start Scan
-    </button>
-    <div id="scan-result"></div>
-  </div>
-</div>
-
-<!-- ======= Pipeline abstraction ======= -->
-<div class="card p-4 mb-4">
-  <div class="flex items-center justify-between mb-3">
-    <h3 class="card-title">Discovery Pipeline</h3>
-    <span class="card-kicker">Where your discovered data lives in the pipeline</span>
-  </div>
-  <div class="flex items-stretch gap-2 overflow-x-auto pb-1">
-    {% for s in pipeline %}
-    <div class="flex items-center gap-2 flex-1 min-w-[140px]">
-      <div class="flex-1 step {% if s.done %}step-done{% else %}step-pending{% endif %}">
-        <div class="flex items-center justify-between">
-          <span class="step-name">{{ s.name }}</span>
-          <span class="step-dot"></span>
-        </div>
-        <div class="step-count mt-1">{{ s.count }}</div>
-        <div class="step-detail mt-0.5">{{ s.detail }}</div>
+    <div class="flow">
+      {% for s in pipeline %}
+      <div class="fstep {% if s.done %}done{% else %}pending{% endif %}">
+        <span class="idx">{{ forloop.counter|stringformat:"02d" }}</span>
+        {% if s.done %}<span class="fdone">✓</span>{% endif %}
+        <div class="fname">{{ s.name }}</div>
+        <div class="fcount">{{ s.count }}</div>
+        <div class="fdetail">{{ s.detail }}</div>
         {% if s.sub %}
-        <div class="mt-1.5 flex flex-wrap gap-1">
-          {% for c in s.sub %}
-          <span class="chip">{{ c.count }} {{ c.label }}</span>
-          {% endfor %}
-        </div>
+        <div class="fsub">{% for c in s.sub %}<span>{{ c.count }} {{ c.label }}</span>{% endfor %}</div>
         {% endif %}
       </div>
-      {% if not forloop.last %}
-      <div class="step-arrow text-lg">→</div>
-      {% endif %}
+      {% endfor %}
     </div>
-    {% endfor %}
-  </div>
+  </section>
+
+  <!-- ======= Scan launcher ======= -->
+  <section class="tile col8 accent-cyan">
+    <div class="tile-head">
+      <div>
+        <div class="tl">Start a Discovery Scan</div>
+        <div class="thint" style="margin-top:2px">choose the scope of the scan to run</div>
+      </div>
+    </div>
+
+    <!-- Scan type selector -->
+    <div class="grid gap-3 md:grid-cols-3 mb-4">
+      <button type="button" data-scan-type="quick"
+              class="scan-type-card scan-type-card-active">
+        <div class="flex items-center gap-2">
+          <span class="scan-type-num">1</span>
+          <span class="font-semibold text-[var(--ec-ink)]">Quick Scan</span>
+        </div>
+        <p class="text-xs text-[var(--ec-muted)] mt-2">Fast scan of proven crypto locations on this OS (~/.ssh, system PKI/key stores, keystores, cloud credentials) plus the current workspace.</p>
+      </button>
+
+      <button type="button" data-scan-type="whole"
+              class="scan-type-card">
+        <div class="flex items-center gap-2">
+          <span class="scan-type-num">2</span>
+          <span class="font-semibold text-[var(--ec-ink)]">Whole System</span>
+        </div>
+        <p class="text-xs text-[var(--ec-muted)] mt-2">Full sweep of every drive/root to build a complete inventory. Temp dirs and OS caches are pruned automatically.</p>
+      </button>
+
+      <button type="button" data-scan-type="specified"
+              class="scan-type-card">
+        <div class="flex items-center gap-2">
+          <span class="scan-type-num">3</span>
+          <span class="font-semibold text-[var(--ec-ink)]">Specified Path</span>
+        </div>
+        <p class="text-xs text-[var(--ec-muted)] mt-2">Scan exactly the folder you choose on this machine. Everything inside it is walked.</p>
+      </button>
+    </div>
+
+    <!-- What this scope will cover (platform-aware) -->
+    <div id="scan-preview" class="hidden mb-4">
+      <div class="text-[11px] uppercase tracking-wider text-[var(--ec-faint)] mb-2">This scan will look in</div>
+      <div id="preview-roots" class="flex flex-wrap gap-1.5"></div>
+    </div>
+
+    <!-- Folder path (only for specified scan) -->
+    <div id="folder-picker" class="hidden mb-4">
+      <label class="input-label">Target root folder</label>
+      <div class="flex items-center gap-2">
+        <div class="flex-1">
+          <input id="scan-target" type="text"
+                 placeholder="e.g. C:\projects\app  or  /home/user/code"
+                 class="input">
+        </div>
+        <button type="button" id="pick-folder" class="btn btn-ghost shrink-0">
+          Pick Folder…
+        </button>
+      </div>
+      <p class="text-[11px] text-[var(--ec-faint)] mt-1.5">Type/paste a path, or pick a folder from this machine. Nothing is uploaded.</p>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <button
+        class="btn btn-primary"
+        onclick="startScan()">
+        Start Scan
+      </button>
+      <div id="scan-result"></div>
+    </div>
+  </section>
+
+  <!-- ======= How discovery works ======= -->
+  <section class="tile col4">
+    <div class="tile-head">
+      <div>
+        <div class="tl">After the scan</div>
+        <div class="thint" style="margin-top:2px">quick → normalized → inventory</div>
+      </div>
+    </div>
+    <ul class="space-y-2.5 text-sm">
+      <li class="flex items-start gap-2.5">
+        <span class="step-dot mt-1.5" style="background:var(--ec-accent)"></span>
+        <div>
+          <div class="font-semibold text-[var(--ec-ink)]">Raw intake</div>
+          <div class="text-xs text-[var(--ec-muted)]">Every crypto hit is recorded per source with its location.</div>
+        </div>
+      </li>
+      <li class="flex items-start gap-2.5">
+        <span class="step-dot mt-1.5" style="background:var(--ec-accent)"></span>
+        <div>
+          <div class="font-semibold text-[var(--ec-ink)]">Normalization</div>
+          <div class="text-xs text-[var(--ec-muted)]">Findings are classified by family, algorithm, key size, curve and confidence.</div>
+        </div>
+      </li>
+      <li class="flex items-start gap-2.5">
+        <span class="step-dot mt-1.5" style="background:var(--ec-success)"></span>
+        <div>
+          <div class="font-semibold text-[var(--ec-ink)]">Canonical assets</div>
+          <div class="text-xs text-[var(--ec-muted)]">Consolidated into inventory assets the analysis pipeline assesses.</div>
+        </div>
+      </li>
+    </ul>
+    <div class="rounded-lg p-3 text-xs leading-relaxed mt-3" style="background:rgba(56,189,248,0.08)">
+      <span class="font-semibold text-[var(--ec-accent)]">Auto-advance.</span>
+      <span class="text-[var(--ec-muted)]"> A finished scan immediately queues an analysis run — the pipeline flows forward on its own.</span>
+    </div>
+  </section>
 </div>
 
 <!-- ======= Folder path browser modal ======= -->

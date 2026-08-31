@@ -30,6 +30,28 @@ class TimeStampedModel(models.Model):
         abstract = True
 
 
+class WorkSession(models.Model):
+    """A named workspace that isolates all ECDAT data layers.
+
+    Every data model (discovery, inventory, graph, analysis, audit) carries a
+    nullable `session` FK. Rows written outside any session (or before this
+    feature existed) keep `session=NULL` = "global"; they are only shown in the
+    dashboard's "All data" switcher mode. Switching to a session filters every
+    layer to that session's rows only.
+    """
+
+    name = models.CharField(max_length=128, unique=True)
+    description = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Work session"
+
+    def __str__(self) -> str:
+        return self.name
+
+
 class AuditLog(models.Model):
     """Append-only audit trail of key user / system actions."""
 
@@ -45,6 +67,14 @@ class AuditLog(models.Model):
 
     action = models.CharField(max_length=32, choices=Action.choices)
     mode = models.CharField(max_length=8, choices=Mode.choices, default=Mode.ACTUAL)
+    session = models.ForeignKey(
+        WorkSession,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="audit_logs",
+        help_text="Work session this audit entry belongs to (null = global).",
+    )
     actor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -66,11 +96,14 @@ class AuditLog(models.Model):
         return f"{self.created_at:%Y-%m-%d %H:%M} {self.action} {self.target_type} {self.target_id}"
 
 
-def log_action(action: str, message: str = "", target_type: str = "", target_id: str = "", actor=None, mode=None):
+def log_action(action: str, message: str = "", target_type: str = "", target_id: str = "", actor=None, mode=None, session_id=None):
     """Convenience helper to write an audit entry synchronously.
 
     The row is written to the database that belongs to `mode`, so the row's
-    mode field always agrees with the DB it lands in.
+    mode field always agrees with the DB it lands in. `session_id` scopes the
+    entry to a work session; when omitted it falls back to the thread-local
+    session captured by WorkSessionMiddleware (i.e. whatever workspace the
+    request was viewing).
     """
     if mode is None:
         from .modes import active_mode
@@ -79,9 +112,14 @@ def log_action(action: str, message: str = "", target_type: str = "", target_id:
     from .modes import db_alias_for_mode
 
     db = db_alias_for_mode(mode)
+    if session_id is None:
+        from .sessions import thread_session_id
+
+        session_id = thread_session_id() or None
     AuditLog.objects.using(db).create(
         action=action,
         mode=mode,
+        session_id=session_id or None,
         actor=actor,
         target_type=target_type,
         target_id=str(target_id) if target_id is not None else "",

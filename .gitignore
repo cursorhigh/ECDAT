@@ -9,6 +9,7 @@ dist/
 build/
 .eggs/
 
+session-ses_fabe.md
 # Virtual environments
 venv/
 env/

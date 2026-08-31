@@ -33,6 +33,7 @@ class BaseScanner(ABC):
                 source_type=self.source_type,
                 location=item.get("location", ""),
                 raw_json=item,
+                session_id=self.scan_job.session_id,
             )
             count += 1
         self.scan_job.findings_count = count

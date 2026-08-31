@@ -9,7 +9,7 @@ from django.utils import timezone
 from core.models import log_action
 from .classifier import classify_asset
 from .correlation import build_correlations
-from .models import RawFinding, ScanJob
+from .models import CryptoAsset, RawFinding, ScanJob
 from .normalizer import normalize_finding
 from .scanners import get_scanner
 
@@ -51,13 +51,16 @@ def run_scan(scan_job: ScanJob) -> ScanJob:
         # Normalize + classify each raw finding (all inside the same DB).
         qs = RawFinding.objects.using(db).filter(scan_job=scan_job).select_related("normalized")
         for raw in qs.iterator():
-                norm = normalize_finding(raw, using=db)
-                classify_asset(norm, using=db)
+                norm = normalize_finding(raw, using=db, session_id=scan_job.session_id)
+                classify_asset(norm, using=db, session_id=scan_job.session_id)
 
         scan_job.progress = 90
         scan_job.save(using=db, update_fields=["progress"])
 
-        build_correlations(using=db)
+        build_correlations(
+            using=db,
+            assets=CryptoAsset.objects.using(db).filter(session_id=scan_job.session_id),
+        )
 
         scan_job.status = ScanJob.Status.COMPLETED
         scan_job.progress = 100
@@ -79,7 +82,7 @@ def run_scan(scan_job: ScanJob) -> ScanJob:
             mode=scan_job.mode,
         )
 
-        _post_ingest(scan_job, db, scan_job.source_type)
+        _post_ingest(scan_job, db, scan_job.source_type, session_id=scan_job.session_id)
     except Exception as exc:  # noqa: BLE001
         scan_job.status = ScanJob.Status.FAILED
         scan_job.progress = 0
@@ -115,7 +118,8 @@ class ScanInspectionError(ValueError):
 
 
 def create_and_run_scan(source_type: str, target: str = "", config: dict | None = None,
-                        mode: str | None = None, scan_type: str = "specified") -> ScanJob:
+                        mode: str | None = None, scan_type: str = "specified",
+                        session_id: int | None = None) -> ScanJob:
     """Create and run a scan with user-supplied parameters.
 
     `scan_type` selects the scope of the run:
@@ -124,7 +128,8 @@ def create_and_run_scan(source_type: str, target: str = "", config: dict | None 
       - "specified" -> scan the folder given in `target`
 
     The ScanJob is created inside `mode`'s database (defaults to the active
-    mode) so the demo/actual data boundary is preserved.
+    mode) so the demo/actual data boundary is preserved. `session_id`
+    scopes the whole scan (job, findings, assets) to a work session.
     """
     from core import modes as modes_mod
     from core.models import Mode
@@ -157,20 +162,23 @@ def create_and_run_scan(source_type: str, target: str = "", config: dict | None 
         mode=chosen_mode,
         config=scan_config,
         status=ScanJob.Status.QUEUED,
+        session_id=session_id,
     )
     log_action("scan_created", f"Queued {source_type} scan on {target}", "scanjob", job.pk, mode=chosen_mode)
     return run_scan(job)
 
 
 def ingest_external_findings(source_type: str, findings: list[dict], target: str = "",
-                             mode: str | None = None) -> ScanJob:
+                             mode: str | None = None,
+                             session_id: int | None = None) -> ScanJob:
     """Create a ScanJob and ingest raw findings supplied directly as JSON data.
 
     This is the "accept calls with data to scan" entry point: a scanner can
     push already-extracted artefact findings (rather than have ECDAT walk a
     local folder). Each `findings` element is a raw finding dict (see
     scanners/base.py / demo.py for the schema). The normalizer/classifier/
-    correlator run exactly as they would for a folder scan.
+    correlator run exactly as they would for a folder scan. `session_id`
+    scopes the ingest (job + findings + assets) to a work session.
     """
     from core import modes as modes_mod
 
@@ -190,6 +198,7 @@ def ingest_external_findings(source_type: str, findings: list[dict], target: str
         mode=chosen_mode,
         config={"external": True},
         status=ScanJob.Status.QUEUED,
+        session_id=session_id,
     )
     log_action("scan_created", f"Ingesting {len(findings)} external findings ({source_type})",
                "scanjob", job.pk, mode=chosen_mode)
@@ -208,24 +217,29 @@ def ingest_external_findings(source_type: str, findings: list[dict], target: str
             source_type=source_type,
             location=(item or {}).get("location", ""),
             raw_json=item or {},
+            session_id=session_id,
         )
         count += 1
     job.findings_count = count
     job.save(using=db, update_fields=["findings_count"])
 
     # Reuse the shared post-ingest processing (normalize -> classify -> correlate).
-    _post_ingest(scan_job=job, db=db, source_type=source_type)
+    _post_ingest(scan_job=job, db=db, source_type=source_type, session_id=session_id)
     return job
 
 
-def _post_ingest(scan_job: ScanJob, db: str, source_type: str) -> None:
+def _post_ingest(scan_job: ScanJob, db: str, source_type: str,
+                 session_id: int | None = None) -> None:
     """Normalize + classify every raw finding, then build correlations."""
     qs = RawFinding.objects.using(db).filter(scan_job=scan_job).select_related("normalized")
     for raw in qs.iterator():
-            norm = normalize_finding(raw, using=db)
-            classify_asset(norm, using=db)
+            norm = normalize_finding(raw, using=db, session_id=session_id)
+            classify_asset(norm, using=db, session_id=session_id)
 
-    build_correlations(using=db)
+    build_correlations(
+        using=db,
+        assets=CryptoAsset.objects.using(db).filter(session_id=session_id),
+    )
 
     scan_job.status = ScanJob.Status.COMPLETED
     scan_job.progress = 100
@@ -234,3 +248,47 @@ def _post_ingest(scan_job: ScanJob, db: str, source_type: str) -> None:
     log_action("scan_completed",
                f"Scan {source_type} complete: {scan_job.findings_count} raw findings",
                "scanjob", scan_job.pk, mode=scan_job.mode)
+
+    _auto_analyze(scan_job)
+
+
+def _auto_analyze(scan_job) -> None:
+    """Once processing is done, stage analysis for a context choice (opt-out via env).
+
+    The run is created awaiting the user's context choice (default context
+    auto-continues after the configurable timeout) — opt out by setting
+    ECDAT_AUTO_ANALYSE=0.
+    """
+    import os
+
+    if os.environ.get("ECDAT_AUTO_ANALYSE", "1") == "0":
+        return
+
+    from core.models import Mode
+
+    if scan_job.mode == Mode.DEMO:
+        return
+
+    from discovery.models import NormalizedFinding
+
+    db = scan_job._state.db or "default"
+    if scan_job.findings_count <= 0 and not (
+        NormalizedFinding.objects.using(db).filter(raw_finding__scan_job=scan_job).exists()
+    ):
+        return
+
+    from analysis.models import AnalysisRun
+
+    if AnalysisRun.objects.using(db).filter(
+        scan_job=scan_job,
+        status__in=[
+            AnalysisRun.Status.AWAITING_CONTEXT,
+            AnalysisRun.Status.QUEUED,
+            AnalysisRun.Status.RUNNING,
+        ],
+    ).exists():
+        return
+
+    from analysis.runner import pending_analysis
+
+    pending_analysis(scan_job)

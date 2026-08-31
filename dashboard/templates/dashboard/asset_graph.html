@@ -1,22 +1,40 @@
 {% extends "dashboard/base.html" %}
 {% block title %}ECDAT · Asset Graph{% endblock %}
 {% block page_title %}Crypto Asset Graph{% endblock %}
-{% block page_description %}Nodes are crypto assets in your inventory; edges are correlations between them.{% endblock %}
+{% block page_description %}Nodes are crypto assets (circles) and every discovery finding (diamonds) across all categories; edges are correlations between them.{% endblock %}
 
 {% block content %}
-<div class="flex items-center justify-between mb-4">
-  <a href="{% url 'dashboard-inventory' %}" class="btn btn-ghost">← Back to Inventory</a>
-</div>
+<div class="bento">
+  <section class="tile col12">
+    <div class="tile-head">
+      <div>
+        <div class="tl">
+          Correlation Graph
+          <span class="ml-1 text-[var(--ec-faint)] font-normal text-xs">assets link findings &amp; correlations</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="inline-flex items-center gap-1.5 text-[11px] text-[var(--ec-muted)]"><span class="inline-block w-2.5 h-2.5 rounded-full" style="background:#60a5fa"></span> Crypto asset</span>
+        <span class="inline-flex items-center gap-1.5 text-[11px] text-[var(--ec-muted)]"><span class="inline-block w-2.5 h-2.5" style="background:#8b98ab;transform:rotate(45deg)"></span> Finding</span>
+        <span class="inline-flex items-center gap-1.5 text-[11px] text-[var(--ec-muted)]"><span class="inline-block h-px w-4" style="background:#5a6a80"></span> Finding links</span>
+        <span class="inline-flex items-center gap-1.5 text-[11px] text-[var(--ec-muted)]"><span class="inline-block h-0.5 w-4" style="background:#f59e0b"></span> Asset correlation</span>
+        <span id="graph-stats" class="text-[11px] font-medium text-[var(--ec-faint)]"></span>
+        <a href="{% url 'dashboard-inventory' %}" class="btn btn-ghost text-xs px-2.5 py-1">← Back to Inventory</a>
+      </div>
+    </div>
 
-<div class="card p-4">
-  <h3 class="card-title mb-3">
-    Correlation Graph
-    <span class="ml-1 text-[var(--ec-faint)] font-normal text-xs">relations between crypto assets</span>
-  </h3>
-  <div class="w-full h-[560px]" id="chart-graph" data-focus="{{ focus_asset|default:'' }}"></div>
-  {% if not assets %}
-  <p class="text-sm text-[var(--ec-muted)] mt-3">No assets yet, so there is nothing to graph. Run a scan first.</p>
-  {% endif %}
+    <div id="corr-notice" class="hidden mb-3 rounded-lg px-3 py-2 text-xs leading-relaxed" style="background:rgba(251,191,36,0.08)">
+      <span class="font-semibold text-[var(--ec-warning)]">No asset correlations found.</span>
+      <span class="text-[var(--ec-muted)]"> Showing assets standalone with their linked findings.
+        <a href="#" id="build-corr-link" class="text-[var(--ec-accent)] font-semibold hover:underline">Build correlations now</a>.</span>
+    </div>
+
+    <div class="w-full h-[560px]" id="chart-graph" data-focus="{{ focus_asset|default:'' }}"></div>
+    {% if not assets %}
+    <p class="text-sm text-[var(--ec-muted)] mt-3">No assets yet, so there is nothing to graph. Run a scan first.</p>
+    {% endif %}
+    <button id="build-corr" class="btn btn-ghost text-xs px-2.5 py-1 hidden">Build correlations</button>
+  </section>
 </div>
 {% endblock %}
 
@@ -25,34 +43,125 @@
 let _chart = null;
 let _idToIndex = {};
 
+const relLabel = { family: 'same family', asset: 'consolidated into', relate: 'relates to', context: 'shares context', contains: 'contains', depends: 'depends on' };
+
+function rowTip(n) {
+  const d = n._detail || {};
+  const rows = [
+    ['Name', n.name],
+    ['Type', n.kind === 'asset' ? 'Crypto asset' : 'Finding'],
+    ['Category', d.source_type || '—'],
+    ['Family', d.family_label || d.family || '—'],
+  ];
+  rows.push(['Algorithm', d.algorithm || '—']);
+  rows.push(['Key size', d.key_size ?? '—']);
+  rows.push(['Curve', d.curve || '—']);
+  rows.push(['Library', (d.library || '—') + (d.library_version ? ' ' + d.library_version : '')]);
+  if (n.kind !== 'asset') {
+    rows.push(['Protocol', d.protocol || '—']);
+    rows.push(['Confidence', d.confidence ?? '—']);
+    rows.push(['Location', d.location || '—']);
+  } else {
+    rows.push(['Owner', d.owner || '—']);
+  }
+  return '<div class="text-xs">' + rows.map(r => `<div><span class="text-[var(--ec-faint)]">${r[0]}:</span> <b>${r[1] ?? '—'}</b></div>`).join('') + '</div>';
+}
+
+function showFindingModal(d) {
+  const title = document.getElementById('modal-title');
+  const body = document.getElementById('modal-body');
+  if (title) title.textContent = 'Discovery finding';
+  if (!body || !d) return;
+  const rows = [
+    ['Category', d.source_type || '—'],
+    ['Family', d.family_label || d.family || '—'],
+    ['Algorithm', d.algorithm || '—'],
+    ['Key size', d.key_size ?? '—'],
+    ['Curve', d.curve || '—'],
+    ['Protocol', d.protocol || '—'],
+    ['Library', (d.library || '—') + (d.library_version ? ' ' + d.library_version : '')],
+    ['Confidence', d.confidence ?? '—'],
+    ['Location', d.location || '—'],
+  ];
+  body.innerHTML = '<table class="table"><tbody>' +
+    rows.map(r => `<tr><td class="muted">${r[0]}</td><td>${r[1]}</td></tr>`).join('') +
+    '</tbody></table>';
+  document.getElementById('modal-backdrop').hidden = false;
+}
+
 async function loadGraph() {
-  const [assetsRes, relsRes] = await Promise.all([
-    fetch('/api/assets/?page_size=500'),
-    fetch('/api/relations/?page_size=1000'),
-  ]);
-  const assets = (await assetsRes.json()).results || [];
-  const rels = (await relsRes.json()).results || [];
+  const res = await fetch('/api/graph/', { cache: 'no-store' });
+  const data = await res.json();
 
-  _idToIndex = {};
-  const nodes = assets.map((a, i) => {
-    _idToIndex[a.id] = i;
-    return { id: a.id, name: a.name, category: a.family, symbolSize: 18 };
+  const nodes = [];
+  const idx = {};
+  const push = (n) => { idx[n.key] = nodes.length; nodes.push(n); };
+
+  (data.assets || []).forEach(a => {
+    push({
+      key: 'a' + a.id, id: 'a' + a.id, name: a.name, kind: 'asset',
+      symbol: 'circle', symbolSize: 22, symbolOffset: [0, 0],
+      family: a.family_label || a.family,
+      _detail: a,
+    });
   });
-  const links = rels.map(r => ({
-    source: _idToIndex[r.from_asset],
-    target: _idToIndex[r.to_asset],
-    value: r.relation_type,
-    relation_type: r.relation_type,
-  })).filter(l => l.source !== undefined && l.target !== undefined);
+  (data.findings || []).forEach(f => {
+    push({
+      key: 'f' + f.id, id: 'f' + f.id,
+      name: f.algorithm || f.family_label || ('Finding #' + f.id),
+      kind: 'finding',
+      symbol: 'diamond', symbolSize: 11,
+      family: f.family_label || f.family,
+      _detail: f,
+    });
+  });
 
-  const families = [...new Set(nodes.map(n => n.category))];
+  const links = [];
+  const edgeStyle = {
+    context: { color: '#f59e0b', width: 2.5 },
+    relate: { color: '#60a5fa', width: 2.5 },
+    contains: { color: '#34d399', width: 2 },
+    depends: { color: '#f472b6', width: 2 },
+    family: { color: '#3e5066', width: 1 },
+    asset: { color: '#3e5066', width: 1 },
+    default: { color: '#5a6a80', width: 1 },
+  };
+  const edgeLine = (kind) => edgeStyle[kind] || edgeStyle.default;
+  (data.asset_relations || []).forEach(r => {
+    const s = 'a' + r.from_asset, t = 'a' + r.to_asset;
+    if (idx[s] !== undefined && idx[t] !== undefined)
+      links.push({ source: s, target: t, value: r.relation_type, lineStyle: edgeLine(r.relation_type) });
+  });
+  (data.finding_relations || []).forEach(r => {
+    if (idx[r.from] !== undefined && idx[r.to] !== undefined)
+      links.push({ source: r.from, target: r.to, value: r.kind, lineStyle: edgeLine(r.kind) });
+  });
+
+  _idToIndex = idx;
+  const families = [...new Set(nodes.map(n => n.family))];
   const categories = families.map(f => ({ name: f }));
+
+  const hasAssets = (data.assets || []).length > 0;
+  const noCorrelations = (data.asset_relations || []).length === 0;
+  const stats = document.getElementById('graph-stats');
+  if (stats) {
+    stats.textContent = '· ' + (data.assets || []).length + ' assets · ' +
+      (data.findings || []).length + ' findings · ' +
+      (data.asset_relations || []).length + ' asset correlations';
+  }
+  if (hasAssets && noCorrelations) {
+    const notice = document.getElementById('corr-notice');
+    const btn = document.getElementById('build-corr');
+    if (notice) notice.classList.remove('hidden');
+    if (btn) btn.classList.remove('hidden');
+  }
 
   _chart = initChart('chart-graph', {
     tooltip: {
       formatter: (p) => p.dataType === 'edge'
-        ? `${p.data.value}: ${nodes[p.data.source]?.name} ↔ ${nodes[p.data.target]?.name}`
-        : `<b>${p.data.name}</b><br/>Family: ${p.data.category}`,
+        ? `<b>${p.data.value}</b><br/>${nodes[_idToIndex[p.data.source]]?.name} ↔ ${nodes[_idToIndex[p.data.target]]?.name}` +
+          `<br/><span class="text-[var(--ec-faint)]">${relLabel[p.data.value] || ''}</span>`
+        : rowTip(p.data),
     },
     legend: { data: families.map(f => ({ name: f })), top: 0, textStyle: { color: '#8b98ab' } },
     series: [{
@@ -63,30 +172,76 @@ async function loadGraph() {
       categories,
       data: nodes,
       links,
-      force: { repulsion: 300, edgeLength: 80 },
-      label: { show: false },
-      emphasis: { focus: 'adjacency', label: { show: true, position: 'top', fontSize: 12 } },
-      lineStyle: { color: '#5a6a80', width: 1, curveness: 0.1 },
+      force: { repulsion: 320, edgeLength: 70 },
+      itemStyle: { opacity: 0.95 },
+      label: { show: nodes.length > 0 && nodes.length <= 40, position: 'bottom', fontSize: 10, color: '#a6b3c7' },
+      emphasis: { focus: 'adjacency', label: { show: true, position: 'top', fontSize: 11 } },
+      lineStyle: { color: '#5a6a80', width: 1, curveness: 0.15 },
     }],
   });
 
+  if (!_chart) {
+    const el = document.getElementById('chart-graph');
+    if (el) {
+      el.textContent = (typeof echarts === 'undefined'
+        ? 'Chart engine not loaded — check that /static/dashboard/vendor/echarts.min.js is present.'
+        : 'Graph could not be initialised.');
+      el.classList.add('flex', 'items-center', 'justify-center', 'text-sm', 'text-[var(--ec-muted)]');
+    }
+    return;
+  }
+
   _chart.on('click', (params) => {
-    if (params.dataType === 'node') {
-      fetchAsset(params.data.id).then(showAssetModal);
+    if (params.dataType !== 'node') return;
+    const n = params.data;
+    if (n.kind === 'asset') {
+      fetchAsset(n._detail.id).then(a => a && showAssetModal(a, n._detail.linked_findings));
+    } else {
+      showFindingModal(n._detail);
     }
   });
 
   const focusId = document.getElementById('chart-graph').dataset.focus;
-  if (focusId && _idToIndex[focusId] !== undefined) {
-    focusAsset(Number(focusId));
+  if (focusId && idx['a' + focusId] !== undefined) focusAsset('a' + focusId);
+}
+
+function focusAsset(key) {
+  const i = _idToIndex[key];
+  if (i === undefined || !_chart) return;
+  _chart.dispatchAction({ type: 'focusNodeAdjacency', seriesIndex: 0, dataIndex: i });
+  const n = _chart.getOption().series[0].data[i];
+  if (n && n._detail) {
+    if (n.kind === 'asset')
+      fetchAsset(n._detail.id).then(a => a && showAssetModal(a, n._detail.linked_findings));
+    else showFindingModal(n._detail);
   }
 }
 
-function focusAsset(id) {
-  const idx = _idToIndex[id];
-  if (idx === undefined || !_chart) return;
-  _chart.dispatchAction({ type: 'focusNodeAdjacency', seriesIndex: 0, dataIndex: idx });
-  fetchAsset(id).then(showAssetModal);
+function buildCorrelations() {
+  const btn = document.getElementById('build-corr');
+  const link = document.getElementById('build-corr-link');
+  const setBusy = (b) => {
+    if (btn) { btn.disabled = b; btn.textContent = b ? 'Building…' : 'Build correlations'; }
+    if (link) { link.textContent = b ? 'Building…' : 'Build correlations now'; }
+  };
+  setBusy(true);
+  fetch('/api/graph/correlate/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+  })
+    .then(r => r.json().then(d => ({ ok: r.ok, d })))
+    .then(({ ok, d }) => {
+      if (!ok) throw new Error((d && d.detail) || 'Failed to build correlations');
+      window.location.reload();
+    })
+    .catch(() => setBusy(false));
+}
+
+{
+  const btn = document.getElementById('build-corr');
+  const link = document.getElementById('build-corr-link');
+  if (btn) btn.addEventListener('click', buildCorrelations);
+  if (link) link.addEventListener('click', (e) => { e.preventDefault(); buildCorrelations(); });
 }
 
 loadGraph();

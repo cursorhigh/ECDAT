@@ -234,7 +234,7 @@ def get_mosca_provider(provider_type: Optional[str] = None) -> MOSCALLMProvider:
     """
     Factory function to instantiate configured MOSCA LLM Provider.
     """
-    api_key = os.getenv("GEMINI_API_KEY")
+    api_key = os.getenv("GEMINI_API_KEY_MOSCA") or os.getenv("GEMINI_API_KEY")
     if provider_type == "gemini" or (api_key and api_key != "YOUR_GEMINI_API_KEY_HERE"):
         return GeminiMOSCAProvider()
     return FallbackMOSCAProvider()

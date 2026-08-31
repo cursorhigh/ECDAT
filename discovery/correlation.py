@@ -8,6 +8,24 @@ Builds AssetRelation edges in the Crypto Asset Graph:
 
 from .models import AssetRelation, CryptoAsset
 
+try:
+    import posixpath
+except ImportError:  # pragma: no cover
+    import posixpath
+
+
+def _context_repo(location: str) -> str:
+    """The deployment/context bucket an asset belongs to.
+
+    Locations may come from any OS (``C:\\...``, ``/src/...``); normalise to
+    POSIX separators and bucket by the parent folder so assets scanned from
+    the same repo/directory correlate on a shared context.
+    """
+    loc = (location or "").replace("\\", "/").strip().rstrip("/")
+    if not loc:
+        return ""
+    return posixpath.dirname(loc) or loc
+
 
 def build_correlations(assets=None, using=None) -> int:
     """(Re)build graph edges for the given assets (or all assets).
@@ -15,12 +33,27 @@ def build_correlations(assets=None, using=None) -> int:
     `using` selects the database (defaults to the calling code; if assets are
     passed they are used as the queryset source). All edges are written inside
     the same database so they stay within the active mode boundary.
+
+    Edges are scoped to ``session_id`` whenever every asset in the pair belongs
+    to that session (an asset with no session is treated as belonging to all
+    sessions). This keeps graph edges visible under a work session instead of
+    silently attaching to the global (NULL) bucket.
     """
     db = using or "default"
-    qs = assets if assets is not None else CryptoAsset.objects.using(db).all()
+    targets = assets if assets is not None else CryptoAsset.objects.using(db).all()
     created = 0
 
-    assets_list = list(qs.select_related().all())
+    assets_list = list(targets.select_related().all())
+
+    def edge_session(a: "CryptoAsset", b: "CryptoAsset"):
+        """A new edge's ``session_id``: the shared session, or NULL for global."""
+        if a.session_id and a.session_id == b.session_id:
+            return a.session_id
+        if a.session_id and not b.session_id:
+            return a.session_id
+        if b.session_id and not a.session_id:
+            return b.session_id
+        return None
 
     # relate: same family
     by_family: dict[str, list[CryptoAsset]] = {}
@@ -36,7 +69,11 @@ def build_correlations(assets=None, using=None) -> int:
                     from_asset=a,
                     to_asset=b,
                     relation_type=AssetRelation.RelationType.RELATE,
-                    defaults={"mode": a.mode, "description": f"Shared algorithm family {family}"},
+                    defaults={
+                        "mode": a.mode,
+                        "session_id": edge_session(a, b),
+                        "description": f"Shared algorithm family {family}",
+                    },
                 )
                 if was:
                     created += 1
@@ -46,7 +83,9 @@ def build_correlations(assets=None, using=None) -> int:
     for a in assets_list:
         if not a.location:
             continue  # Skip assets with no location — they share no context.
-        repo = (a.location or "").split("/src")[0] or a.location
+        repo = _context_repo(a.location)
+        if not repo:
+            continue
         by_repo.setdefault(repo, []).append(a)
     for _repo, group in by_repo.items():
         if len(group) < 2:
@@ -60,7 +99,11 @@ def build_correlations(assets=None, using=None) -> int:
                     from_asset=a,
                     to_asset=b,
                     relation_type=AssetRelation.RelationType.CONTEXT,
-                    defaults={"mode": a.mode, "description": "Share a deployment/context"},
+                    defaults={
+                        "mode": a.mode,
+                        "session_id": edge_session(a, b),
+                        "description": "Share a deployment/context",
+                    },
                 )
                 if was:
                     created += 1

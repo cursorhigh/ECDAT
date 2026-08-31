@@ -190,7 +190,7 @@ class GeminiRiskProvider(RiskLLMProvider):
     ]
 
     def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+        self.api_key = api_key or os.getenv("GEMINI_API_KEY_RISK") or os.getenv("GEMINI_API_KEY")
         user_model = model or os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 
         candidate_list = [user_model] + [m for m in self.DEFAULT_MODELS if m != user_model]
@@ -257,7 +257,7 @@ def get_risk_provider(provider_type: Optional[str] = None) -> RiskLLMProvider:
     """
     Factory function to instantiate configured Risk LLM Provider.
     """
-    api_key = os.getenv("GEMINI_API_KEY")
+    api_key = os.getenv("GEMINI_API_KEY_RISK") or os.getenv("GEMINI_API_KEY")
     if provider_type == "gemini" or (api_key and api_key != "YOUR_GEMINI_API_KEY_HERE"):
         return GeminiRiskProvider()
     return FallbackRiskProvider()

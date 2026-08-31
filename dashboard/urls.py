@@ -10,7 +10,9 @@ urlpatterns = [
     path("inventory/", views.inventory, name="dashboard-inventory"),
     path("graph/", views.asset_graph, name="dashboard-graph"),
     path("audit/", views.audit_log, name="dashboard-audit"),
-    path("risk/", views.placeholder, {"key": "risk"}, name="dashboard-risk"),
-    path("mitigation/", views.placeholder, {"key": "mitigation"}, name="dashboard-mitigation"),
-    path("reports/", views.placeholder, {"key": "reports"}, name="dashboard-reports"),
+    path("analysis/", views.analysis, name="dashboard-analysis"),
+    path("analysis/<int:run_id>/", views.analysis_detail, name="dashboard-analysis-detail"),
+    path("mitigation/", views.mitigation, name="dashboard-mitigation"),
+    path("mitigation/<int:plan_id>/", views.mitigation_detail, name="dashboard-mitigation-detail"),
+    path("reports/", views.reports, name="dashboard-reports"),
 ]

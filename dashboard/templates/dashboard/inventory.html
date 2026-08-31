@@ -1,67 +1,66 @@
 {% extends "dashboard/base.html" %}
+{% load dashboard_filters %}
 {% block title %}ECDAT · Inventory{% endblock %}
-{% block page_title %}Cryptographic Asset Inventory{% endblock %}
-{% block page_description %}Every crypto asset discovered and classified. Click a row for details, or open it in the Asset Graph.{% endblock %}
+{% block page_title %}Discovery Inventory{% endblock %}
+{% block page_description %}Every crypto finding across all discovery categories. Click a row for details, or open it in the Asset Graph.{% endblock %}
 
 {% block content %}
-<div class="flex items-center justify-between mb-4">
-  <a href="{% url 'dashboard-graph' %}" class="btn btn-primary">Open Asset Graph</a>
-</div>
-
-<!-- ======= Inventory ======= -->
-<div class="card p-4 overflow-x-auto">
-    <h3 class="card-title mb-3">Crypto Asset Inventory ({{ assets|length }})</h3>
+<div class="bento">
+  <!-- ======= Discovery: all categories ======= -->
+  <section class="tile col12">
+    <div class="tile-head">
+      <div>
+        <div class="tl">Discovery — All Categories ({{ findings|length }})</div>
+        <div class="thint" style="margin-top:2px">every normalized finding across source code, binary, dependency, container, certificate, HSM, cloud. Category = source of discovery; family = algorithm class.</div>
+      </div>
+      <a href="{% url 'dashboard-graph' %}" class="btn btn-primary text-xs px-3 py-1.5">Open Asset Graph</a>
+    </div>
     <div class="table-scroll">
     <table class="table">
       <thead>
         <tr>
-          <th>Name</th>
+          <th>Category</th>
           <th>Family</th>
+          <th>Algorithm</th>
           <th class="right">Key</th>
           <th>Curve</th>
           <th>Protocol</th>
           <th>Library</th>
-          <th>Source</th>
-          <th>Status</th>
-          <th class="right">Graph</th>
+          <th>Location</th>
+          <th class="right">Conf.</th>
         </tr>
       </thead>
       <tbody>
-        {% for a in assets %}
-        <tr class="row-click" onclick="fetchAsset({{ a.id }}).then(showAssetModal)">
-          <td>{{ a.name }}</td>
-          <td>
-            <span class="badge badge-gray">{{ a.get_family_display }}</span>
-          </td>
-          <td class="muted right">{{ a.key_size|default:"—" }}</td>
-          <td class="muted">{{ a.curve|default:"—" }}</td>
-          <td class="muted">{{ a.protocol|default:"—" }}</td>
-          <td class="mono">{{ a.library }} {{ a.library_version }}</td>
-          <td class="muted">{{ a.get_source_type_display }}</td>
-          <td>
-            {% if a.inventory_status == 'needs_review' %}<span class="badge badge-amber">Review</span>
-            {% elif a.inventory_status == 'active' %}<span class="badge badge-green">Active</span>
-            {% else %}<span class="badge badge-gray">Dormant</span>{% endif %}
-          </td>
-          <td class="right">
-            <a href="{% url 'dashboard-graph' %}?asset={{ a.id }}"
-               class="btn btn-ghost !px-2.5 !py-1 !text-xs"
-               onclick="event.stopPropagation()"
-               title="Open this asset in the correlation graph">Graph</a>
-          </td>
+        {% for f in findings %}
+        <tr>
+          <td>{{ f|category_badge }}</td>
+          <td><span class="badge badge-gray">{{ f.get_family_display }}</span></td>
+          <td class="mono">{{ f.algorithm|default:"—" }}</td>
+          <td class="muted right">{{ f.key_size|default:"—" }}</td>
+          <td class="muted">{{ f.curve|default:"—" }}</td>
+          <td class="muted">{{ f.protocol|default:"—" }}</td>
+          <td class="mono">{{ f.library|default:"—" }}</td>
+          <td class="mono muted">{{ f.raw_finding.location|truncatechars:55 }}</td>
+          <td class="right muted">{{ f.confidence }}</td>
         </tr>
         {% empty %}
-        <tr><td colspan="9" class="muted">No assets yet. Start a scan to populate the inventory.</td></tr>
+        <tr><td colspan="9" class="muted">No discoveries yet. Run a scan first.</td></tr>
         {% endfor %}
       </tbody>
     </table>
     </div>
-</div>
+  </section>
 
-<div class="grid gap-4 md:grid-cols-2 mt-4">
-  <div class="card p-4">
-    <h3 class="card-title mb-3">Raw Findings (latest {{ raw_findings|length }})</h3>
-    <div class="table-scroll table-scroll-sm">
+  <!-- ======= Raw findings ======= -->
+  <section class="tile col12">
+    <div class="tile-head">
+      <div>
+        <div class="tl">Raw Findings (latest {{ raw_findings|length }})</div>
+        <div class="thint" style="margin-top:2px">pre-normalization intake per source</div>
+      </div>
+      <span class="card-kicker">intake ledger</span>
+    </div>
+    <div class="table-scroll">
     <table class="table">
       <thead><tr>
         <th>Source</th>
@@ -87,39 +86,6 @@
       </tbody>
     </table>
     </div>
-  </div>
-
-  <div class="card p-4">
-    <h3 class="card-title mb-3">Scan History</h3>
-    <div class="table-scroll table-scroll-sm">
-    <table class="table">
-      <thead><tr>
-        <th>#</th>
-        <th>Type</th>
-        <th>Target</th>
-        <th>Status</th>
-        <th class="right">Findings</th>
-      </tr></thead>
-      <tbody>
-      {% for s in scanjobs %}
-        <tr>
-          <td class="muted">#{{ s.id }}</td>
-          <td class="muted">{{ s.get_source_type_display }}</td>
-          <td class="mono">{{ s.target|truncatechars:30 }}</td>
-          <td>
-            {% if s.status == 'completed' %}<span class="badge badge-green">Done</span>
-            {% elif s.status == 'failed' %}<span class="badge badge-red">Failed</span>
-            {% elif s.status == 'running' %}<span class="badge badge-amber">Running</span>
-            {% else %}<span class="badge badge-gray">{{ s.status }}</span>{% endif %}
-          </td>
-          <td class="right">{{ s.findings_count }}</td>
-        </tr>
-      {% empty %}
-        <tr><td colspan="5" class="muted">No scans yet.</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-    </div>
-  </div>
+  </section>
 </div>
 {% endblock %}

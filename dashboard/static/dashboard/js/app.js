@@ -1,6 +1,7 @@
 /* ECDAT dashboard JS helpers (ECharts + modal). */
 
 function initChart(id, option) {
+  if (typeof echarts === 'undefined') return null;
   const el = document.getElementById(id);
   if (!el) return null;
   const chart = echarts.init(el);
@@ -9,7 +10,7 @@ function initChart(id, option) {
   return chart;
 }
 
-function showAssetModal(asset) {
+function showAssetModal(asset, extraLinked) {
   const body = document.getElementById('modal-body');
   if (!body || !asset) return;
   const rows = [
@@ -25,9 +26,21 @@ function showAssetModal(asset) {
     ['Owner', asset.owner || '—'],
     ['Status', asset.inventory_status_display || asset.inventory_status],
   ];
-  body.innerHTML = '<table class="table"><tbody>' +
+  let html = '<table class="table"><tbody>' +
     rows.map(r => `<tr><td class="muted">${r[0]}</td><td>${r[1] ?? '—'}</td></tr>`).join('') +
     '</tbody></table>';
+
+  const linked = extraLinked && extraLinked.length
+    ? extraLinked.slice(0, 12)
+    : (Array.isArray(asset.linked_findings) ? asset.linked_findings.slice(0, 12) : []);
+  if (linked.length) {
+    html += '<h4 class="mt-3 mb-1 text-sm font-semibold">Linked discoveries (' + linked.length + (extraLinked && extraLinked.length > 12 ? '+' : '') + ')</h4>';
+    html += '<ul class="text-xs space-y-0.5">' +
+      linked.map(f => `<li><a class="hover:underline" href="/graph/?asset=${encodeURIComponent(asset.id)}" title="Open in Asset Graph"><span class="text-[var(--ec-muted)]">${f.family_label || ''}</span> — <b>${f.algorithm}</b></a></li>`).join('') +
+      '</ul>';
+  }
+
+  body.innerHTML = html;
   const line = document.createElement('div');
   line.className = 'mt-3 text-sm';
   line.innerHTML = '<a class="text-ecdat-primary hover:underline font-semibold" href="/graph/?asset=' +

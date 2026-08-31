@@ -190,6 +190,7 @@ def _forward_to_inventory(scan_id: int) -> None:
             findings=adapted,
             target=scan.path or f"scan-{scan.pk}",
             mode="actual",
+            session_id=scan.session_id,
         )
         logger.info("scan %s forwarded %s finding(s) into discovery inventory",
                     scan_id, len(adapted))

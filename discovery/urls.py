@@ -26,6 +26,8 @@ urlpatterns = [
     path("run-demo-scan/", views.run_demo_scan, name="run-demo-scan"),
     path("start-scan/", views.start_scan, name="start-scan"),
     path("scan-data/", views.scan_data, name="scan-data"),
+    path("graph/", views.graph_data, name="graph-data"),
+    path("graph/correlate/", views.graph_correlate, name="graph-correlate"),
     path("browse/", views.browse, name="browse"),
     path("scan-preview/", views.scan_preview, name="scan-preview"),
 ]

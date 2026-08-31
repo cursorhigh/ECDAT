@@ -7,6 +7,7 @@ from django.db.models import Count
 from rest_framework import filters, viewsets
 
 from core.models import AuditLog
+from core.sessions import scope, thread_session_id
 from .models import (
     AssetRelation,
     CryptoAsset,
@@ -24,50 +25,74 @@ from .serializers import (
 
 
 class ScanJobViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = ScanJob.objects.all().order_by("-created_at")
     serializer_class = ScanJobSerializer
     filter_backends = [filters.OrderingFilter]
     ordering_fields = ["created_at", "status", "source_type"]
 
+    def get_queryset(self):
+        return scope(ScanJob.objects.all(), thread_session_id()).order_by("-created_at")
+
 
 class RawFindingViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = RawFinding.objects.all().select_related("scan_job").order_by("-ingested_at")
     serializer_class = RawFindingSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ["location"]
     ordering_fields = ["ingested_at"]
 
+    def get_queryset(self):
+        return (
+            scope(RawFinding.objects.all(), thread_session_id())
+            .select_related("scan_job")
+            .order_by("-ingested_at")
+        )
+
 
 class NormalizedFindingViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = NormalizedFinding.objects.all().select_related("raw_finding").order_by("family")
     serializer_class = NormalizedFindingSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ["algorithm", "library", "protocol"]
     ordering_fields = ["algorithm", "key_size"]
 
+    def get_queryset(self):
+        return (
+            scope(NormalizedFinding.objects.all(), thread_session_id())
+            .select_related("raw_finding")
+            .order_by("family")
+        )
+
 
 class CryptoAssetViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = CryptoAsset.objects.all().order_by("name")
     serializer_class = CryptoAssetSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ["name", "algorithm", "location", "owner"]
     ordering_fields = ["name", "family", "key_size"]
 
+    def get_queryset(self):
+        return scope(CryptoAsset.objects.all(), thread_session_id()).order_by("name")
+
 
 class AssetRelationViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = AssetRelation.objects.all().select_related("from_asset", "to_asset").order_by("id")
     serializer_class = AssetRelationSerializer
+
+    def get_queryset(self):
+        return (
+            scope(AssetRelation.objects.all(), thread_session_id())
+            .select_related("from_asset", "to_asset")
+            .order_by("id")
+        )
 
 
 class StatsViewSet(viewsets.ViewSet):
     """Aggregate stats for dashboard widgets."""
 
     def list(self, request):
-        scans = ScanJob.objects.all()
-        raw = RawFinding.objects.all()
-        normalized = NormalizedFinding.objects.all()
-        assets = CryptoAsset.objects.all()
-        relations = AssetRelation.objects.all()
+        sid = thread_session_id()
+        scans = scope(ScanJob.objects.all(), sid)
+        raw = scope(RawFinding.objects.all(), sid)
+        normalized = scope(NormalizedFinding.objects.all(), sid)
+        assets = scope(CryptoAsset.objects.all(), sid)
+        relations = scope(AssetRelation.objects.all(), sid)
+        audit = scope(AuditLog.objects.all(), sid)
 
         return self._build(
             {
@@ -87,7 +112,7 @@ class StatsViewSet(viewsets.ViewSet):
                 "asset_by_status": self._group(assets, "inventory_status"),
                 "relation_total": relations.count(),
                 "relation_by_type": self._group(relations, "relation_type"),
-                "audit_total": AuditLog.objects.count(),
+                "audit_total": audit.count(),
             }
         )
 

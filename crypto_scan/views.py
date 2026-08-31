@@ -55,8 +55,18 @@ def start_scan(request):
     n = max(1, os.cpu_count() or 1)
     chunks = split_paths_into_chunks(file_paths, n)
 
+    from core.modes import active_db
+    from core.sessions import create_scan_session
+
+    ws = create_scan_session(request, os.path.basename(path.rstrip("\\/")) or path, using=active_db())
+
     with transaction.atomic():
-        scan = Scan.objects.create(path=path, chunk_count=n, status=Scan.Status.PENDING)
+        scan = Scan.objects.create(
+            path=path,
+            chunk_count=n,
+            status=Scan.Status.PENDING,
+            session_id=ws.pk,
+        )
         for cid, files in enumerate(chunks):
             ScanChunk.objects.create(
                 scan=scan, chunk_id=cid, status=ScanChunk.Status.PENDING, results=[]
@@ -76,6 +86,7 @@ def start_scan(request):
             "total_chunks": len(chunks),
             "total_files": len(file_paths),
             "status": "running",
+            "session": {"id": ws.pk, "name": ws.name},
         },
         status=201,
     )

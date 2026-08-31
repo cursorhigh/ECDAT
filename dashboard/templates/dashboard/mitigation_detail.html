@@ -1,0 +1,288 @@
+{% extends "dashboard/base.html" %}
+{% load dashboard_filters %}
+{% block title %}ECDAT · Mitigation #{{ plan.id }}{% endblock %}
+{% block page_title %}Mitigation Plan #{{ plan.id }}{% endblock %}
+{% block page_description %}Generated for analysis run #{{ plan.run_id }} — {{ plan.run.scan_job.target|truncatechars:80 }}{% endblock %}
+
+{% block content %}
+<div class="bento">
+{% if plan.status != 'complete' %}
+<section class="tile col12">
+  <div class="flex items-center justify-between flex-wrap gap-3">
+    <div>
+      <h3 class="card-title">
+        {% if plan.status == 'failed' %}<span class="text-[var(--ec-danger)]">Plan failed</span>
+        {% else %}Generating plan…{% endif %}
+      </h3>
+      <p class="text-sm text-[var(--ec-muted)] mt-1">
+        {% if plan.error %}<span class="text-[var(--ec-danger)]">Error:</span> {{ plan.error }}{% else %}Blast radius → migration impact → suggestions → narration. This page refreshes itself.{% endif %}
+      </p>
+    </div>
+    <div class="flex items-center gap-2">
+      <div class="h-1.5 rounded-full bg-black/30 overflow-hidden" style="width:10rem">
+        <div class="h-full rounded-full" style="width:{{ plan.progress }}%;background:var(--ec-accent)"></div>
+      </div>
+      <span class="mono text-sm text-[var(--ec-ink)]">{{ plan.progress }}%</span>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<!-- ======= Executive summary ======= -->
+{% if document.executive_summary %}
+<section class="tile col9">
+  <div class="tile-head">
+    <div>
+      <div class="tl">Executive summary</div>
+      <div class="thint" style="margin-top:2px">{% if document.ai_context.enhanced %}AI-narrated · {{ document.ai_context.model_used }}{% else %}deterministic narrative{% endif %}</div>
+    </div>
+  </div>
+  <p class="text-sm leading-relaxed text-[var(--ec-ink-2)]">{{ document.executive_summary }}</p>
+</section>
+{% endif %}
+
+<!-- ======= Quantum risk narrative ======= -->
+{% if document.quantum_risk_narrative or qv_assets %}
+<section class="tile col3 accent-red">
+  <div class="tile-head">
+    <div>
+      <div class="tl">Quantum risk</div>
+      <div class="thint" style="margin-top:2px">HNDL + Shor exposure</div>
+    </div>
+  </div>
+  <p class="text-sm leading-relaxed text-[var(--ec-ink-2)] mb-3">{{ document.quantum_risk_narrative }}</p>
+  {% if qv_assets %}
+  <div>
+    <div class="tl mb-1.5" style="color:var(--ec-danger)">Post-quantum vulnerable assets</div>
+    <div class="flex flex-wrap gap-1.5">
+      {% for a in qv_assets %}
+      <span class="badge badge-red mono">{{ a.algorithm }} · {{ a.asset_id }} · {{ a.service }}</span>
+      {% empty %}<span class="text-xs text-[var(--ec-muted)]">None</span>{% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+
+<!-- ======= KPI tiles ======= -->
+<section class="tile col3 accent-cyan">
+  <div class="tl">Assets</div>
+  <div class="tn">{{ summary.assets|default:0 }}</div>
+  <div class="thint">{{ summary.wave1|default:0 }} in Wave 1 · {{ summary.wave2|default:0 }} Wave 2 · {{ summary.wave3|default:0 }} Wave 3</div>
+</section>
+<section class="tile col3 accent-red">
+  <div class="tl">Urgent / high-risk</div>
+  <div class="tn">{{ summary.urgent|default:0 }}<small>  / {{ summary.high_risk|default:0 }}</small></div>
+  <div class="thint">migrate first</div>
+</section>
+<section class="tile col3 accent-amber">
+  <div class="tl">PQ-vulnerable / HNDL</div>
+  <div class="tn">{{ summary.quantum_vulnerable|default:0 }}<small>  / {{ summary.hndl_exposed|default:0 }}</small></div>
+  <div class="thint">Shor + harvest-now-decrypt-later</div>
+</section>
+<section class="tile col3 accent-amber">
+  <div class="tl">Blast severity / effort</div>
+  <div class="tn"><span style="font-size:1.15rem" class="mono {{ blast.severity|sev_badge }}">{{ blast.severity|default:"—" }}</span></div>
+  <div class="thint">≈ {{ summary.effort_estimate_quarters|default:0 }} engineering quarter(s)</div>
+</section>
+
+<!-- ======= Digital twin ======= -->
+<section class="tile col6 accent-cyan">
+  <div class="tile-head">
+    <div>
+      <div class="tl">Digital twin</div>
+      <div class="thint" style="margin-top:2px">{{ twin.contexts.services|length }} services</div>
+    </div>
+  </div>
+  <div class="rounded-xl border p-3 mb-3" style="border-color:rgba(255,255,255,0.08)">
+    <div class="tl mb-1">Context</div>
+    <div class="text-sm text-[var(--ec-muted)]">
+      App <span class="mono text-[var(--ec-ink)]">{{ document.application|truncatechars:40 }}</span> ·
+      exposure <span class="mono text-[var(--ec-ink)]">{{ twin.contexts.exposure }}</span>
+      {% if twin.contexts.publicly_accessible %}<span class="badge badge-red">public</span>{% endif %}
+    </div>
+    <div class="mt-1 text-sm text-[var(--ec-muted)]">Data types: <span class="mono text-[var(--ec-ink)]">{{ twin.contexts.data_types|join:", "|default:"none labelled" }}</span></div>
+  </div>
+  <div class="tl mb-1.5">Abstractions</div>
+  <div class="space-y-2">
+    {% for ab in twin.abstractions %}
+    <div class="flex items-center justify-between rounded-lg px-3 py-2" style="background:rgba(255,255,255,0.03)">
+      <div>
+        <span class="mono font-semibold text-[var(--ec-ink)]">{{ ab.label }}</span>
+        <span class="text-[11px] text-[var(--ec-faint)]">· {{ ab.roles|join:", " }}</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-[var(--ec-muted)]">{{ ab.count }} asset(s) · {{ ab.contexts|join:", " }}</span>
+      </div>
+    </div>
+    {% empty %}
+    <p class="text-sm text-[var(--ec-muted)]">No abstractions derived yet.</p>
+    {% endfor %}
+  </div>
+  {% if twin.high_value_points %}
+  <div class="tl mt-3 mb-1.5">High-value points</div>
+  <ul class="space-y-1.5 text-sm text-[var(--ec-muted)]">
+    {% for hv in twin.high_value_points %}
+    <li class="flex items-start gap-2"><span class="text-[var(--ec-warning)] mt-0.5">◆</span><span><span class="font-semibold text-[var(--ec-ink)]">{{ hv.label }}</span> — {{ hv.reason }}</span></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+
+<!-- ======= Blast radius ======= -->
+<section class="tile col6 accent-amber">
+  <div class="tile-head">
+    <div>
+      <div class="tl">Blast radius</div>
+      <div class="thint" style="margin-top:2px">{{ blast.severity|default:"—" }}</div>
+    </div>
+    <span class="mono {{ blast.severity|sev_badge }}">{{ blast.severity|default:"—" }}</span>
+  </div>
+  <p class="text-sm text-[var(--ec-muted)] mb-3">
+    Worst exposure across <span class="mono text-[var(--ec-ink)]">{{ blast.affected_services|default:0 }}</span> services and
+    <span class="mono text-[var(--ec-ink)]">{{ blast.affected_findings|default:0 }}</span> findings —
+    {% if blast.public_surface %}publicly reachable{% else %}internal-only{% endif %}.
+  </p>
+  <div class="tl mb-1.5">By algorithm</div>
+  <div class="space-y-2">
+    {% for a in blast.per_algorithm %}
+    <div class="flex items-center justify-between rounded-lg px-3 py-2" style="background:rgba(255,255,255,0.03)">
+      <span class="mono text-sm text-[var(--ec-ink)]">{{ a.algorithm }}</span>
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-[var(--ec-muted)]">{{ a.count }} asset(s)</span>
+        <span class="{{ a.severity|sev_badge }}">{{ a.severity }}</span>
+      </div>
+    </div>
+    {% empty %}
+    <p class="text-sm text-[var(--ec-muted)]">No algorithms derived.</p>
+    {% endfor %}
+  </div>
+  <div class="mt-3 rounded-lg p-3 text-xs leading-relaxed" style="background:rgba(251,191,36,0.08)">
+    <span class="font-semibold text-[var(--ec-warning)]">Poorest link: {{ blast.poorest_link|default:"—" }}</span>
+    <span class="text-[var(--ec-muted)]"> — the weakest primitive bounds the whole estate's PQC readiness.</span>
+  </div>
+</section>
+
+<!-- ======= Migration waves ======= -->
+<section class="tile col12">
+  <div class="tile-head">
+    <div>
+      <div class="tl">AI-optimized migration waves</div>
+      <div class="thint" style="margin-top:2px">prioritized sequencing</div>
+    </div>
+  </div>
+  <div class="grid gap-3 lg:grid-cols-3">
+    {% for w in waves %}
+    <div class="rounded-xl border p-3" style="border-color:rgba(255,255,255,0.08);{% if forloop.counter == 1 %}border-top:3px solid rgba(239,68,68,0.65){% elif forloop.counter == 2 %}border-top:3px solid rgba(251,191,36,0.6){% else %}border-top:3px solid rgba(34,197,94,0.5){% endif %}">
+      <div class="flex items-center justify-between">
+        <div class="tl">Wave {{ forloop.counter }}</div>
+        <span class="badge {% if forloop.counter == 1 %}badge-red{% elif forloop.counter == 2 %}badge-amber{% else %}badge-green{% endif %}">{{ w.timeline }}</span>
+      </div>
+      <div class="mt-1 font-semibold text-[var(--ec-ink)]">{{ w.name }}</div>
+      <p class="mt-1 text-xs text-[var(--ec-muted)]">{{ w.focus }}</p>
+      {% if w.assets %}
+      <div class="mt-2 flex flex-wrap gap-1">
+        {% for a in w.assets %}<span class="badge mono" style="background:rgba(255,255,255,0.06)">{{ a }}</span>{% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% empty %}
+    <p class="text-sm text-[var(--ec-muted)]">Waves not yet derived.</p>
+    {% endfor %}
+  </div>
+</section>
+
+<!-- ======= Strategic recommendations ======= -->
+{% if strategic %}
+<section class="tile col12">
+  <div class="tile-head">
+    <div>
+      <div class="tl">Strategic recommendations</div>
+      <div class="thint" style="margin-top:2px">{% if document.ai_context.enhanced %}AI-refined{% else %}baseline{% endif %}</div>
+    </div>
+  </div>
+  <div class="grid gap-3 lg:grid-cols-2">
+    {% for s in strategic %}
+    <div class="rounded-xl border p-3" style="border-color:rgba(255,255,255,0.08)">
+      <div class="font-semibold text-[var(--ec-ink)] text-sm">{{ s.title }}</div>
+      <p class="mt-1 text-xs text-[var(--ec-muted)]">{{ s.description }}</p>
+      {% if s.timeline %}<div class="mt-1.5 text-[11px] text-[var(--ec-faint)]">Timeline: {{ s.timeline }}</div>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<!-- ======= Prioritized asset remediation rows ======= -->
+<section class="tile col12">
+  <div class="tile-head">
+    <div>
+      <div class="tl">Prioritized remediation</div>
+      <div class="thint" style="margin-top:2px">most urgent first · {{ rows|length }} asset(s)</div>
+    </div>
+  </div>
+  <div class="table-scroll">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Asset</th>
+        <th>Algorithm</th>
+        <th>Priority</th>
+        <th>Blast</th>
+        <th>Replacement</th>
+        <th>Effort</th>
+        <th>Wave</th>
+        <th>Actions / suggestions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td class="mono">{{ r.asset_id }}</td>
+        <td class="mono">{{ r.algorithm }} {% if r.quantum_vulnerable %}<span class="badge badge-red" title="post-quantum vulnerable">PQ</span>{% endif %}</td>
+        <td>
+          {% if r.migration_priority == 'URGENT' %}<span class="badge badge-red">URGENT</span>
+          {% elif r.migration_priority == 'HIGH' %}<span class="badge badge-red">HIGH</span>
+          {% elif r.migration_priority == 'MEDIUM' %}<span class="badge badge-amber">MEDIUM</span>
+          {% else %}<span class="badge badge-green">LOW</span>{% endif %}
+        </td>
+        <td><span class="{{ r.blast_radius.severity|sev_badge }}">{{ r.blast_radius.severity }}</span>
+          <div class="text-[10px] text-[var(--ec-faint)]">{{ r.service }} · {{ r.blast_radius.shared_assets }} shared</div>
+        </td>
+        <td class="mono">{{ r.migration_impact.replacement }}</td>
+        <td class="muted">{{ r.migration_impact.effort }}</td>
+        <td><span class="badge">{{ r.migration_wave }}</span></td>
+        <td>
+          {% for s in r.suggestions %}
+          <div class="text-xs text-[var(--ec-ink-2)]">• {{ s }}</div>
+          {% endfor %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="8" class="muted">Rows will appear once the plan has been generated.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if plan.status != 'complete' %}
+<script>
+(function () {
+  const pollDetail = () => {
+    fetch('/api/mitigation/{{ plan.id }}/', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(p => {
+        if (p.status === 'complete') window.location.reload();
+      })
+      .catch(() => {})
+      .finally(() => setTimeout(pollDetail, 2500));
+  };
+  pollDetail();
+})();
+</script>
+{% endif %}
+{% endblock %}

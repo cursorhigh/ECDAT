@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}ECDAT Dashboard{% endblock %}</title>
-  <link rel="stylesheet" href="{% static 'dashboard/css/tailwind.css' %}">
-  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
-  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <link rel="stylesheet" href="{% static 'dashboard/css/tailwind.css' %}?v=4">
+  <script src="{% static 'dashboard/vendor/echarts.min.js' %}"></script>
+  <script src="{% static 'dashboard/vendor/htmx.min.js' %}"></script>
   {% block head %}{% endblock %}
 </head>
 <body class="bg-sidebar-bg">
@@ -57,10 +57,10 @@
 
       <!-- Risk & Reasoning -->
       <div class="sb-group-label px-3 pt-3 pb-1 text-[10px] uppercase tracking-widest text-sidebar-muted/90">Risk &amp; Reasoning</div>
-      <a href="{% url 'dashboard-risk' %}" title="Risk &amp; Reasoning"
-         class="glink {% if active == 'risk' %}glink-active{% endif %}">
+      <a href="{% url 'dashboard-analysis' %}" title="Analysis"
+         class="glink {% if active == 'analysis' %}glink-active{% endif %}">
         <span class="gicon"><svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v3m0 12v3m9-9h-3M6 12H3m13.5-5.5l-2.1 2.1m-4.8 4.8l-2.1 2.1M18.5 17.5l-2.1-2.1m-4.8-4.8l-2.1-2.1M12 9a3 3 0 100 6 3 3 0 000-6z"/></svg></span>
-        <span class="sb-label">Risk &amp; Reasoning</span>
+        <span class="sb-label">Analysis</span>
       </a>
 
       <!-- Finalization -->
@@ -84,21 +84,49 @@
           <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1m-16 0H3m15.4-6.4l-.7.7M6.3 17.7l-.7.7m0-12.8l.7.7m11.4 11.4l.7.7M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
         </span>
         <span class="sb-label flex-1">Audit Log</span>
-        <span class="nav-badge sb-label flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold">3</span>
+        {% if audit_count %}<span class="nav-badge sb-label flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold">{% if audit_count > 99 %}99+{% else %}{{ audit_count }}{% endif %}</span>{% endif %}
       </a>
+      <button type="button" onclick="openResetModal()"
+              class="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed px-3 py-2 text-xs font-semibold text-[var(--ec-muted)] transition"
+              style="border-color:rgba(239,68,68,0.35)"
+              onmouseenter="this.style.borderColor='rgba(239,68,68,0.6)';this.style.color='var(--ec-danger)'"
+              onmouseleave="this.style.borderColor='rgba(239,68,68,0.35)';this.style.color='var(--ec-muted)'">↺ Reset session data</button>
     </nav>
   </aside>
 
   <!-- Main -->
   <main class="flex-1 flex flex-col overflow-hidden">
-    <header class="shrink-0 px-6 pt-7 pb-4 text-center">
+    <header class="relative shrink-0 px-6 pt-7 pb-4 text-center">
       <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
       <div class="page-desc mt-1.5">{% block page_description %}{% endblock %}</div>
-      {% if scan_running %}
-      <div class="mt-3">
-        <span class="badge badge-amber">Scan running…</span>
+      {% if scan_running or analysis_running %}
+      <div class="mt-3 flex items-center gap-2">
+        {% if scan_running %}<span class="badge badge-amber">Scan running…</span>{% endif %}
+        {% if analysis_running %}<span class="badge badge-amber">Analysis running…</span>{% endif %}
       </div>
       {% endif %}
+
+      <div class="absolute text-left" style="top:1.4rem;right:1.5rem">
+        <div class="mb-1 flex items-center gap-2 text-[10px] uppercase tracking-widest text-[var(--ec-faint)]">
+          Workspace:
+          {% if current_ws %}<span class="font-semibold text-[var(--ec-ink)]">{{ current_ws.name }}</span>
+          {% else %}<span class="font-semibold text-[var(--ec-ink)]">All data</span>{% endif %}
+        </div>
+        <div class="flex items-center gap-1.5">
+          <select id="session-switch" class="input text-xs" style="width:11rem" aria-label="Workspace">
+            <option value="0" {% if current_session_id == 0 %}selected{% endif %}>All data</option>
+            {% for ws in work_sessions %}
+            <option value="{{ ws.pk }}" {% if ws.pk == current_session_id %}selected{% endif %}>{{ ws.name }}</option>
+            {% endfor %}
+            <option value="new" disabled>+ New session…</option>
+          </select>
+          <button id="session-new" type="button" class="btn btn-ghost text-sm" style="width:2.1rem;height:2.1rem;padding:0" title="Create new session">＋</button>
+        </div>
+        <div id="session-create-form" class="mt-1.5 hidden items-center gap-1.5">
+          <input id="session-name" class="input text-xs" style="width:11rem" maxlength="128" placeholder="Session name">
+          <button id="session-create-btn" type="button" class="btn btn-primary text-xs">Create</button>
+        </div>
+      </div>
     </header>
 
     <div class="p-6 pt-2 overflow-y-auto flex-1">
@@ -111,7 +139,7 @@
 <div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center" id="modal-backdrop" hidden>
   <div class="card-2 w-[520px] max-w-[92vw] shadow-modal !bg-[rgba(18,24,34,0.92)]">
     <div class="flex items-center justify-between px-5 py-3.5 border-b !border-[rgba(255,255,255,0.08)] font-semibold text-[var(--ec-ink)]">
-      <span>Asset Detail</span>
+      <span id="modal-title">Asset Detail</span>
       <button class="text-[var(--ec-muted)] text-xl leading-none hover:text-[var(--ec-ink)]" onclick="closeModal()">&times;</button>
     </div>
     <div class="p-5" id="modal-body">
@@ -121,6 +149,210 @@
 </div>
 
 <script src="{% static 'dashboard/js/app.js' %}"></script>
+
+<!-- Auto-analysis context prompt (global poller inlined below) -->
+<div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center" id="autoctx-modal" hidden>
+  <div class="card-2 rounded-xl w-[580px] max-w-[94vw] shadow-modal px-5 py-4 !bg-[rgba(18,24,34,0.95)]">
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <div class="text-[10px] uppercase tracking-widest text-[var(--ec-faint)] mb-1">Automated analysis</div>
+        <h3 class="text-base font-bold text-[var(--ec-ink)]">Analyze the new findings now?</h3>
+      </div>
+      <div class="text-right shrink-0">
+        <div class="text-2xl font-bold text-[var(--ec-accent)] mono leading-none" id="autoctx-seconds">30</div>
+        <div class="mt-1 text-[10px] uppercase tracking-widest text-[var(--ec-faint)]">sec · auto</div>
+      </div>
+    </div>
+    <p class="mt-3 text-sm text-[var(--ec-muted)]">
+      Scan <span class="mono text-[var(--ec-ink)]" id="autoctx-target">…</span> is complete.
+      Run the risk analysis with the <b class="text-[var(--ec-ink)]">default system context</b>,
+      or customize the context first — if you don't choose, it continues with the default automatically.
+    </p>
+    <div class="mt-4 flex flex-wrap items-center justify-end gap-2">
+      <button type="button" class="btn btn-ghost" id="autoctx-custom">Customize context…</button>
+      <button type="button" class="btn btn-primary" id="autoctx-default">Use default context</button>
+    </div>
+    <div id="autoctx-status" class="hidden mt-2 text-sm text-[var(--ec-muted)]"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const sel = document.getElementById('session-switch');
+  const form = document.getElementById('session-create-form');
+  const nameInput = document.getElementById('session-name');
+  if (!sel || !form || !nameInput) return;
+
+  sel.addEventListener('change', function () {
+    if (sel.value === 'new') {
+      form.classList.remove('hidden');
+      form.style.display = 'flex';
+      nameInput.focus();
+      return;
+    }
+    const f = document.createElement('form');
+    f.method = 'POST';
+    f.action = '/api/session/switch/' + sel.value + '/';
+    document.body.appendChild(f);
+    f.submit();
+  });
+
+  document.getElementById('session-new').addEventListener('click', function () {
+    form.classList.remove('hidden');
+    form.style.display = 'flex';
+    nameInput.focus();
+  });
+
+  document.getElementById('session-create-btn').addEventListener('click', function () {
+    const name = nameInput.value.trim();
+    if (!name) return;
+    fetch('/api/session/create/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name })
+    }).then(function () { window.location.reload(); });
+  });
+
+  nameInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') document.getElementById('session-create-btn').click();
+  });
+})();
+
+function openResetModal() {
+  const backdrop = document.getElementById('modal-backdrop');
+  const body = document.getElementById('modal-body');
+  const title = document.getElementById('modal-title');
+  if (!backdrop || !body) return;
+  backdrop.hidden = false;
+  if (title) title.textContent = 'Reset session data';
+  body.innerHTML = '<p class="text-sm text-[var(--ec-muted)]">Loading scope…</p>';
+  fetch('/api/session/info/')
+    .then(function (r) { return r.json(); })
+    .then(buildResetBody)
+    .catch(function () {
+      body.innerHTML = '<p class="text-sm text-[var(--ec-danger)]">Could not load session info.</p>';
+    });
+}
+
+function buildResetBody(info) {
+  const body = document.getElementById('modal-body');
+  const c = info.counts || {};
+  const name = info.session_name || 'All data';
+  const rows = [
+    ['Scan results', c.scans], ['Findings', c.raw_findings],
+    ['Inventory assets', c.assets], ['Graph relations', c.relations],
+    ['Analysis runs', c.analysis_runs], ['Assessments', c.assessments],
+    ['Audit entries', c.audit],
+  ];
+  const rowHtml = rows.map(function (r) {
+    return '<tr><td class="muted">' + r[0] + '</td><td class="right">' + (r[1] ?? 0) + '</td></tr>';
+  }).join('');
+  body.innerHTML =
+    '<p class="text-sm text-[var(--ec-muted)] mb-3">Scope: <span class="font-semibold text-[var(--ec-ink)]">' + name + '</span></p>' +
+    '<p class="text-sm text-[var(--ec-danger)] mb-3">This permanently deletes all findings, inventory, graph, analysis and audit data for this scope, and removes the workspace itself (the dashboard switches to "All data"). This cannot be undone.</p>' +
+    '<div class="mb-4"><table class="table"><tbody>' + rowHtml + '</tbody></table></div>' +
+    '<div class="flex items-center gap-2" style="justify-content:flex-end">' +
+      '<button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>' +
+      '<button type="button" class="btn" style="background:linear-gradient(180deg,rgba(248,113,113,0.9),rgba(185,28,28,0.92));border-color:rgba(248,113,113,0.45);color:#1c0505" onclick="confirmReset()">Confirm reset</button>' +
+    '</div>';
+}
+
+function confirmReset() {
+  const body = document.getElementById('modal-body');
+  if (body) body.innerHTML = '<p class="text-sm text-[var(--ec-muted)]">Resetting…</p>';
+  fetch('/api/session/reset/', { method: 'POST' })
+    .then(function () { window.location.reload(); })
+    .catch(function () {
+      if (body) body.innerHTML = '<p class="text-sm text-[var(--ec-danger)]">Reset failed — try again.</p>';
+    });
+}
+
+/* ---- Auto-analysis context prompt (popup shown for awaiting runs) ---- */
+(function () {
+  const modal = document.getElementById('autoctx-modal');
+  const secEl = document.getElementById('autoctx-seconds');
+  const tgtEl = document.getElementById('autoctx-target');
+  const statusEl = document.getElementById('autoctx-status');
+  const defaultBtn = document.getElementById('autoctx-default');
+  const customBtn = document.getElementById('autoctx-custom');
+  if (!modal || !secEl || !defaultBtn) return;
+  let currentId = null;
+  let inFlight = false;
+
+  function hide() { modal.hidden = true; currentId = null; }
+
+  function show(item) {
+    modal.hidden = false;
+    modal.dataset.job = item.scan_job_id;
+    currentId = item.id;
+    secEl.textContent = item.seconds_left;
+    tgtEl.textContent = item.target || ('scan #' + item.scan_job_id);
+    tgtEl.title = item.target || '';
+    if (inFlight) return;
+    statusEl.classList.add('hidden');
+    defaultBtn.disabled = false;
+  }
+
+  defaultBtn.addEventListener('click', function () {
+    if (inFlight || !currentId) return;
+    inFlight = true;
+    defaultBtn.disabled = true;
+    statusEl.textContent = 'Queuing analysis…';
+    statusEl.classList.remove('hidden');
+    fetch('/api/analysis/start/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+      body: JSON.stringify({ scan_job: Number(modal.dataset.job) })
+    })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (res.ok) {
+          statusEl.textContent = 'Analysis #' + res.d.id + ' started — opening…';
+          setTimeout(function () { hide(); window.location.href = '/analysis/' + res.d.id + '/'; }, 900);
+        } else {
+          statusEl.textContent = res.d.detail || 'Could not start the analysis.';
+          defaultBtn.disabled = false;
+          inFlight = false;
+        }
+      })
+      .catch(function () {
+        statusEl.textContent = 'Network error — is the server running?';
+        defaultBtn.disabled = false;
+        inFlight = false;
+      });
+  });
+
+  customBtn.addEventListener('click', function () {
+    if (!currentId) return;
+    const url = '/analysis/?awaiting=' + currentId;
+    hide();
+    window.location.href = url;
+  });
+
+  function poll() {
+    fetch('/api/analysis/awaiting/')
+      .then(function (r) { return r.json(); })
+      .then(function (items) {
+        if (!items || items.length === 0) { if (!modal.hidden) hide(); return; }
+        // The analysis pages surface pending runs on their own — no popup there.
+        if (window.location.pathname.startsWith('/analysis')) {
+          if (!modal.hidden) hide();
+          return;
+        }
+        const item = items[0];
+        if (currentId === null || currentId !== item.id) show(item);
+        secEl.textContent = item.seconds_left;
+        if (!inFlight && item.seconds_left <= 0) {
+          statusEl.textContent = 'Continuing with the default context…';
+          statusEl.classList.remove('hidden');
+        }
+      })
+      .catch(function () {})
+      .finally(function () { setTimeout(poll, 2500); });
+  }
+  poll();
+})();
+</script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

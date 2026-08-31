@@ -275,7 +275,7 @@ def get_hndl_provider(provider_type: Optional[str] = None) -> HNDLLLMProvider:
     """
     Factory function to instantiate configured HNDL Provider.
     """
-    api_key = os.getenv("GEMINI_API_KEY")
+    api_key = os.getenv("GEMINI_API_KEY_HNDL") or os.getenv("GEMINI_API_KEY")
     if provider_type == "gemini" or (api_key and api_key != "YOUR_GEMINI_API_KEY_HERE"):
         return GeminiHNDLProvider()
     return FallbackHNDLProvider()

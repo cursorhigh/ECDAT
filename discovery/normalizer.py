@@ -24,7 +24,7 @@ _FAMILY_MAP = {
     "pqc": NormalizedFinding.AlgorithmFamily.PQC,
     "ml-kem": NormalizedFinding.AlgorithmFamily.PQC,
     "ml-dsa": NormalizedFinding.AlgorithmFamily.PQC,
-    "slh-dsa": NormalizedFinding.AlgorithmFamily.P
+    "slh-dsa": NormalizedFinding.AlgorithmFamily.PQC
 }
 
 
@@ -66,11 +66,12 @@ def _build_dedup_key(raw: dict) -> str:
     return "|".join(parts)
 
 
-def normalize_finding(raw: RawFinding, using=None) -> NormalizedFinding:
+def normalize_finding(raw: RawFinding, using=None, session_id=None) -> NormalizedFinding:
     """Create/return a NormalizedFinding for a raw finding.
 
     `using` selects the database to write to (defaults to the raw finding's
     own database so the pipeline stays inside the correct mode boundary).
+    `session_id` scopes the normalized finding to a work session.
     """
     data = raw.raw_json or {}
 
@@ -85,6 +86,7 @@ def normalize_finding(raw: RawFinding, using=None) -> NormalizedFinding:
         raw_finding=raw,
         defaults={
             "mode": raw.mode,
+            "session_id": session_id,
             "family": family,
             "algorithm": data.get("algorithm", ""),
             "key_size": data.get("key_size") or None,

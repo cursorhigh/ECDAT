@@ -233,7 +233,7 @@ class GeminiLLMProvider(BaseLLMProvider):
     ]
 
     def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+        self.api_key = api_key or os.getenv("GEMINI_API_KEY_CBOM") or os.getenv("GEMINI_API_KEY")
         user_model = model or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
         # Build candidate models list maintaining preference order
@@ -373,7 +373,7 @@ def get_llm_provider(provider_type: Optional[str] = None) -> BaseLLMProvider:
     except ImportError:
         pass
 
-    if provider_type == "gemini" or os.getenv("GEMINI_API_KEY"):
+    if provider_type == "gemini" or os.getenv("GEMINI_API_KEY_CBOM") or os.getenv("GEMINI_API_KEY"):
         return GeminiLLMProvider()
     elif provider_type == "openai" or os.getenv("OPENAI_API_KEY"):
         return OpenAILLMProvider()

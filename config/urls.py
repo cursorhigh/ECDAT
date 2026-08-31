@@ -8,6 +8,9 @@ urlpatterns = [
     # ECDAT apps
     path('', include('dashboard.urls')),
     path('api/', include('discovery.urls')),
+    path('api/analysis/', include('analysis.urls')),
+    path('api/session/', include('core.urls')),
+    path('api/mitigation/', include('mitigation.urls')),
     path('reports/', include('reports.urls')),
     path('crypto/', include('crypto_scan.urls')),
 ]

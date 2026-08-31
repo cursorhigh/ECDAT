@@ -1,0 +1,226 @@
+{% extends "dashboard/base.html" %}
+{% block title %}ECDAT · Reports{% endblock %}
+{% block page_title %}Reports{% endblock %}
+{% block page_description %}Enterprise exports and the on-demand full-pipeline report — rendered to PDF on the server, returned as base64, decoded in your browser and saved locally. Nothing is stored.{% endblock %}
+
+{% block content %}
+<div class="bento">
+  <!-- ======= Scope KPIs ======= -->
+  <section class="tile col12">
+    <div class="tile-head">
+      <div>
+        <div class="tl">Report scope</div>
+        <div class="thint" style="margin-top:2px">what the document will cover</div>
+      </div>
+      <span class="card-kicker">{{ scope_label }}</span>
+    </div>
+    <div class="grid gap-3 sm:grid-cols-4 lg:grid-cols-8">
+      <div class="kpi-mini"><div class="text-[10px] uppercase tracking-widest text-[var(--ec-faint)]">Scans</div><div class="text-xl font-bold text-[var(--ec-ink)] mono">{{ counts.scans }}</div></div>
+      <div class="kpi-mini"><div class="text-[10px] uppercase tracking-widest text-[var(--ec-faint)]">Raw findings</div><div class="text-xl font-bold text-[var(--ec-ink)] mono">{{ counts.raw_findings }}</div></div>
+      <div class="kpi-mini"><div class="text-[10px] uppercase tracking-widest text-[var(--ec-faint)]">Normalized</div><div class="text-xl font-bold text-[var(--ec-ink)] mono">{{ counts.normalized_findings }}</div></div>
+      <div class="kpi-mini"><div class="text-[10px] uppercase tracking-widest text-[var(--ec-faint)]">Assets</div><div class="text-xl font-bold text-[var(--ec-ink)] mono">{{ counts.assets }}</div></div>
+      <div class="kpi-mini"><div class="text-[10px] uppercase tracking-widest text-[var(--ec-faint)]">Quantum-exposed</div><div class="text-xl font-bold text-[var(--ec-danger)] mono">{{ counts.quantum_vulnerable }} ({{ counts.quantum_pct }}%)</div></div>
+      <div class="kpi-mini"><div class="text-[10px] uppercase tracking-widest text-[var(--ec-faint)]">Relations</div><div class="text-xl font-bold text-[var(--ec-ink)] mono">{{ counts.relations }}</div></div>
+      <div class="kpi-mini"><div class="text-[10px] uppercase tracking-widest text-[var(--ec-faint)]">Analyses</div><div class="text-xl font-bold text-[var(--ec-ink)] mono">{{ counts.completed_runs }}</div></div>
+      <div class="kpi-mini"><div class="text-[10px] uppercase tracking-widest text-[var(--ec-faint)]">Mitigation plans</div><div class="text-xl font-bold text-[var(--ec-ink)] mono">{{ counts.mitigation }}</div></div>
+    </div>
+  </section>
+
+  <!-- ======= Generate the report ======= -->
+  <section class="tile col8 accent-cyan">
+    <div class="tile-head">
+      <div>
+        <div class="tl">Full-pipeline report</div>
+        <div class="thint" style="margin-top:2px">PDF · base64 · never stored</div>
+      </div>
+    </div>
+    <p class="text-sm text-[var(--ec-muted)] mb-4">
+      Builds a formatted, enterprise-grade document covering every stage of the pipeline —
+      discovery scans, raw intake, normalization, inventory &amp; quantum risk, correlation,
+      analysis runs and the mitigation plan. The server renders it to PDF and the file is
+      handed to your browser as base64, decoded locally and saved from an in-browser prompt.
+    </p>
+
+    <div id="report-error" class="hidden text-sm text-[var(--ec-danger)] mb-3"></div>
+    <div id="report-status" class="hidden text-sm text-[var(--ec-warning)] mb-3"></div>
+
+    <div class="flex flex-wrap items-center gap-3">
+      <button class="btn btn-primary" id="report-gen" onclick="generateReport()">Generate PDF report</button>
+      <button class="btn btn-ghost" id="report-preview" onclick="previewReport()">Preview (HTML)</button>
+      {% if not mitigation_present %}
+      <span class="text-xs text-[var(--ec-muted)]">No mitigation plan in scope yet — the report still covers discovery &amp; analysis, and flags the mitigation stage as pending.</span>
+      {% endif %}
+    </div>
+
+    <div class="mt-4 grid gap-3 sm:grid-cols-2">
+      <div class="kpi-mini">
+        <div class="text-[10px] uppercase tracking-widest text-[var(--ec-faint)] mb-1">1 · Generate</div>
+        <div class="text-sm text-[var(--ec-muted)]">Click the button — the server assembles the document and renders the PDF client-side (headless Chromium).</div>
+      </div>
+      <div class="kpi-mini">
+        <div class="text-[10px] uppercase tracking-widest text-[var(--ec-faint)] mb-1">2 · Save &amp; share</div>
+        <div class="text-sm text-[var(--ec-muted)]">Your browser decodes the base64 payload and asks you where to save the PDF — nothing is persisted server-side.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======= Coverage ======= -->
+  <section class="tile col4">
+    <div class="tile-head">
+      <div>
+        <div class="tl">Included in the report</div>
+        <div class="thint" style="margin-top:2px">every pipeline stage</div>
+      </div>
+    </div>
+    <ul class="space-y-2 text-sm">
+      <li class="flex items-start gap-2.5">
+        <span class="step-dot mt-1.5" style="background:var(--ec-success)"></span>
+        <div><div class="font-semibold text-[var(--ec-ink)]">Executive summary</div>
+        <div class="text-xs text-[var(--ec-muted)]">KPIs, quantum-exposure, HNDL posture and bottom line.</div></div>
+      </li>
+      <li class="flex items-start gap-2.5">
+        <span class="step-dot mt-1.5" style="background:var(--ec-accent)"></span>
+        <div><div class="font-semibold text-[var(--ec-ink)]">Discovery pipeline</div>
+        <div class="text-xs text-[var(--ec-muted)]">Every scan with its target/source/status, and findings by family.</div></div>
+      </li>
+      <li class="flex items-start gap-2.5">
+        <span class="step-dot mt-1.5" style="background:var(--ec-accent)"></span>
+        <div><div class="font-semibold text-[var(--ec-ink)]">Inventory &amp; quantum risk</div>
+        <div class="text-xs text-[var(--ec-muted)]">Asset-by-asset risk labels, Shor/Grover guidance and replacements.</div></div>
+      </li>
+      <li class="flex items-start gap-2.5">
+        <span class="step-dot mt-1.5" style="background:var(--ec-accent)"></span>
+        <div><div class="font-semibold text-[var(--ec-ink)]">Analysis &amp; assessment</div>
+        <div class="text-xs text-[var(--ec-muted)]">Run ledger with HNDL/MOSCA rows and migration priorities.</div></div>
+      </li>
+      <li class="flex items-start gap-2.5">
+        <span class="step-dot mt-1.5" style="background:var(--ec-accent)"></span>
+        <div><div class="font-semibold text-[var(--ec-ink)]">Mitigation plan</div>
+        <div class="text-xs text-[var(--ec-muted)]">Digital twin, blast radius, waves, strategic recommendations and prioritized remediation.</div></div>
+      </li>
+      <li class="flex items-start gap-2.5">
+        <span class="step-dot mt-1.5" style="background:var(--ec-warning)"></span>
+        <div><div class="font-semibold text-[var(--ec-ink)]">Appendix</div>
+        <div class="text-xs text-[var(--ec-muted)]">Method notes (CBOM, HNDL, MOSCA) and the run ledger.</div></div>
+      </li>
+    </ul>
+  </section>
+
+  <!-- ======= Quick exports ======= -->
+  <section class="tile col12">
+    <div class="tile-head">
+      <div>
+        <div class="tl">Quick exports</div>
+        <div class="thint" style="margin-top:2px">scoped to the current workspace</div>
+      </div>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      {% for e in exports %}
+      <a href="{{ e.href }}" class="btn btn-ghost text-xs">{{ e.label }}</a>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+
+<!-- Preview modal -->
+<div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6" id="report-preview-modal" hidden>
+  <div class="card-2 w-[900px] h-[85vh] max-w-[96vw] !bg-[rgba(18,24,34,0.95)] flex flex-col overflow-hidden">
+    <div class="flex items-center justify-between px-5 py-3 border-b !border-[rgba(255,255,255,0.08)] font-semibold text-[var(--ec-ink)] shrink-0">
+      <span>Full-pipeline report — preview</span>
+      <button class="text-[var(--ec-muted)] text-xl leading-none hover:text-[var(--ec-ink)]" onclick="closeReportPreview()">&times;</button>
+    </div>
+    <iframe id="report-preview-frame" class="flex-1 w-full" style="border:none;background:#fff"></iframe>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const genBtn = document.getElementById('report-gen');
+  const previewBtn = document.getElementById('report-preview');
+  const errBox = document.getElementById('report-error');
+  const statusBox = document.getElementById('report-status');
+
+  function setStatus(msg) {
+    statusBox.textContent = msg;
+    statusBox.classList.remove('hidden');
+  }
+  function clearStatus() { statusBox.classList.add('hidden'); statusBox.textContent = ''; }
+  function fail(msg) {
+    errBox.textContent = msg;
+    errBox.classList.remove('hidden');
+    genBtn.disabled = false;
+    genBtn.textContent = 'Generate PDF report';
+    clearStatus();
+  }
+  function csrf() { return window.getCsrf ? getCsrf() : ''; }
+
+  function b64ToBlob(b64, mime) {
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
+  }
+
+  function triggerDownload(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+  }
+
+  window.generateReport = function () {
+    if (genBtn.disabled) return;
+    genBtn.disabled = true;
+    genBtn.textContent = 'Rendering…';
+    errBox.classList.add('hidden');
+    setStatus('Assembling the document and rendering the PDF — this can take a few seconds…');
+
+    fetch('{{ api_full_json }}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+    })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok || !res.d.b64) {
+          fail((res.d && res.d.detail) || 'Report generation failed.');
+          return;
+        }
+        const d = res.d;
+        if (d.render_error) {
+          setStatus('PDF renderer unavailable (' + d.render_error + ') — saving the HTML document instead.');
+        }
+        const blob = b64ToBlob(d.b64, d.mime);
+        triggerDownload(blob, d.filename);
+        genBtn.disabled = false;
+        genBtn.textContent = 'Generate PDF report';
+        clearStatus();
+        setStatus('Generated ' + d.format.toUpperCase() + ' (' + (d.size / 1024).toFixed(0) + ' KB) — your browser has asked where to save "' + d.filename + '".');
+      })
+      .catch(function () { fail('Network error — is the server running?'); });
+  };
+
+  window.previewReport = function () {
+    if (previewBtn.disabled) return;
+    previewBtn.disabled = true;
+    previewBtn.textContent = 'Loading…';
+    errBox.classList.add('hidden');
+    const frame = document.getElementById('report-preview-frame');
+    frame.src = '{{ api_full_html }}';
+    document.getElementById('report-preview-modal').hidden = false;
+    setTimeout(function () { previewBtn.disabled = false; previewBtn.textContent = 'Preview (HTML)'; }, 1200);
+  };
+
+  window.closeReportPreview = function () {
+    const frame = document.getElementById('report-preview-frame');
+    frame.src = 'about:blank';
+    document.getElementById('report-preview-modal').hidden = true;
+  };
+})();
+</script>
+{% endblock %}
