@@ -18,10 +18,10 @@ class Command(BaseCommand):
     help = "Re-queue pending/unfinished scans, analyses, plans and chunks."
 
     def handle(self, *args, **options):
-        from analysis.runner import sweep_pending_runs
-        from crypto_scan.pipeline import sweep_stale_chunks
-        from discovery.services import sweep_pending_scans
-        from mitigation.planner import sweep_pending_plans
+        from segments.ml.analysis.runner import sweep_pending_runs
+        from segments.scraping.crypto_scan.pipeline import sweep_stale_chunks
+        from segments.scraping.discovery.services import sweep_pending_scans
+        from segments.mitigation.mitigation.planner import sweep_pending_plans
 
         def _safe(label, fn):
             """Best-effort sweep: a DB hiccup (e.g. a mode DB not yet migrated)

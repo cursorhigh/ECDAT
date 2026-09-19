@@ -1,0 +1,40 @@
+# import-linter — enforces the workstream segment boundaries.
+#
+# Run:   pip install -r requirements-dev.txt
+#        lint-imports
+#
+# Boundary rule (authoritative doc: docs/architecture/segments.md):
+#   Reporting (presentation) may read from every segment; scraping is the
+#   lowest layer. Layers are top-first, i.e. a layer may only depend on
+#   layers listed after it:
+#       reporting > mitigation > ml > scraping
+#   plus `core`/`schema` (shared infra), which are kept out of these
+#   contracts.
+#
+# The few deliberate upward call-backs in the system are listed explicitly in
+# `ignore_imports` below (crash-recovery sweeps and the analysis ->
+# mitigation auto-trigger). Any new exception must be added here deliberately
+# and reviewed by the owning segments (see CODEOWNERS).
+
+[importlinter]
+root_packages =
+    segments
+
+[importlinter:contract:workstream-segments]
+name = Workstream segments form a bounded layering
+type = layers
+layers =
+    reporting
+    mitigation
+    ml
+    scraping
+containers = segments
+ignore_imports =
+    # Boot/crash-recovery sweeps requeue tasks owned by other segments.
+    segments.scraping.crypto_scan.management.commands.run_huey -> segments.ml.analysis.runner
+    segments.scraping.crypto_scan.management.commands.run_huey -> segments.mitigation.mitigation.planner
+    segments.scraping.discovery.services -> segments.ml.analysis.models
+    segments.scraping.discovery.services -> segments.ml.analysis.runner
+    segments.scraping.discovery.tests -> segments.ml.analysis.models
+    # Analysis auto-triggers mitigation when a run completes.
+    segments.ml.analysis.runner -> segments.mitigation.mitigation.planner

@@ -14,8 +14,8 @@ import django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 django.setup()
 
-from discovery.risk_engine import simulate_full_hndl_risk, MoscaCalculator, HNDLThreatAnalyzer
-from discovery.scanners.demo import generate_enterprise_demo_findings
+from segments.scraping.discovery.risk_engine import simulate_full_hndl_risk, MoscaCalculator, HNDLThreatAnalyzer
+from segments.scraping.discovery.scanners.demo import generate_enterprise_demo_findings
 
 def test_simulation():
     # User Input 1

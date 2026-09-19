@@ -5,8 +5,8 @@ a *Quick* or *Whole System* scan is chosen from researched, canonical
 crypto-material locations, not from a single project folder. A *Specified
 Path* scan walks exactly the folder the user chose.
 
-Scope resolution lives in `discovery/scanners/platform.py`; the engine that
-walks the roots is `discovery/scanners/crypto_artefact.py`.
+Scope resolution lives in `segments/scraping/discovery/scanners/platform.py`; the engine that
+walks the roots is `segments/scraping/discovery/scanners/crypto_artefact.py`.
 
 ## The three scan scopes
 
@@ -99,9 +99,9 @@ recognise the material. The following rules were added to `crypto_rules.yar`
 
 ## Reference list of files
 
-- `discovery/scanners/platform.py` — profiles, detection, root resolution.
-- `discovery/scanners/crypto_artefact.py` — scope-aware walker + rule metadata.
-- `discovery/services.py` — stores `scan_type` in `ScanJob.config`.
+- `segments/scraping/discovery/scanners/platform.py` — profiles, detection, root resolution.
+- `segments/scraping/discovery/scanners/crypto_artefact.py` — scope-aware walker + rule metadata.
+- `segments/scraping/discovery/services.py` — stores `scan_type` in `ScanJob.config`.
 - `crypto_rules.yar` — key-material YARA rules.
-- `discovery/views.py` + `discovery/urls.py` — `/api/scan-preview/` endpoint.
-- `dashboard/templates/dashboard/discovery.html` — scan-type cards + preview.
+- `segments/scraping/discovery/views.py` + `segments/scraping/discovery/urls.py` — `/api/scan-preview/` endpoint.
+- `segments/reporting/dashboard/templates/dashboard/discovery.html` — scan-type cards + preview.

@@ -7,9 +7,9 @@ from django.shortcuts import redirect
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from analysis.models import AnalysisRun, AssetAssessment
+from segments.ml.analysis.models import AnalysisRun, AssetAssessment
 from core.modes import active_db
-from discovery.models import AssetRelation, CryptoAsset, NormalizedFinding, RawFinding, ScanJob
+from segments.scraping.discovery.models import AssetRelation, CryptoAsset, NormalizedFinding, RawFinding, ScanJob
 
 from .models import AuditLog, WorkSession, log_action
 from .sessions import ALL, current_id_from_request, set_current, set_thread_session

@@ -8,7 +8,7 @@ Extracts cryptographic metadata and generates field-level evidence & explainabil
 import os
 import json
 from dotenv import load_dotenv
-from cbom import (
+from segments.ml.cbom import (
     CBOMAgent,
     GeminiLLMProvider,
     format_cbom_explanation,

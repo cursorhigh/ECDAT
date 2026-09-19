@@ -4,7 +4,7 @@ import json
 
 from django.test import Client, TestCase, override_settings
 
-from discovery.models import ScanJob
+from segments.scraping.discovery.models import ScanJob
 
 from .models import WorkSession
 from .sessions import clear_thread_session, create_scan_session, scope, thread_session_id

@@ -46,14 +46,14 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     # Third-party
     'rest_framework',
-    # Local apps
+    # Local apps — organised into workstream segments (see docs/architecture).
     'core',
-    'discovery',
-    'dashboard',
-    'reports',
-    'crypto_scan',
-    'analysis',
-    'mitigation',
+    'segments.scraping.discovery',
+    'segments.scraping.crypto_scan',
+    'segments.ml.analysis',
+    'segments.mitigation.mitigation',
+    'segments.reporting.dashboard',
+    'segments.reporting.reports',
 ]
 
 MIDDLEWARE = [
@@ -174,5 +174,5 @@ ECDAT = {
 }
 
 # Huey task queue (SqliteHuey). Load after ECDAT so env defaults are ready.
-from crypto_scan.hueyconf import HUEY as _HUEY  # noqa: E402
+from segments.scraping.crypto_scan.hueyconf import HUEY as _HUEY  # noqa: E402
 HUEY = _HUEY

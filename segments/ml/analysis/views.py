@@ -1,0 +1,324 @@
+"""Function views for the analysis app (API endpoints)."""
+
+import json
+
+from django.db.models import Count
+from django.http import JsonResponse
+from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_GET, require_POST
+
+from core.modes import active_db, db_alias_for_mode
+from core.sessions import scope, thread_session_id
+from segments.scraping.discovery.models import ScanJob
+
+from .models import AnalysisRun, AssetAssessment
+from .runner import _auto_continue, cancel_run, continue_pending, start_analysis
+
+
+def _load_run(run_id):
+    """Return (run, db) for a run, resolved from the run's own mode database."""
+    db = active_db()
+    try:
+        run = AnalysisRun.objects.using(db).get(pk=run_id)
+    except AnalysisRun.DoesNotExist:
+        fallback = "demo" if db != "demo" else "default"
+        run = AnalysisRun.objects.using(fallback).get(pk=run_id)
+    db = db_alias_for_mode(run.mode)
+    return AnalysisRun.objects.using(db).select_related("scan_job").get(pk=run_id), db
+
+
+def _assessment_summary(a):
+    asset = a.asset
+    return {
+        "id": a.pk,
+        "finding_ref": a.finding_ref,
+        "asset_id": a.asset_id if a.asset_id is not None else a.cbom_asset.get("asset_id"),
+        "asset_name": asset.name if asset else "",
+        "asset_family": asset.family if asset else "",
+        "cbom_asset": a.cbom_asset,
+        "hndl": a.hndl_result,
+        "mosca": a.mosca_result,
+    }
+
+
+@csrf_exempt
+def analysis_list(request):
+    """List recent analysis runs (GET /api/analysis/)."""
+    if request.method != "GET":
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+    db = active_db()
+    runs = (
+        scope(AnalysisRun.objects.using(db), thread_session_id())
+        .select_related("scan_job")
+        .annotate(assets_count=Count("assessments"))
+        .order_by("-created_at")[:50]
+    )
+    return JsonResponse(
+        [
+            {
+                "id": r.pk,
+                "scan_job_id": r.scan_job_id,
+                "target": r.scan_job.target,
+                "status": r.status,
+                "progress": r.progress,
+                "created_at": r.created_at,
+                "assets": r.assets_count,
+            }
+            for r in runs
+        ],
+        safe=False,
+    )
+
+
+@require_GET
+def analysis_awaiting(request):
+    """List runs waiting on a context choice (GET /api/analysis/awaiting/).
+
+    Used by the dashboard popup: when an auto-queued analysis is paused
+    waiting for the user to pick between the default context and a modified
+    one, this returns the pending run(s) with the remaining seconds.
+    """
+    db = active_db()
+    now = timezone.now()
+    runs = (
+        scope(AnalysisRun.objects.using(db), thread_session_id())
+        .filter(status=AnalysisRun.Status.AWAITING_CONTEXT)
+        .select_related("scan_job")
+        .order_by("-created_at")
+    )
+    rows = []
+    for r in runs[:5]:
+        # The fallback timer may have missed its deadline (server restart while
+        # it slept); a run past `await_until` continues with the default now.
+        if r.await_until and r.await_until <= now:
+            _auto_continue(r.pk, r.mode, db, 0)
+            continue
+        seconds_left = 0
+        if r.await_until:
+            seconds_left = max(0, int((r.await_until - now).total_seconds()))
+        rows.append(
+            {
+                "id": r.pk,
+                "scan_job_id": r.scan_job_id,
+                "target": r.scan_job.target,
+                "session_id": r.session_id,
+                "created_at": r.created_at,
+                "seconds_left": seconds_left,
+            }
+        )
+    return JsonResponse(rows, safe=False)
+
+
+@csrf_exempt
+@require_POST
+def analysis_start(request):
+    """Queue an analysis run for a completed scan job (POST /api/analysis/start/).
+
+    A scan that already has an awaiting-context run re-uses that run -- the
+    passed ``raw_system_context`` (or the default) is what gets committed and
+    dispatched, so the manual form and the auto-analysis prompt resolve to the
+    same row instead of duplicating runs.
+    """
+    try:
+        payload = json.loads(request.body or b"{}")
+    except ValueError:
+        return JsonResponse({"detail": "Invalid JSON body"}, status=400)
+
+    scan_job_id = payload.get("scan_job")
+    if not scan_job_id:
+        return JsonResponse({"detail": "Missing required field `scan_job`."}, status=400)
+
+    db = active_db()
+    try:
+        scan_job = ScanJob.objects.using(db).get(pk=scan_job_id)
+    except ScanJob.DoesNotExist:
+        return JsonResponse({"detail": f"Scan job {scan_job_id} not found."}, status=400)
+
+    if scan_job.status != ScanJob.Status.COMPLETED:
+        return JsonResponse(
+            {
+                "detail": (
+                    f"Scan job {scan_job_id} is {scan_job.status}; "
+                    "only completed scans can be analyzed."
+                )
+            },
+            status=400,
+        )
+
+    max_findings = payload.get("max_findings")
+    if max_findings is not None:
+        try:
+            max_findings = max(1, min(500, int(max_findings)))
+        except (TypeError, ValueError):
+            return JsonResponse(
+                {"detail": "`max_findings` must be an integer between 1 and 500."},
+                status=400,
+            )
+
+    raw_context = payload.get("raw_system_context")
+    existing = (
+        scope(AnalysisRun.objects.using(db), thread_session_id())
+        .filter(scan_job=scan_job, status=AnalysisRun.Status.AWAITING_CONTEXT)
+        .order_by("-created_at")
+        .first()
+    )
+    if existing is not None:
+        try:
+            run = continue_pending(existing, raw_context, db=db, max_findings=max_findings)
+        except ValueError:
+            return JsonResponse(
+                {"detail": "This scan's analysis has already been queued."}, status=409
+            )
+        return JsonResponse(
+            {
+                "id": run.pk,
+                "scan_job_id": run.scan_job_id,
+                "status": run.status,
+                "progress": run.progress,
+                "created_at": run.created_at,
+                "assets": 0,
+            },
+            status=200,
+        )
+
+    # No awaiting run: the 30s timer may already have queued it. Reuse the
+    # active run instead of starting a duplicate (and apply a queued run's
+    # custom context before it executes, if handed one).
+    active = (
+        scope(AnalysisRun.objects.using(db), thread_session_id())
+        .filter(
+            scan_job=scan_job,
+            status__in=[
+                AnalysisRun.Status.AWAITING_CONTEXT,
+                AnalysisRun.Status.QUEUED,
+                AnalysisRun.Status.RUNNING,
+            ],
+        )
+        .order_by("-created_at")
+        .first()
+    )
+    if active is not None:
+        if raw_context is not None and active.status == AnalysisRun.Status.QUEUED:
+            active.raw_system_context = raw_context
+            active.save(using=db, update_fields=["raw_system_context"])
+            active.refresh_from_db()
+        return JsonResponse(
+            {
+                "id": active.pk,
+                "scan_job_id": active.scan_job_id,
+                "status": active.status,
+                "progress": active.progress,
+                "created_at": active.created_at,
+                "assets": 0,
+            },
+            status=200,
+        )
+
+    run = start_analysis(scan_job, raw_context, max_findings=max_findings)
+    return JsonResponse(
+        {
+            "id": run.pk,
+            "scan_job_id": run.scan_job_id,
+            "status": run.status,
+            "progress": run.progress,
+            "created_at": run.created_at,
+            "assets": 0,
+        },
+        status=201,
+    )
+
+
+@csrf_exempt
+@require_POST
+def analysis_cancel(request, run_id):
+    """Cancel an analysis run (POST /api/analysis/<id>/cancel/).
+
+    Cancels awaiting-context / queued / running runs. The running executor
+    honours the cancel at its next asset-assessment checkpoint; a cancelled
+    run never auto-advances to mitigation.
+    """
+    try:
+        run, db = _load_run(run_id)
+    except AnalysisRun.DoesNotExist:
+        return JsonResponse({"detail": f"Analysis run {run_id} not found."}, status=400)
+
+    if thread_session_id() and run.session_id != thread_session_id():
+        return JsonResponse({"detail": "not found"}, status=404)
+
+    if not cancel_run(run, db):
+        return JsonResponse(
+            {"detail": f"Analysis run {run_id} is not cancellable (status: {run.status})."},
+            status=400,
+        )
+    return JsonResponse({"id": run.pk, "status": run.status})
+
+
+@csrf_exempt
+def analysis_detail(request, run_id):
+    """Return full details for one analysis run (GET /api/analysis/<id>/)."""
+    if request.method != "GET":
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+    try:
+        run, db = _load_run(run_id)
+    except AnalysisRun.DoesNotExist:
+        return JsonResponse({"detail": f"Analysis run {run_id} not found."}, status=400)
+
+    if thread_session_id() and run.session_id != thread_session_id():
+        return JsonResponse({"detail": "not found"}, status=404)
+
+    assessments = AssetAssessment.objects.using(db).filter(run=run).order_by("id")
+    data = {
+        "id": run.pk,
+        "scan_job_id": run.scan_job_id,
+        "target": run.scan_job.target,
+        "mode": run.mode,
+        "status": run.status,
+        "progress": run.progress,
+        "error": run.error,
+        "created_at": run.created_at,
+        "started_at": run.started_at,
+        "finished_at": run.finished_at,
+        "repository": run.repository,
+        "raw_system_context": run.raw_system_context,
+        "risk_context": run.risk_context,
+        "executive_summary": run.executive_summary,
+        "cbom": run.cbom_document,
+        "findings_count": len((run.input_payload or {}).get("findings", [])),
+        "assessments": [_assessment_summary(a) for a in assessments],
+    }
+    return JsonResponse(data)
+
+
+@csrf_exempt
+def analysis_artifacts(request, run_id):
+    """Download the full analysis artifact bundle (GET /api/analysis/<id>/artifacts/)."""
+    if request.method != "GET":
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+    try:
+        run, db = _load_run(run_id)
+    except AnalysisRun.DoesNotExist:
+        return JsonResponse({"detail": f"Analysis run {run_id} not found."}, status=400)
+
+    if thread_session_id() and run.session_id != thread_session_id():
+        return JsonResponse({"detail": "not found"}, status=404)
+
+    assessments = AssetAssessment.objects.using(db).filter(run=run).order_by("id")
+    data = {
+        "run": {
+            "id": run.pk,
+            "scan_job_id": run.scan_job_id,
+            "status": run.status,
+            "created_at": run.created_at,
+            "finished_at": run.finished_at,
+        },
+        "repository": run.repository,
+        "cbom_document": run.cbom_document,
+        "risk_context": run.risk_context,
+        "executive_summary": run.executive_summary,
+        "assessments": [_assessment_summary(a) for a in assessments],
+    }
+    return JsonResponse(data, content_type="application/json")

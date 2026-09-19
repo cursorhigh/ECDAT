@@ -11,7 +11,7 @@ import json
 import unittest
 from typing import Dict, Any
 from dotenv import load_dotenv
-from cbom import (
+from segments.ml.cbom import (
     CBOMAgent,
     CBOMBuilder,
     CBOMValidator,

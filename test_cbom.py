@@ -9,7 +9,7 @@ validates quality, builds the final CBOM document, prints it to stdout, and expo
 import os
 import json
 import unittest
-from cbom import (
+from segments.ml.cbom import (
     CBOMAgent,
     CBOMBuilder,
     CBOMValidator,

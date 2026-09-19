@@ -13,7 +13,7 @@ import json
 # Ensure project root is in python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from mosca_agent import MOSCAAgent
+from segments.ml.mosca_agent import MOSCAAgent
 
 DEMO_ASSETS = [
     {

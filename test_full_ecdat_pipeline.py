@@ -18,10 +18,10 @@ import unittest
 # Ensure project root is in python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from cbom import CBOMAgent, format_cbom_explanation
-from risk_agent import RiskClassificationAgent
-from hndl import HNDLAgent, format_hndl_terminal_report
-from mosca_agent import MOSCAAgent
+from segments.ml.cbom import CBOMAgent, format_cbom_explanation
+from segments.ml.risk_agent import RiskClassificationAgent
+from segments.ml.hndl import HNDLAgent, format_hndl_terminal_report
+from segments.ml.mosca_agent import MOSCAAgent
 
 
 # 10 Representative Cryptographic Discovery Findings

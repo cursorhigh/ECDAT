@@ -1,0 +1,14 @@
+# ECDAT workstream ownership
+# Each segment folder is owned by that team. `core`, `config`, `schema`
+# and `scripts` are shared infrastructure (platform / shipit).
+
+segments/scraping/    @ecdat-team/scraping
+segments/ml/          @ecdat-team/ml
+segments/mitigation/  @ecdat-team/mitigation
+segments/reporting/   @ecdat-team/reporting
+
+core/                 @ecdat-team/platform @ecdat-team/shipit
+config/               @ecdat-team/platform
+schema/               @ecdat-team/platform @ecdat-team/shipit
+scripts/              @ecdat-team/platform
+docs/architecture/    @ecdat-team/platform @ecdat-team/shipit

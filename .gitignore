@@ -14,6 +14,8 @@ session-ses_fabe.md
 venv/
 env/
 .venv/
+ML_pipe
+ML_pipe/*
 
 # Django
 db.sqlite3

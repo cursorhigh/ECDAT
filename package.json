@@ -4,8 +4,8 @@
   "private": true,
   "description": "ECDAT frontend build (Tailwind CSS)",
   "scripts": {
-    "build": "tailwindcss -i dashboard/static/dashboard/css/tailwind.src.css -o dashboard/static/dashboard/css/tailwind.css --minify",
-    "watch": "tailwindcss -i dashboard/static/dashboard/css/tailwind.src.css -o dashboard/static/dashboard/css/tailwind.css --watch"
+    "build": "tailwindcss -i segments/reporting/dashboard/static/dashboard/css/tailwind.src.css -o segments/reporting/dashboard/static/dashboard/css/tailwind.css --minify",
+    "watch": "tailwindcss -i segments/reporting/dashboard/static/dashboard/css/tailwind.src.css -o segments/reporting/dashboard/static/dashboard/css/tailwind.css --watch"
   },
   "devDependencies": {
     "tailwindcss": "^3.4.19"
