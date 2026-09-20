@@ -1,0 +1,277 @@
+{
+  "format": "ECDAT-CBOM",
+  "version": "1.0",
+  "generated_at": "2026-09-19T22:59:14Z",
+  "repository": {
+    "name": "enterprise-auth-service",
+    "url": "https://github.com/example/enterprise-auth-service"
+  },
+  "summary": {
+    "total_assets": 6,
+    "confirmed_assets": 5,
+    "partial_assets": 1,
+    "needs_review_assets": 0,
+    "invalid_assets": 0,
+    "by_family": {
+      "asymmetric": 2,
+      "symmetric": 1,
+      "hash": 1,
+      "protocol": 1,
+      "other": 1
+    }
+  },
+  "crypto_assets": [
+    {
+      "asset_id": "F001",
+      "asset_type": "algorithm",
+      "algorithm": "RSA",
+      "family": "asymmetric",
+      "parameters": {
+        "key_size": 2048,
+        "mode": null,
+        "curve": null,
+        "hash": null
+      },
+      "purpose": null,
+      "implementation": null,
+      "location": {
+        "file": "src/auth/rsa_provider.py",
+        "line": 24
+      },
+      "evidence": "rsa.generate_private_key(key_size=2048, public_exponent=65537)",
+      "confidence": 0.95,
+      "validation_status": "confirmed",
+      "explainability": {
+        "method": "deterministic",
+        "ai_used": false,
+        "summary": "RSA was identified through an explicit deterministic cryptographic API pattern.",
+        "decision_reason": "The deterministic extraction rule successfully identified the algorithm and key size without requiring AI assistance.",
+        "field_evidence": [
+          {
+            "field": "algorithm",
+            "value": "RSA",
+            "source": "source_code",
+            "snippet": "rsa.generate_private_key",
+            "evidence_type": "pattern_match",
+            "explanation": "The RSA cryptographic API is associated with RSA in matched deterministic rules."
+          },
+          {
+            "field": "parameters.key_size",
+            "value": 2048,
+            "source": "source_code",
+            "snippet": "key_size=2048",
+            "evidence_type": "explicit",
+            "explanation": "The key size is explicitly specified as 2048."
+          }
+        ],
+        "confidence_reason": "High confidence because the algorithm was identified through a known cryptographic API pattern and the key size is explicitly present."
+      }
+    },
+    {
+      "asset_id": "F002",
+      "asset_type": "algorithm",
+      "algorithm": "AES-GCM",
+      "family": "symmetric",
+      "parameters": {
+        "key_size": null,
+        "mode": "GCM",
+        "curve": null,
+        "hash": null
+      },
+      "purpose": null,
+      "implementation": null,
+      "location": {
+        "file": "src/crypto/aes_cipher.py",
+        "line": 58
+      },
+      "evidence": "Cipher(algorithms.AES(key), modes.GCM(nonce))",
+      "confidence": 0.95,
+      "validation_status": "confirmed",
+      "explainability": {
+        "method": "deterministic",
+        "ai_used": false,
+        "summary": "AES encryption using GCM mode was identified through explicit cryptography library API patterns.",
+        "decision_reason": "The deterministic extraction rule successfully identified the symmetric algorithm and mode without requiring AI assistance.",
+        "field_evidence": [
+          {
+            "field": "algorithm",
+            "value": "AES-GCM",
+            "source": "source_code",
+            "snippet": "algorithms.AES",
+            "evidence_type": "explicit",
+            "explanation": "The AES-GCM algorithm is explicitly referenced in the source code."
+          },
+          {
+            "field": "parameters.mode",
+            "value": "GCM",
+            "source": "source_code",
+            "snippet": "modes.GCM",
+            "evidence_type": "explicit",
+            "explanation": "The GCM mode is explicitly referenced in the source code."
+          }
+        ],
+        "confidence_reason": "High confidence because both the algorithm and mode are explicitly visible in the source code."
+      }
+    },
+    {
+      "asset_id": "F003",
+      "asset_type": "algorithm",
+      "algorithm": "SHA-256",
+      "family": "hash",
+      "parameters": {
+        "key_size": null,
+        "mode": null,
+        "curve": null,
+        "hash": null
+      },
+      "purpose": null,
+      "implementation": null,
+      "location": {
+        "file": "src/utils/hash_util.py",
+        "line": 12
+      },
+      "evidence": "hashlib.sha256(data).hexdigest()",
+      "confidence": 0.8,
+      "validation_status": "confirmed",
+      "explainability": {
+        "method": "deterministic",
+        "ai_used": false,
+        "summary": "SHA-256 was identified through an explicit hashlib SHA-256 function call.",
+        "decision_reason": "The deterministic extraction rule successfully identified the hash algorithm without requiring AI assistance.",
+        "field_evidence": [
+          {
+            "field": "algorithm",
+            "value": "SHA-256",
+            "source": "source_code",
+            "snippet": "hashlib.sha256",
+            "evidence_type": "explicit",
+            "explanation": "The SHA-256 algorithm is explicitly referenced in the source code."
+          }
+        ],
+        "confidence_reason": "High confidence because the SHA-256 algorithm is explicitly named in the source code."
+      }
+    },
+    {
+      "asset_id": "F004",
+      "asset_type": "algorithm",
+      "algorithm": "ECDSA",
+      "family": "asymmetric",
+      "parameters": {
+        "key_size": null,
+        "mode": null,
+        "curve": "SECP256R1",
+        "hash": null
+      },
+      "purpose": null,
+      "implementation": null,
+      "location": {
+        "file": "src/auth/ecdsa_signer.py",
+        "line": 89
+      },
+      "evidence": "ec.generate_private_key(ec.SECP256R1())",
+      "confidence": 0.8,
+      "validation_status": "confirmed",
+      "explainability": {
+        "method": "deterministic",
+        "ai_used": false,
+        "summary": "ECDSA was identified through deterministic pattern matching.",
+        "decision_reason": "The deterministic extraction rule successfully identified cryptographic properties from code evidence.",
+        "field_evidence": [
+          {
+            "field": "algorithm",
+            "value": "ECDSA",
+            "source": "source_code",
+            "snippet": "ec.generate_private_key(ec.SECP256R1())",
+            "evidence_type": "pattern_match",
+            "explanation": "The ECDSA cryptographic API is associated with ECDSA in matched deterministic rules."
+          },
+          {
+            "field": "parameters.curve",
+            "value": "SECP256R1",
+            "source": "source_code",
+            "snippet": "SECP256R1",
+            "evidence_type": "explicit",
+            "explanation": "The elliptic curve SECP256R1 is explicitly referenced in the source code."
+          }
+        ],
+        "confidence_reason": "High confidence based on explicit code evidence and rule pattern matching."
+      }
+    },
+    {
+      "asset_id": "F005",
+      "asset_type": "protocol",
+      "algorithm": "OpenSSL TLS",
+      "family": "protocol",
+      "parameters": {
+        "key_size": null,
+        "mode": null,
+        "curve": null,
+        "hash": null
+      },
+      "purpose": null,
+      "implementation": null,
+      "location": {
+        "file": "src/network/tls_client.py",
+        "line": 105
+      },
+      "evidence": "ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)",
+      "confidence": 0.8,
+      "validation_status": "confirmed",
+      "explainability": {
+        "method": "deterministic",
+        "ai_used": false,
+        "summary": "OpenSSL TLS was identified through deterministic pattern matching.",
+        "decision_reason": "The deterministic extraction rule successfully identified cryptographic properties from code evidence.",
+        "field_evidence": [
+          {
+            "field": "algorithm",
+            "value": "OpenSSL TLS",
+            "source": "source_code",
+            "snippet": "ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)",
+            "evidence_type": "pattern_match",
+            "explanation": "The OpenSSL TLS cryptographic API is associated with OpenSSL TLS in matched deterministic rules."
+          }
+        ],
+        "confidence_reason": "High confidence based on explicit code evidence and rule pattern matching."
+      }
+    },
+    {
+      "asset_id": "F006",
+      "asset_type": "algorithm",
+      "algorithm": "CustomCryptoRef",
+      "family": "unknown",
+      "parameters": {
+        "key_size": null,
+        "mode": null,
+        "curve": null,
+        "hash": null
+      },
+      "purpose": null,
+      "implementation": null,
+      "location": {
+        "file": "src/legacy/unknown_handler.py",
+        "line": null
+      },
+      "evidence": null,
+      "confidence": 0.8,
+      "validation_status": "partial",
+      "explainability": {
+        "method": "deterministic",
+        "ai_used": false,
+        "summary": "CustomCryptoRef was identified through deterministic pattern matching.",
+        "decision_reason": "The deterministic extraction rule successfully identified cryptographic properties from code evidence.",
+        "field_evidence": [
+          {
+            "field": "algorithm",
+            "value": "CustomCryptoRef",
+            "source": "source_code",
+            "snippet": "CustomCryptoRef",
+            "evidence_type": "pattern_match",
+            "explanation": "The CustomCryptoRef cryptographic API is associated with CustomCryptoRef in matched deterministic rules."
+          }
+        ],
+        "confidence_reason": "High confidence based on explicit code evidence and rule pattern matching."
+      }
+    }
+  ]
+}

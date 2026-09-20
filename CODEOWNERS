@@ -1,14 +1,18 @@
 # ECDAT workstream ownership
-# Each segment folder is owned by that team. `core`, `config`, `schema`
-# and `scripts` are shared infrastructure (platform / shipit).
+# The backend service lives under `backend/`. Each workstream segment folder
+# is owned by that team. `core`, `config`, `schema` and `scripts` are shared
+# infrastructure (platform / shipit). Repo-level files belong to platform.
 
-segments/scraping/    @ecdat-team/scraping
-segments/ml/          @ecdat-team/ml
-segments/mitigation/  @ecdat-team/mitigation
-segments/reporting/   @ecdat-team/reporting
+backend/segments/scraping/    @ecdat-team/scraping
+backend/segments/ml/          @ecdat-team/ml
+backend/segments/mitigation/  @ecdat-team/mitigation
+backend/segments/reporting/   @ecdat-team/reporting
 
-core/                 @ecdat-team/platform @ecdat-team/shipit
-config/               @ecdat-team/platform
-schema/               @ecdat-team/platform @ecdat-team/shipit
-scripts/              @ecdat-team/platform
-docs/architecture/    @ecdat-team/platform @ecdat-team/shipit
+backend/core/                 @ecdat-team/platform @ecdat-team/shipit
+backend/config/               @ecdat-team/platform
+backend/schema/               @ecdat-team/platform @ecdat-team/shipit
+backend/scripts/              @ecdat-team/platform
+backend/docs/architecture/    @ecdat-team/platform @ecdat-team/shipit
+backend/docs/api/             @ecdat-team/platform @ecdat-team/shipit
+
+/CODEOWNERS                   @ecdat-team/platform
