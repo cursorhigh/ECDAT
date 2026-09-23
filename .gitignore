@@ -40,9 +40,11 @@ media/
 .DS_Store
 Thumbs.db
 
-# Node / Tailwind
+# Node / frontend
 node_modules/
-package-lock.json
+.next/
+out/
+*.tsbuildinfo
 
 # Misc
 coverage.xml

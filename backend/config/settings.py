@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     # Third-party
     'rest_framework',
+    'corsheaders',
     # Local apps — organised into workstream segments (see docs/architecture).
     'core',
     'segments.scraping.discovery',
@@ -60,6 +61,7 @@ MIDDLEWARE = [
     'core.api.EnvelopeMiddleware',
     'core.api.ApiKeyMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'core.middleware.WorkSessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -70,6 +72,18 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'config.urls'
+
+FRONTEND_ORIGINS = [
+    origin.strip().rstrip('/')
+    for origin in os.getenv(
+        'ECDAT_FRONTEND_ORIGINS',
+        'http://localhost:3000,http://127.0.0.1:3000',
+    ).split(',')
+    if origin.strip()
+]
+CORS_ALLOWED_ORIGINS = FRONTEND_ORIGINS
+CORS_ALLOW_CREDENTIALS = True
+CSRF_TRUSTED_ORIGINS = FRONTEND_ORIGINS
 
 TEMPLATES = [
     {
