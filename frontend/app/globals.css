@@ -33,31 +33,31 @@
 }
 
 .dark {
-  --background: 222 24% 7%;
-  --foreground: 210 20% 96%;
-  --card: 222 20% 10%;
-  --card-foreground: 210 20% 96%;
-  --popover: 222 20% 11%;
-  --popover-foreground: 210 20% 96%;
-  --primary: 164 68% 48%;
-  --primary-foreground: 222 24% 8%;
-  --secondary: 220 16% 15%;
-  --secondary-foreground: 210 20% 96%;
-  --muted: 220 16% 15%;
-  --muted-foreground: 218 12% 65%;
-  --accent: 164 34% 16%;
-  --accent-foreground: 164 72% 78%;
+  --background: 0 0% 0%;
+  --foreground: 0 0% 100%;
+  --card: 0 0% 4%;
+  --card-foreground: 0 0% 100%;
+  --popover: 0 0% 6%;
+  --popover-foreground: 0 0% 100%;
+  --primary: 0 0% 98%;
+  --primary-foreground: 0 0% 0%;
+  --secondary: 0 0% 9%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 0 0% 9%;
+  --muted-foreground: 0 0% 65%;
+  --accent: 0 0% 14%;
+  --accent-foreground: 0 0% 100%;
   --destructive: 0 63% 48%;
   --destructive-foreground: 0 0% 100%;
-  --success: 164 68% 48%;
-  --success-foreground: 222 24% 8%;
+  --success: 0 0% 82%;
+  --success-foreground: 0 0% 0%;
   --warning: 35 85% 58%;
-  --warning-foreground: 222 24% 8%;
+  --warning-foreground: 0 0% 0%;
   --info: 215 85% 68%;
-  --info-foreground: 222 24% 8%;
-  --border: 220 14% 21%;
-  --input: 220 14% 25%;
-  --ring: 164 68% 48%;
+  --info-foreground: 0 0% 0%;
+  --border: 0 0% 18%;
+  --input: 0 0% 22%;
+  --ring: 0 0% 90%;
 }
 
 @layer base {
@@ -66,11 +66,11 @@
   }
 
   html {
-    @apply bg-background;
+    @apply h-full overflow-hidden bg-background;
   }
 
   body {
-    @apply min-h-screen bg-background font-sans text-foreground antialiased;
+    @apply h-full overflow-hidden bg-background font-sans text-foreground antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
@@ -98,13 +98,61 @@
 
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: hsl(var(--border)) transparent;
+    scrollbar-color: hsl(var(--foreground) / 0.38) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    background: hsl(var(--foreground) / 0.32);
+    background-clip: padding-box;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--foreground) / 0.52);
+    background-clip: padding-box;
   }
 
   .grid-fade {
     background-image: linear-gradient(hsl(var(--border) / 0.18) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--border) / 0.18) 1px, transparent 1px);
     background-size: 32px 32px;
   }
+
+  @keyframes dialog-overlay-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes dialog-panel-in {
+    from { opacity: 0; transform: translateY(10px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  @keyframes dialog-stage-in {
+    from { opacity: 0; transform: translateX(-6px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .dialog-overlay {
+    animation: dialog-overlay-in 160ms ease-out both;
+  }
+
+  .dialog-panel {
+    animation: dialog-panel-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .dialog-stage {
+    animation: dialog-stage-in 260ms ease-out both;
+  }
+
 }
 
 @media (prefers-reduced-motion: reduce) {

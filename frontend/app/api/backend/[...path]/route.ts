@@ -72,7 +72,7 @@ async function proxy(request: NextRequest, context: RouteContext) {
       {
         success: false,
         code: "service_unavailable",
-        message: "The local ECDAT API is unavailable. Start the Django backend and try again.",
+        message: "The ECDAT service is unavailable. Start the workspace service and try again.",
         data: null,
         meta: { request_id: headers.get("x-request-id"), timestamp: new Date().toISOString() }
       },

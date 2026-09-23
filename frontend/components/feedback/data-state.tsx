@@ -1,5 +1,5 @@
-import { CircleAlert, Inbox, Loader2, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { CircleAlert, Inbox, Loader2 } from "lucide-react";
+import { RefreshButton } from "@/components/ui/refresh-button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function LoadingState({ label = "Loading workspace data" }: { label?: string }) {
@@ -14,13 +14,13 @@ export function LoadingState({ label = "Loading workspace data" }: { label?: str
   );
 }
 
-export function ErrorState({ message, onRetry }: { message?: string; onRetry?: () => void }) {
+export function ErrorState({ message, onRetry }: { message?: string; onRetry?: () => void | Promise<unknown> }) {
   return (
     <div className="flex min-h-56 flex-col items-center justify-center border border-destructive/30 bg-destructive/5 px-6 text-center" role="alert">
       <CircleAlert className="h-7 w-7 text-destructive" aria-hidden="true" />
       <h2 className="mt-3 text-sm font-semibold">Unable to load this view</h2>
-      <p className="mt-1 max-w-md text-xs leading-5 text-muted-foreground">{message || "The local API did not return a usable response."}</p>
-      {onRetry ? <Button className="mt-4" variant="outline" size="sm" onClick={onRetry}><RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />Retry</Button> : null}
+      <p className="mt-1 max-w-md text-xs leading-5 text-muted-foreground">{message || "The service did not return a usable response."}</p>
+      {onRetry ? <RefreshButton className="mt-4" onRefresh={onRetry} label="Retry" /> : null}
     </div>
   );
 }
