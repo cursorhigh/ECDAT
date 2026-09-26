@@ -20,7 +20,9 @@ except ImportError:
     pass
 
 
-def clean_narrative_json(raw_text: Optional[str]) -> Optional[Dict[str, Any]]:
+def clean_narrative_json(
+    raw_text: Optional[str], deterministic_doc: Optional[Dict[str, Any]] = None
+) -> Optional[Dict[str, Any]]:
     """Parse the model's narrative JSON; return None on any malformed output."""
     if not raw_text or not isinstance(raw_text, str):
         return None
@@ -45,6 +47,25 @@ def clean_narrative_json(raw_text: Optional[str]) -> Optional[Dict[str, Any]]:
         ][:4]
         if filtered:
             out["strategic_recommendations"] = filtered
+    if isinstance(data.get("code_replacements"), list):
+        expected = {
+            str(row.get("asset_id") or row.get("id")): (row.get("migration_impact") or {}).get("replacement")
+            for row in (deterministic_doc or {}).get("rows", [])
+            if row.get("source_context")
+        }
+        replacements = []
+        for item in data["code_replacements"]:
+            if not isinstance(item, dict):
+                continue
+            asset_id = str(item.get("asset_id") or "")
+            required = ("file", "language", "replacement_algorithm", "vulnerable_code", "replacement_code", "explanation")
+            if not asset_id or asset_id not in expected or any(not isinstance(item.get(key), str) or not item[key].strip() for key in required):
+                continue
+            if item["replacement_algorithm"] != expected[asset_id]:
+                continue
+            replacements.append({key: item[key].strip() for key in ("asset_id", *required)})
+        if replacements:
+            out["code_replacements"] = replacements[:20]
     return out or None
 
 
@@ -110,7 +131,7 @@ class GeminiMitigationProvider(MitigationProvider):
                     )
                     raw_text = response.text
                 if raw_text:
-                    parsed = clean_narrative_json(raw_text)
+                    parsed = clean_narrative_json(raw_text, deterministic_doc)
                     if parsed:
                         parsed["model_used"] = model_name
                         return parsed

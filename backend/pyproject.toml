@@ -1,0 +1,26 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "TheHackerClown", email = "dhruvprataps14@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "django==5.0.7",
+    "django-cors-headers==4.7.0",
+    "djangorestframework==3.17.2",
+    "google>=3.0.0",
+    "google-genai>=2.25.0",
+    "huey==3.3.4",
+    "python-dotenv==1.2.3",
+    "yara-python==4.5.4",
+]
+
+[project.scripts]
+backend = "backend:main"
+
+[build-system]
+requires = ["uv_build>=0.12.17,<0.13.0"]
+build-backend = "uv_build"

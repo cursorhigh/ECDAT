@@ -11,6 +11,8 @@ from segments.mitigation.mitigation.models import MitigationPlan
 from segments.mitigation.mitigation.planner import generate_plan, trigger_mitigation
 from segments.mitigation.mitigation_agent import MitigationAgent
 from segments.mitigation.mitigation_agent import rules
+from segments.mitigation.mitigation_agent.llm_provider import clean_narrative_json
+from segments.mitigation.mitigation_agent.prompts import build_mitigation_prompt
 
 _FORCE_FALLBACK_PROVIDERS = {
     "GEMINI_API_KEY_CBOM": "",
@@ -188,6 +190,48 @@ class MitigationAgentTests(TestCase):
         self.assertTrue(doc["executive_summary"])
         self.assertTrue(doc["quantum_risk_narrative"])
         self.assertEqual(len(doc["waves"]), 3)
+
+    def test_gemini_prompt_and_code_replacement_validation(self):
+        doc = MitigationAgent(use_llm=False).generate(
+            _bundle(
+                [
+                    {
+                        "id": "a1",
+                        "asset_id": "N1",
+                        "algorithm": "RSA",
+                        "algorithm_category": "PUBLIC_KEY",
+                        "migration_priority": "URGENT",
+                        "quantum_vulnerable": True,
+                        "cbom_asset": {
+                            "algorithm": "RSA",
+                            "location": {"file": "apps/payment-service/app.py", "line": 12},
+                            "evidence": "private_key = rsa.generate_private_key()",
+                        },
+                    }
+                ]
+            )
+        )
+        prompt = build_mitigation_prompt(doc)
+        self.assertIn("private_key = rsa.generate_private_key()", prompt)
+        self.assertIn("ML-KEM-1024 / ML-DSA-87", prompt)
+
+        valid = clean_narrative_json(
+            '{"code_replacements":[{"asset_id":"N1","file":"app.py",'
+            '"language":"python","replacement_algorithm":"ML-KEM-1024 / ML-DSA-87",'
+            '"vulnerable_code":"old","replacement_code":"new",'
+            '"explanation":"replace"}]}',
+            doc,
+        )
+        self.assertEqual(valid["code_replacements"][0]["asset_id"], "N1")
+
+        invalid = clean_narrative_json(
+            '{"code_replacements":[{"asset_id":"N1","file":"app.py",'
+            '"language":"python","replacement_algorithm":"AES-256 (GCM)",'
+            '"vulnerable_code":"old","replacement_code":"new",'
+            '"explanation":"replace"}]}',
+            doc,
+        )
+        self.assertIsNone(invalid)
 
 
 @override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})

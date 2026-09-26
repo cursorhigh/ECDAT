@@ -40,6 +40,17 @@ class MitigationAgent:
         if self._provider is not None:
             narration = self._provider.enhance(doc) or {}
 
+        replacements = narration.get("code_replacements") or []
+        replacements_by_asset = {
+            str(item.get("asset_id")): item
+            for item in replacements
+            if item.get("asset_id")
+        }
+        for row in doc["rows"]:
+            replacement = replacements_by_asset.get(str(row.get("asset_id") or row.get("id")))
+            if replacement:
+                row["code_replacement"] = replacement
+
         doc["executive_summary"] = narration.get("executive_summary") or self._default_summary(assets)
         doc["quantum_risk_narrative"] = narration.get("quantum_risk_narrative") or self._default_quantum_note(bundle, assets)
         doc["strategic_recommendations"] = narration.get("strategic_recommendations") or (
@@ -77,6 +88,7 @@ class MitigationAgent:
                 "migration_wave": a.get("wave"),
                 "suggestions": a.get("suggestions"),
                 "recommended_action": a.get("recommended_action"),
+                "source_context": self._source_context(a),
             }
             for a in assets
         ]
@@ -112,6 +124,30 @@ class MitigationAgent:
             "rows": rows,
             "waves": waves,
             "recommendations": recommendations,
+        }
+
+    @staticmethod
+    def _source_context(asset: Dict[str, Any]) -> Dict[str, Any]:
+        cbom = asset.get("cbom_asset") or {}
+        location = cbom.get("location") or {}
+        explainability = cbom.get("explainability") or {}
+        evidence = cbom.get("evidence") or cbom.get("code") or ""
+        if not evidence:
+            field_evidence = explainability.get("field_evidence") or explainability.get("evidence") or []
+            evidence = next(
+                (
+                    item.get("snippet")
+                    for item in field_evidence
+                    if isinstance(item, dict) and item.get("snippet")
+                ),
+                "",
+            )
+        if not evidence:
+            return {}
+        return {
+            "file": location.get("file"),
+            "line": location.get("line"),
+            "evidence": str(evidence)[:8000],
         }
 
     @staticmethod
