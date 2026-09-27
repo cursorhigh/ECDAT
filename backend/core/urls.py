@@ -10,4 +10,5 @@ urlpatterns = [
     path("switch/<int:session_id>/", views.session_switch, name="session-switch"),
     path("reset/", views.session_reset, name="session-reset"),
     path("audit/", views.audit, name="session-audit"),
+    path("scan-history/", views.scan_history, name="scan-history"),
 ]

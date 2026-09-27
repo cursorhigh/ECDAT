@@ -8,7 +8,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
 from .models import ScanJob
-from .serializers import ScanJobSerializer
+from .serializers import ScanBatchSerializer, ScanJobSerializer
 
 
 @csrf_exempt
@@ -102,6 +102,61 @@ def scan_preview(request):
 
 
 @csrf_exempt
+def scanners(request):
+    """Describe the discovery scanners available in this deployment (GET).
+
+    Returns one entry per recognised source type so the Discovery page can
+    render sources, engines, and limit fields from the registry instead of
+    hard-coding them. Entries are either `available` (backed by an
+    implementation) or `planned` (recognised, not yet implemented).
+    """
+    from django.conf import settings
+
+    if request.method != "GET":
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+    from .scanners import list_scanners
+    from .scanners.platform import detect_platform, get_scan_limits, resolve_scan_roots
+
+    entries = list_scanners()
+
+    # What each scope will actually read. The UI must not describe a scan in
+    # terms the platform does not implement, so the real locations come from
+    # the same resolver the scanners use.
+    class _Probe:
+        """Minimal stand-in so the resolver can be asked "what would you read?"."""
+
+        def __init__(self, scan_type):
+            self.config = {"scan_type": scan_type}
+            self.target = scan_type
+
+    scopes = {}
+    for scan_type in ("quick", "whole"):
+        try:
+            roots = resolve_scan_roots(_Probe(scan_type))
+        except Exception:  # noqa: BLE001 - never fail the registry response
+            roots = []
+        scopes[scan_type] = {
+            "roots": [{"root": r.root, "label": r.label} for r in roots],
+            "unbounded": all(
+                getattr(limit, name) is None
+                for name in ("max_files", "max_depth", "max_file_size")
+                for limit in [get_scan_limits(_Probe(scan_type))]
+            ),
+        }
+
+    return JsonResponse(
+        {
+            "scanners": entries,
+            "available": [e["id"] for e in entries if e["status"] == "available"],
+            "demo_mode": bool(settings.ECDAT.get("DEMO_MODE")),
+            "platform": detect_platform(),
+            "scopes": scopes,
+        }
+    )
+
+
+@csrf_exempt
 def run_demo_scan(request):
     """Trigger the demo-mode scan (POST) and return the created ScanJob."""
     from .services import run_demo_scan as create_and_run
@@ -129,7 +184,7 @@ def start_scan(request):
     returns immediately and the scan can be cancelled via
     POST /api/scans/<id>/cancel/.
     """
-    from .services import ScanInspectionError, create_and_run_scan
+    from .services import ScanInspectionError, create_and_run_scan, create_batch_scan
 
     if request.method != "POST":
         return JsonResponse({"detail": "Method not allowed"}, status=405)
@@ -140,22 +195,46 @@ def start_scan(request):
         return JsonResponse({"detail": "Invalid JSON body"}, status=400)
 
     source_type = payload.get("source_type", ScanJob.SourceType.SOURCE_CODE)
+    # A caller may ask for several sources in one action. `source_types` wins
+    # when present so a client never has to guess which key is authoritative.
+    source_types = payload.get("source_types")
     target = payload.get("target", "")
     scan_type = payload.get("scan_type", "specified")
     options = payload.get("options") or {}
+
+    if source_types is not None and not isinstance(source_types, list):
+        return JsonResponse({"detail": "`source_types` must be a list."}, status=400)
+    requested = [s for s in (source_types or []) if s]
+    if not requested:
+        requested = [source_type]
 
     from core.modes import active_db
     from core.sessions import create_scan_session
 
     using = active_db()
-    label = os.path.basename(target.rstrip("\\/")) or scan_type or source_type
+    label = os.path.basename(target.rstrip("\\/")) or scan_type or requested[0]
     ws = create_scan_session(request, label, using=using)
 
+    if len(requested) == 1:
+        try:
+            job = create_and_run_scan(
+                source_type=requested[0],
+                target=target,
+                config=options,
+                scan_type=scan_type,
+                session_id=ws.pk,
+            )
+        except ScanInspectionError as exc:
+            ws.delete()
+            return JsonResponse({"detail": str(exc)}, status=400)
+        single = ScanJobSerializer(job).data
+        single["session"] = {"id": ws.pk, "name": ws.name}
+        return JsonResponse(single, status=201)
+
     try:
-        job = create_and_run_scan(
-            source_type=source_type,
+        batch = create_batch_scan(
+            source_types=requested,
             target=target,
-            config=options,
             scan_type=scan_type,
             session_id=ws.pk,
         )
@@ -163,17 +242,252 @@ def start_scan(request):
         ws.delete()
         return JsonResponse({"detail": str(exc)}, status=400)
 
-    data = ScanJobSerializer(job).data
+    data = ScanBatchSerializer(batch).data
     data["session"] = {"id": ws.pk, "name": ws.name}
     return JsonResponse(data, status=201)
+
+
+@csrf_exempt
+def scan_batch(request, batch_id):
+    """Read a multi-source run (GET /api/scan-batches/<id>/).
+
+    Status and progress are recomputed from the child jobs on every read, so
+    the summary can never drift from what the individual sources achieved.
+    """
+    if request.method != "GET":
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+    from core.modes import active_db
+    from core.sessions import thread_session_id
+    from .models import ScanBatch
+    from .services import refresh_batch_status
+
+    db = active_db()
+    sid = thread_session_id()
+    batch = ScanBatch.objects.using(db).filter(pk=batch_id, session_id=sid).first()
+    if batch is None:
+        return JsonResponse({"detail": f"Scan batch {batch_id} not found."}, status=404)
+    refresh_batch_status(batch, db)
+    batch.refresh_from_db(using=db)
+    return JsonResponse(ScanBatchSerializer(batch).data)
+
+
+@csrf_exempt
+def cancel_scan_batch(request, batch_id):
+    """Cancel every source in a multi-source run (POST /api/scan-batches/<id>/cancel/)."""
+    if request.method != "POST":
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+    from core.modes import active_db
+    from core.sessions import thread_session_id
+    from .models import ScanBatch
+    from .services import cancel_batch
+
+    db = active_db()
+    sid = thread_session_id()
+    batch = ScanBatch.objects.using(db).filter(pk=batch_id, session_id=sid).first()
+    if batch is None:
+        return JsonResponse({"detail": f"Scan batch {batch_id} not found."}, status=404)
+    affected = cancel_batch(batch, db)
+    return JsonResponse({"id": batch.pk, "status": batch.status, "cancelled": affected})
+
+
+@csrf_exempt
+def handoff(request):
+    """The Discover -> Understand dataset (GET /api/handoff/).
+
+    Optional filters: `scan_id` for a single scan, `limit`.
+
+    This is the hand-off contract made inspectable: the six questions Understand
+    must be able to answer, whether each finding can answer them, and the scan
+    coverage behind the dataset.
+    """
+    from core.modes import active_db
+    from core.sessions import thread_session_id
+    from .handoff import CONTRACT_QUESTIONS, build_handoff
+    from .models import ScanJob
+
+    if request.method != "GET":
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+    db = active_db()
+    sid = thread_session_id()
+
+    scan_job = None
+    raw_scan_id = request.GET.get("scan_id")
+    if raw_scan_id:
+        try:
+            scan_id = int(raw_scan_id)
+        except (TypeError, ValueError):
+            return JsonResponse({"detail": "scan_id must be an integer."}, status=400)
+        scan_job = ScanJob.objects.using(db).filter(pk=scan_id, session_id=sid).first()
+        if scan_job is None:
+            return JsonResponse(
+                {"detail": f"Scan {scan_id} not found."}, status=404
+            )
+
+    try:
+        limit = max(1, min(int(request.GET.get("limit", 500)), 5000))
+    except (TypeError, ValueError):
+        return JsonResponse({"detail": "limit must be an integer."}, status=400)
+
+    # `summary=1` answers "is this dataset fit to reason over?" without shipping
+    # it. The contract is still evaluated across every finding, because a verdict
+    # computed from a truncated page would describe the page, not the scan.
+    summary_only = request.GET.get("summary") == "1"
+    if summary_only:
+        limit = 5000
+
+    handoff = build_handoff(db, session_id=sid, scan_job=scan_job, limit=limit)
+    payload = handoff.as_dict()
+    payload["questions"] = [
+        {
+            "key": question,
+            "label": _HANDOFF_QUESTION_LABELS.get(question, question),
+            "unanswered": payload["contract"]["unanswered_by_question"].get(question, 0),
+        }
+        for question in CONTRACT_QUESTIONS
+    ]
+    # Truncation is reported by the handoff itself, which had to fetch an extra
+    # row to know it; re-deriving it here compared a limit against a list that
+    # was already cut to size and could never be true.
+    if summary_only:
+        payload.pop("findings", None)
+    return JsonResponse(payload)
+
+_HANDOFF_QUESTION_LABELS = {
+    "what_was_discovered": "What was discovered?",
+    "where_was_it_discovered": "Where was it discovered?",
+    "how_was_it_discovered": "How was it discovered?",
+    "how_confident_are_we": "How confident are we?",
+    "what_asset_does_it_belong_to": "What asset does it belong to?",
+    "what_does_it_depend_on": "What does it depend on?",
+}
+
+
+@csrf_exempt
+def graph_index(request):
+    """Read the unified relationship graph (GET /api/graph-index/).
+
+    Optional filters: `node_type`, `relation_type`, `limit`. `rebuild=1`
+    recomputes the index from the authoritative tables, which is safe to repeat.
+    """
+    from core.api import require_scan_scope
+    from core.modes import active_db
+    from core.sessions import scope, thread_session_id
+    from .graph_index import build_graph_index
+    from .graph_queries import _node_payload, graph_stats
+    from .models import GraphEdge, GraphNode
+
+    if request.method != "GET":
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+    db = active_db()
+    sid = thread_session_id()
+
+    if request.GET.get("rebuild") == "1":
+        # Rebuilding with no session would index the entire estate into
+        # session-less graph rows, which then no single scan could see and
+        # every session would be polluted by.
+        require_scan_scope(sid)
+        result = build_graph_index(db, session_id=sid)
+        return JsonResponse(
+            {
+                "rebuilt": True,
+                "nodes_created": result.nodes_created,
+                "nodes_reused": result.nodes_reused,
+                "edges_created": result.edges_created,
+                "skipped_no_path": result.skipped_no_path,
+                # Surfaced rather than swallowed: a new asset type with no node
+                # mapping is invisible everywhere else.
+                "unmapped_asset_types": sorted(result.unmapped_asset_types),
+            }
+        )
+
+    # `scope` returns nothing when there is no active session. Filtering by hand
+    # with "if a session is set" left the whole estate's graph on screen, so one
+    # scan's tab could show another scan's relationships.
+    nodes = scope(GraphNode.objects.using(db), sid)
+    edges = scope(GraphEdge.objects.using(db), sid)
+
+    node_type = request.GET.get("node_type")
+    relation_type = request.GET.get("relation_type")
+    if node_type:
+        nodes = nodes.filter(node_type=node_type)
+    if relation_type:
+        edges = edges.filter(relation_type=relation_type)
+
+    try:
+        limit = max(1, min(1000, int(request.GET.get("limit", 200))))
+    except ValueError:
+        limit = 200
+
+    return JsonResponse(
+        {
+            "stats": graph_stats(db, sid),
+            "nodes": [_node_payload(n) for n in nodes[:limit]],
+            "edges": [
+                {
+                    "from": e.from_node_id,
+                    "to": e.to_node_id,
+                    "kind": e.relation_type,
+                    "why": e.evidence or {},
+                }
+                for e in edges.select_related("from_node", "to_node")[:limit]
+            ],
+        }
+    )
+
+
+@csrf_exempt
+def graph_impact(request, node_id):
+    """Answer an impact question about one graph node (GET /api/graph-index/<id>/impact/).
+
+    `question` is one of:
+      dependents         - what depends on this?
+      certificates      - which certificates does this use?
+      blast-radius      - what breaks if this goes away?
+    """
+    from core.api import require_scan_scope
+    from core.modes import active_db
+    from core.sessions import thread_session_id
+    from .graph_queries import blast_radius_of, certificates_of, dependents
+
+    if request.method != "GET":
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+    db = active_db()
+    sid = thread_session_id()
+    question = (request.GET.get("question") or "blast-radius").strip().lower()
+
+    if question not in ("dependents", "certificates", "certs", "blast-radius", "blast"):
+        return JsonResponse(
+            {"detail": f"Unknown question '{question}'."}, status=400
+        )
+
+    # Asking about one specific node needs a scan to ask it in. Returning an
+    # empty path list instead would read as "this node has no impact", which is
+    # a different and much more dangerous statement.
+    require_scan_scope(sid)
+
+    if question == "dependents":
+        payload = dependents(db, sid, node_id)
+    elif question in ("certificates", "certs"):
+        payload = certificates_of(db, sid, node_id)
+    else:  # "blast-radius" / "blast", validated above
+        payload = blast_radius_of(db, sid, node_id)
+
+    payload["question"] = question
+    return JsonResponse(payload)
 
 
 @csrf_exempt
 def cancel_scan(request, scan_id):
     """Cancel a scan job (POST /api/scans/<id>/cancel/).
 
-    Only queued/running scans are cancelled; the running executor aborts at
-    its next interrupt checkpoint. Cancelled jobs do not auto-queue analysis.
+    Only queued/running scans are cancellable. A cancel on a running scan moves
+    it to "cancelling"; the worker confirms "cancelled" once it has stopped, so
+    the reported status always reflects work that actually halted.
     """
     from core.modes import active_db
     from core.sessions import thread_session_id
@@ -183,8 +497,11 @@ def cancel_scan(request, scan_id):
         return JsonResponse({"detail": "Method not allowed"}, status=405)
 
     db = active_db()
+    # Every read viewset scopes by session, so cancellation must too: otherwise
+    # a guessable id lets one workspace stop another workspace's running scan.
+    sid = thread_session_id()
     try:
-        job = ScanJob.objects.using(db).get(pk=scan_id)
+        job = ScanJob.objects.using(db).get(pk=scan_id, session_id=sid)
     except ScanJob.DoesNotExist:
         return JsonResponse({"detail": f"Scan job {scan_id} not found."}, status=404)
 
@@ -193,7 +510,13 @@ def cancel_scan(request, scan_id):
             {"detail": f"Scan {scan_id} is not cancellable (status: {job.status})."},
             status=400,
         )
-    return JsonResponse({"id": job.pk, "status": job.status})
+    return JsonResponse(
+        {
+            "id": job.pk,
+            "status": job.status,
+            "status_display": job.get_status_display(),
+        }
+    )
 
 
 @csrf_exempt
@@ -291,8 +614,10 @@ def graph_data(request):
 
     # Asset->asset edges. A work session sees its own relations plus any
     # global (legacy) relation, as long as both endpoints belong to a visible
-    # asset — this is what keeps the graph linked under a session.
-    rel_qs = AssetRelation.objects.using(db).all()
+    # asset — this is what keeps the graph linked under a session. With no
+    # active session there are no visible assets, so there are no relations to
+    # report either.
+    rel_qs = AssetRelation.objects.using(db)
     if sid:
         rel_qs = rel_qs.filter(
             Q(session_id=sid)
@@ -302,6 +627,8 @@ def graph_data(request):
                 to_asset_id__in=asset_ids,
             )
         )
+    else:
+        rel_qs = rel_qs.none()
     rels = list(rel_qs.values("from_asset", "to_asset", "relation_type")[:2000])
 
     return _no_cache(
@@ -344,9 +671,73 @@ def graph_data(request):
             ],
             "asset_relations": list(rels),
             "finding_relations": family_edges + assign_edges,
+            # Additive: the dependency graph is a separate node/edge set, so
+            # existing consumers of the four keys above are unaffected.
+            "dependency_nodes": _dependency_nodes(sid),
+            "dependency_edges": _dependency_edges(sid),
         }
     )
 )
+
+
+def _dependency_nodes(session_id) -> list[dict]:
+    """Dependency graph nodes for the active workspace."""
+    from core.sessions import scope
+
+    from .models import Dependency
+
+    if not session_id:
+        return []
+    rows = scope(Dependency.objects.all(), session_id).order_by("-is_crypto", "package")[:600]
+    return [
+        {
+            "id": f"d{row.pk}",
+            "package": row.package,
+            "version": row.version,
+            "ecosystem": row.ecosystem,
+            "scope": row.scope,
+            "is_crypto": row.is_crypto,
+            "relevance": row.relevance,
+            "capability": row.capability,
+            "key_service": row.key_service,
+        }
+        for row in rows
+    ]
+
+
+def _dependency_edges(session_id) -> list[dict]:
+    """Dependency graph edges: transitive requires plus library->asset links."""
+    from core.sessions import scope
+
+    from .models import DependencyRelation
+
+    if not session_id:
+        return []
+    edges = scope(DependencyRelation.objects.all(), session_id).select_related(
+        "from_dependency", "to_dependency", "to_asset"
+    )[:1500]
+
+    out: list[dict] = []
+    for edge in edges:
+        if edge.to_dependency_id:
+            out.append(
+                {
+                    "from": f"d{edge.from_dependency_id}",
+                    "to": f"d{edge.to_dependency_id}",
+                    "kind": edge.relation_type,
+                    "detail": edge.detail,
+                }
+            )
+        elif edge.to_asset_id:
+            out.append(
+                {
+                    "from": f"d{edge.from_dependency_id}",
+                    "to": f"a{edge.to_asset_id}",
+                    "kind": edge.relation_type,
+                    "detail": edge.detail,
+                }
+            )
+    return out
 
 
 def _no_cache(response):
@@ -366,6 +757,7 @@ def graph_correlate(request):
     active session's assets are (re)correlated; returns how many edges were
     added and how many the graph can now render.
     """
+    from core.api import require_scan_scope
     from core.modes import active_db
     from core.sessions import scope, thread_session_id
 
@@ -378,13 +770,17 @@ def graph_correlate(request):
     sid = thread_session_id()
     db = active_db()
 
-    assets = CryptoAsset.objects.using(db).all()
-    if sid:
-        assets = assets.filter(session_id=sid)
+    # Correlating rewrites relation rows, so it is refused outright without a
+    # scan rather than silently operating on the whole database.
+    require_scan_scope(sid)
+
+    # `scope` yields nothing without a session, so this stays a no-op even if the
+    # guard is ever bypassed.
+    assets = scope(CryptoAsset.objects.using(db).all(), sid)
     created = build_correlations(assets=assets, using=db)
 
     visible = set(a.pk for a in assets)
-    rel_qs = AssetRelation.objects.using(db).all()
+    rel_qs = AssetRelation.objects.using(db)
     if sid:
         rel_qs = rel_qs.filter(
             Q(session_id=sid)
@@ -394,6 +790,8 @@ def graph_correlate(request):
                 to_asset_id__in=visible,
             )
         )
+    else:
+        rel_qs = rel_qs.none()
     return _no_cache(JsonResponse({"created": created, "total": rel_qs.count()}))
 
 
@@ -408,11 +806,17 @@ def scan_data(request):
             "target": "optional label for the data source",
             "findings": [ { ...raw finding dict... }, ... ]
         }
-    Each `findings` element follows the raw-finding schema used by the
-    built-in scanners (see discovery/scanners/base.py). The normalizer,
-    classifier and correlator then run exactly as for a folder scan.
+    Each `findings` element is validated against the shared handoff contract
+    (schema/contracts/raw_finding.py) before anything is written, so a
+    malformed export is rejected with a fixable message instead of failing
+    part-way through. The normalizer, classifier and correlator then run
+    exactly as for a folder scan.
     """
-    from .services import ScanInspectionError, ingest_external_findings
+    from .services import (
+        ScanInspectionError,
+        ingest_external_findings,
+        validate_import_payload,
+    )
 
     if request.method != "POST":
         return JsonResponse({"detail": "Method not allowed"}, status=405)
@@ -422,24 +826,23 @@ def scan_data(request):
     except ValueError:
         return JsonResponse({"detail": "Invalid JSON body"}, status=400)
 
-    findings = payload.get("findings")
-    if not isinstance(findings, list):
-        return JsonResponse({"detail": "`findings` must be a JSON array."}, status=400)
+    # Validate before a session or job row exists, so a bad payload leaves no
+    # empty workspace behind.
+    try:
+        source_type, target, findings = validate_import_payload(payload)
+    except ScanInspectionError as exc:
+        return JsonResponse({"detail": str(exc)}, status=400)
 
     from core.modes import active_db
     from core.sessions import create_scan_session
 
-    ws = create_scan_session(
-        request,
-        (payload.get("target") or "").strip() or "external-data",
-        using=active_db(),
-    )
+    ws = create_scan_session(request, target or "external-data", using=active_db())
 
     try:
         job = ingest_external_findings(
-            source_type=payload.get("source_type", ""),
+            source_type=source_type,
             findings=findings,
-            target=payload.get("target", ""),
+            target=target,
             session_id=ws.pk,
         )
     except ScanInspectionError as exc:

@@ -2,23 +2,39 @@ import type {
   AnalysisDetail,
   AnalysisListItem,
   Asset,
+  AssetOccurrence,
   AuditResponse,
   BrowseResult,
+  DependencyEdge,
+  DependencyNode,
+  DependencyRecord,
   Envelope,
   Health,
   JsonRecord,
   MitigationOverview,
   MitigationPlan,
+  GraphEdgeRow,
+  GraphImpact,
+  GraphIndex,
+  Handoff,
+  ScanHistory,
+  GraphNodeRow,
+  NormalizedFinding,
   Page,
   ReportPayload,
+  ScanBatch,
   ScanJob,
   ScanPreview,
+  ScannerRegistry,
   SessionInfo,
   StartScanPayload,
   Stats,
   ReportingOverview,
   AwaitingAnalysis
 } from "./types";
+
+/** Serialisations a CBOM can be exported in. */
+export type CBOMFormat = "ecdat" | "cyclonedx-json" | "cyclonedx-xml";
 
 export class ApiError extends Error {
   status: number;
@@ -128,15 +144,62 @@ export const api = {
 
   scans: (query?: Query) => request<Page<ScanJob>>("/scans/", {}, query),
   scan: (id: number) => request<ScanJob>(`/scans/${id}/`),
+  scanners: () => request<ScannerRegistry>("/scanners/"),
   scanPreview: (scanType: string) => request<ScanPreview>("/scan-preview/", {}, { scan_type: scanType }),
   browse: (path?: string) => request<BrowseResult>("/browse/", {}, { path }),
-  startScan: (payload: StartScanPayload) => request<ScanJob>("/start-scan/", jsonOptions("POST", payload)),
+  // Returns a ScanJob for a single source, or a ScanBatch when several were
+  // requested. Callers must handle both shapes.
+  startScan: (payload: StartScanPayload) =>
+    request<ScanJob & Partial<ScanBatch>>("/start-scan/", jsonOptions("POST", payload)),
+  scanBatch: (id: number) => request<ScanBatch>(`/scan-batches/${id}/`),
+  /**
+   * Download a Cryptographic Bill of Materials.
+   *
+   * `format` is ecdat | cyclonedx-json | cyclonedx-xml. `runId` narrows the
+   * export to one analysis run; omit it for the whole active scope.
+   */
+  cbom: (format: CBOMFormat, runId?: number) =>
+    requestBlob(
+      runId ? `/analysis/${runId}/cbom/` : "/analysis/cbom/",
+      {},
+      { format },
+    ),
+  graphIndex: (query?: Query) => request<GraphIndex>("/graph-index/", {}, query),
+  rebuildGraphIndex: () =>
+    request<{
+      rebuilt: boolean;
+      nodes_created: number;
+      nodes_reused: number;
+      edges_created: number;
+      skipped_no_path: number;
+      unmapped_asset_types: string[];
+    }>("/graph-index/?rebuild=1"),
+  graphImpact: (nodeId: number, question: string) =>
+    request<GraphImpact>(`/graph-index/${nodeId}/impact/`, {}, { question }),
+  handoff: (query?: Query) => request<Handoff>("/handoff/", {}, query),
+  scanHistory: (limit = 100) => request<ScanHistory>("/session/scan-history/", {}, { limit }),
+  cancelScanBatch: (id: number) =>
+    request<{ id: number; status: string; cancelled: number }>(
+      `/scan-batches/${id}/cancel/`,
+      jsonOptions("POST", {}),
+    ),
   demoScan: () => request<ScanJob>("/run-demo-scan/", jsonOptions("POST", {})),
   cancelScan: (id: number) => request<{ id: number; status: string }>(`/scans/${id}/cancel/`, jsonOptions("POST", {})),
   ingestScanData: (payload: JsonRecord) => request<ScanJob>("/scan-data/", jsonOptions("POST", payload)),
 
   assets: (query?: Query) => request<Page<Asset>>("/assets/", {}, query),
   asset: (id: number) => request<Asset>(`/assets/${id}/`),
+  occurrences: (assetId: number) =>
+    request<Page<AssetOccurrence>>("/occurrences/", {}, { asset: assetId }),
+  dependencies: (query?: Query) => request<Page<DependencyRecord>>("/dependencies/", {}, query),
+  dependencyGraph: () =>
+    request<{ dependency_nodes: DependencyNode[]; dependency_edges: DependencyEdge[] }>("/graph/"),
+  normalizedFindings: (query?: Query) => request<Page<NormalizedFinding>>("/normalized-findings/", {}, query),
+  normalizedKindCounts: () =>
+    request<{ total: number; kinds: Array<{ kind: string; label: string; count: number }> }>(
+      "/normalized-findings/kinds/",
+    ),
+  rawFinding: (id: number) => request<{ id: number; scan_job: number; source_type: string; location: string; raw_json: JsonRecord; status: string; status_display?: string; ingested_at: string }>(`/raw-findings/${id}/`),
   stats: () => request<Stats>("/stats/"),
 
   analysisList: () => request<AnalysisListItem[]>("/analysis/"),
@@ -158,3 +221,15 @@ export const api = {
   reportsBlob: (path: string) => requestBlob(path),
   fullReport: () => request<ReportPayload>("/reports/full.json", jsonOptions("POST", {}))
 };
+
+/**
+ * True when a rejection means "there is no scan selected" rather than a fault.
+ *
+ * The UI already gates these calls on a session, so this is the backstop: a
+ * session can be cleared between scheduling a query and running it, and that
+ * should render as an empty state rather than a red error toast. It is a
+ * statement about scope, not about the request failing.
+ */
+export function isNoScanSelected(error: unknown): boolean {
+  return error instanceof ApiError && error.code === "no_scan_selected";
+}

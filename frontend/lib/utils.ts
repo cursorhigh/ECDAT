@@ -51,3 +51,21 @@ export function truncate(value: string | null | undefined, length = 36) {
 export function isTerminalStatus(status: string | null | undefined) {
   return ["completed", "complete", "failed", "cancelled", "canceled"].includes((status || "").toLowerCase());
 }
+
+type Refetchable = { refetch: () => Promise<{ isError?: boolean; error?: unknown }> };
+
+/**
+ * Await several refetches and reject if any of them failed.
+ *
+ * `refetch()` resolves instead of throwing on failure, so a plain
+ * `Promise.all` reports success for a refresh that actually failed. This makes
+ * the failure explicit so callers can tell the user.
+ */
+export async function refetchAllOrThrow(queries: Refetchable[]): Promise<void> {
+  const results = await Promise.all(queries.map((query) => query.refetch()));
+  const failed = results.find((result) => result?.isError);
+  if (failed) {
+    const message = failed.error instanceof Error ? failed.error.message : "";
+    throw new Error(message || "Some data could not be refreshed.");
+  }
+}

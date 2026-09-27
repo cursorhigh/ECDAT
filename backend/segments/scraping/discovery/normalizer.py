@@ -4,7 +4,11 @@ Takes a RawFinding and produces a NormalizedFinding: deduplicates,
 maps raw fields to canonical fields, and records a confidence score.
 """
 
+import logging
+
 from .models import NormalizedFinding, RawFinding, ScanJob
+
+logger = logging.getLogger(__name__)
 
 # Map raw 'family' strings to canonical families.
 _FAMILY_MAP = {
@@ -16,6 +20,11 @@ _FAMILY_MAP = {
     "dsa": NormalizedFinding.AlgorithmFamily.DSA,
     "dh": NormalizedFinding.AlgorithmFamily.DH,
     "aes": NormalizedFinding.AlgorithmFamily.AES,
+    "des": NormalizedFinding.AlgorithmFamily.DES3,
+    "des3": NormalizedFinding.AlgorithmFamily.DES3,
+    "3des": NormalizedFinding.AlgorithmFamily.DES3,
+    "tripledes": NormalizedFinding.AlgorithmFamily.DES3,
+    "triple-des": NormalizedFinding.AlgorithmFamily.DES3,
     "hash": NormalizedFinding.AlgorithmFamily.HASH,
     "sha": NormalizedFinding.AlgorithmFamily.HASH,
     "md5": NormalizedFinding.AlgorithmFamily.HASH,
@@ -27,10 +36,23 @@ _FAMILY_MAP = {
     "slh-dsa": NormalizedFinding.AlgorithmFamily.PQC
 }
 
+# Canonical artefact kinds a scanner may report.
+_VALID_KINDS = set(NormalizedFinding.FindingKind.values)
+
 
 def _normalize_family(raw: str) -> str:
     key = (raw or "").strip().lower()
     return _FAMILY_MAP.get(key, NormalizedFinding.AlgorithmFamily.UNKNOWN)
+
+
+def _normalize_kind(raw: str) -> str:
+    """Map a scanner-supplied artefact kind onto the canonical vocabulary.
+
+    An unrecognised kind degrades to `algorithm` rather than failing: the
+    family already says what was observed, so a bad kind must not lose it.
+    """
+    key = (raw or "").strip().lower()
+    return key if key in _VALID_KINDS else NormalizedFinding.FindingKind.ALGORITHM
 
 
 def _guess_family_from_algorithm(algorithm: str) -> str:
@@ -71,13 +93,31 @@ def normalize_finding(raw: RawFinding, using=None, session_id=None) -> Normalize
 
     `using` selects the database to write to (defaults to the raw finding's
     own database so the pipeline stays inside the correct mode boundary).
-    `session_id` scopes the normalized finding to a work session.
+
+    `session_id` scopes the normalized finding to a work session. It defaults to
+    the raw finding's own session: a normalized record always belongs to the
+    same session as the evidence it came from, and deriving it here means a
+    caller that forgets the argument cannot write a row that no session-scoped
+    read will ever see.
     """
+    if session_id is None:
+        session_id = raw.session_id
+
     data = raw.raw_json or {}
 
-    family = _normalize_family(data.get("family", ""))
-    if family == NormalizedFinding.AlgorithmFamily.UNKNOWN:
-        family = _guess_family_from_algorithm(data.get("algorithm", ""))
+    try:
+        family = _normalize_family(data.get("family", ""))
+        if family == NormalizedFinding.AlgorithmFamily.UNKNOWN:
+            family = _guess_family_from_algorithm(data.get("algorithm", ""))
+    except Exception:
+        # A classification bug must never fail an entire scan job; degrade the
+        # family and keep the finding so evidence is not lost.
+        logger.exception("Family classification failed for raw finding %s", raw.pk)
+        family = NormalizedFinding.AlgorithmFamily.UNKNOWN
+
+    kind = _normalize_kind(data.get("kind", ""))
+    evidence = data.get("evidence") if isinstance(data.get("evidence"), dict) else {}
+    line = data.get("line") if isinstance(data.get("line"), int) else None
 
     dedup_key = _build_dedup_key(data)
     db = using or raw._state.db or "default"
@@ -87,6 +127,7 @@ def normalize_finding(raw: RawFinding, using=None, session_id=None) -> Normalize
         defaults={
             "mode": raw.mode,
             "session_id": session_id,
+            "kind": kind,
             "family": family,
             "algorithm": data.get("algorithm", ""),
             "key_size": data.get("key_size") or None,
@@ -96,9 +137,28 @@ def normalize_finding(raw: RawFinding, using=None, session_id=None) -> Normalize
             "library_version": data.get("library_version", ""),
             "confidence": data.get("confidence", 0.0),
             "dedup_key": dedup_key,
+            "line": line,
+            "evidence": evidence,
         },
     )
     if created:
         raw.status = RawFinding.Status.NORMALIZED
         raw.save(using=db, update_fields=["status"])
     return norm
+
+
+def canonical_kind_counts(queryset) -> dict[str, int]:
+    """Count normalized findings per canonical artefact kind.
+
+    Only kinds in the canonical vocabulary are reported; a row carrying a kind
+    outside it is counted under the unknown bucket rather than inflating a real
+    category with a value the UI cannot label.
+    """
+    from .models import NormalizedFinding
+
+    counts = {kind: 0 for kind in NormalizedFinding.FindingKind.values}
+    rows = queryset.values_list("kind", flat=True)
+    for kind in rows:
+        key = kind if kind in _VALID_KINDS else NormalizedFinding.FindingKind.UNKNOWN
+        counts[key] = counts.get(key, 0) + 1
+    return {kind: count for kind, count in counts.items() if count}

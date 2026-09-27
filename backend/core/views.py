@@ -26,7 +26,15 @@ _DATA_MODELS = (
 
 
 def _scoped(qs, session_id):
-    return qs if not session_id else qs.filter(session_id=session_id)
+    """Rows for one session, or none.
+
+    This returned the whole table when no session was selected, so the scope
+    banner reported the estate's row counts as if they belonged to the scan on
+    screen. It now defers to `scope`, which treats an absent session as empty.
+    """
+    from .sessions import scope
+
+    return scope(qs, session_id)
 
 
 @require_GET
@@ -56,7 +64,7 @@ def session_info(request):
         {
             "session_id": sid,
             "session_name": current.name if current else None,
-            "scope": "all" if not sid else "session",
+            "scope": "none" if not sid else "session",
             "counts": counts,
         }
     )
@@ -116,6 +124,67 @@ def audit(request):
                     "created_at": e.created_at,
                 }
                 for e in rows
+            ],
+        }
+    )
+
+
+@require_GET
+def scan_history(request):
+    """Every scan, across every session (GET /api/scan-history/).
+
+    This is the one view that intentionally spans sessions, and it exists because
+    removing the "all data" scope left no way to find a previous scan. Each scan
+    owns its own session, so a session *is* a scan, and listing sessions with
+    their jobs is the history.
+
+    It reports only what was recorded. It deliberately does not join findings or
+    assets into the totals, so it cannot become a second source of scan data that
+    disagrees with the session it describes.
+    """
+    from .models import WorkSession
+
+    db = active_db()
+    try:
+        limit = min(500, max(1, int(request.GET.get("limit", 100))))
+    except (TypeError, ValueError):
+        limit = 100
+
+    sessions = list(WorkSession.objects.using(db).order_by("-created_at")[:limit])
+
+    job_rows = []
+    if sessions:
+        from segments.scraping.discovery.models import ScanJob
+
+        job_rows = list(
+            ScanJob.objects.using(db)
+            .filter(session_id__in=[s.pk for s in sessions])
+            .values(
+                "id", "session_id", "source_type", "target", "status",
+                "findings_count", "items_scanned", "items_skipped", "created_at",
+            )
+            .order_by("created_at")
+        )
+
+    jobs_by_session: dict = {}
+    for job in job_rows:
+        jobs_by_session.setdefault(job["session_id"], []).append(job)
+
+    active_id = current_id_from_request(request) or None
+
+    return JsonResponse(
+        {
+            "count": len(sessions),
+            "active_session_id": active_id,
+            "sessions": [
+                {
+                    "id": session.pk,
+                    "name": session.name,
+                    "created_at": session.created_at,
+                    "is_active": session.pk == active_id,
+                    "scans": jobs_by_session.get(session.pk, []),
+                }
+                for session in sessions
             ],
         }
     )

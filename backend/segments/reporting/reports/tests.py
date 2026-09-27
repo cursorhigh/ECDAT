@@ -4,7 +4,7 @@ import base64
 import json
 from unittest import mock
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from segments.ml.analysis.models import AnalysisRun
@@ -14,24 +14,33 @@ from segments.reporting.reports.report_builder import build_report
 from segments.reporting.reports.pdf_renderer import _find_browser, render_pdf
 
 
+@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class ReportBuilderTests(TestCase):
     def setUp(self):
+        from core.models import WorkSession
+
+        self.session = WorkSession.objects.create(name="test-session")
+        self.client.post(f"/api/session/switch/{self.session.pk}/")
         self.scan = ScanJob.objects.create(
+            session=self.session,
             target="payments-core",
             source_type=ScanJob.SourceType.SOURCE_CODE,
             status=ScanJob.Status.COMPLETED,
         )
         raw = RawFinding.objects.create(
+            session=self.session,
             scan_job=self.scan,
             location="src/crypto/rsa_key.py",
         )
         norm = NormalizedFinding.objects.create(
+            session=self.session,
             raw_finding=raw,
             family=NormalizedFinding.AlgorithmFamily.RSA,
             algorithm="RSA",
             key_size=2048,
         )
         self.asset = CryptoAsset.objects.create(
+            session=self.session,
             name="payments-signing-key",
             family=NormalizedFinding.AlgorithmFamily.RSA,
             algorithm="RSA",
@@ -39,6 +48,7 @@ class ReportBuilderTests(TestCase):
             source_type=ScanJob.SourceType.SOURCE_CODE,
         )
         self.run = AnalysisRun.objects.create(
+            session=self.session,
             scan_job=self.scan,
             status=AnalysisRun.Status.COMPLETED,
             executive_summary={
@@ -57,7 +67,7 @@ class ReportBuilderTests(TestCase):
         )
 
     def test_build_report_sections_present(self):
-        report = build_report()
+        report = build_report(sid=self.session.pk)
         html = report["html"]
         self.assertIn("Full Pipeline Report", html)
         self.assertIn("Executive Summary", html)
@@ -72,11 +82,15 @@ class ReportBuilderTests(TestCase):
     def test_build_report_scopes_latest_completed_run(self):
         from core.modes import ACTUAL_DB
 
-        MitigationPlan.objects.create(run=self.run, status=MitigationPlan.Status.COMPLETE)
-        report = build_report(sid=None, db=ACTUAL_DB)
+        MitigationPlan.objects.create(
+            run=self.run,
+            status=MitigationPlan.Status.COMPLETE,
+            session=self.session,
+        )
+        report = build_report(sid=self.session.pk, db=ACTUAL_DB)
         self.assertIn("payments-signing-key", report["html"])
         self.assertEqual(
-            report["data"]["meta"]["scope_label"], "All data (no workspace filter)"
+            report["data"]["meta"]["scope_label"], f"Workspace “{self.session.name}”"
         )
         self.assertIsNotNone(report["data"]["mitigation"])
         self.assertEqual(report["data"]["mitigation"]["run_id"], self.run.pk)
@@ -93,9 +107,15 @@ class ReportBuilderTests(TestCase):
             self.assertGreater(len(pdf), 200)
 
 
+@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class ReportApiTests(TestCase):
     def setUp(self):
+        from core.models import WorkSession
+
+        self.session = WorkSession.objects.create(name="test-session")
+        self.client.post(f"/api/session/switch/{self.session.pk}/")
         ScanJob.objects.create(
+            session=self.session,
             target="api-gateway",
             source_type=ScanJob.SourceType.SOURCE_CODE,
             status=ScanJob.Status.COMPLETED,

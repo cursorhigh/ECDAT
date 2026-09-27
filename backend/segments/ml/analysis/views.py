@@ -3,11 +3,12 @@
 import json
 
 from django.db.models import Count
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
+from core.api import require_scan_scope
 from core.modes import active_db, db_alias_for_mode
 from core.sessions import scope, thread_session_id
 from segments.scraping.discovery.models import ScanJob
@@ -319,9 +320,60 @@ def analysis_detail(request, run_id):
         "summary_rows": summary_rows,
         "cbom": run.cbom_document,
         "findings_count": len((run.input_payload or {}).get("findings", [])),
+        "truncation": (run.input_payload or {}).get("truncation"),
         "assessments": [_assessment_summary(a) for a in assessments],
     }
     return JsonResponse(data)
+
+
+@csrf_exempt
+def cbom_export(request, run_id=None):
+    """Download a Cryptographic Bill of Materials (GET /api/cbom/export/).
+
+    `format` is one of ecdat, cyclonedx-json, cyclonedx-xml. With `run_id` the
+    export is narrowed to that analysis run's scan; without it, the whole active
+    scope is exported. Always session scoped.
+    """
+    from segments.ml.cbom.export import (
+        CBOMUnavailable,
+        UnsupportedCBOMFormat,
+        build_export,
+    )
+
+    if request.method != "GET":
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+    output_format = (request.GET.get("format") or "cyclonedx-json").strip().lower()
+    db = active_db()
+    sid = thread_session_id()
+
+    # An export describes a scan. With none selected there is nothing to
+    # describe, and the exporter would otherwise fall back to the thread session
+    # and emit a BOM covering every other scan in the database.
+    require_scan_scope(sid)
+
+    run = None
+    if run_id is not None:
+        try:
+            run, _db = _load_run(run_id)
+        except AnalysisRun.DoesNotExist:
+            return JsonResponse({"detail": f"Analysis run {run_id} not found."}, status=404)
+        if sid and run.session_id != sid:
+            return JsonResponse({"detail": "not found"}, status=404)
+
+    try:
+        body, content_type, filename = build_export(
+            output_format, db=db, session_id=sid, run=run
+        )
+    except UnsupportedCBOMFormat as exc:
+        # A bad format is the caller's mistake, not a state conflict.
+        return JsonResponse({"detail": str(exc)}, status=400)
+    except CBOMUnavailable as exc:
+        return JsonResponse({"detail": str(exc)}, status=409)
+
+    response = HttpResponse(body, content_type=content_type)
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
 
 
 @csrf_exempt

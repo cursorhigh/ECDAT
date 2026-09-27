@@ -38,7 +38,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         </Link>
       </div>
       <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-3 py-5">
-        <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Workspace</p>
+        <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Scans</p>
         <nav className="space-y-2" aria-label="Primary navigation">
           {workspaceNavigation.map((item) => {
             const Icon = item.icon;
@@ -70,7 +70,7 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
     <header className="z-30 flex min-h-16 shrink-0 items-center justify-between gap-3 border-b bg-background/95 px-4 backdrop-blur sm:px-6">
       <div className="flex min-w-0 items-center gap-3">
         <Button type="button" variant="ghost" size="icon" className="lg:hidden" onClick={onMenu} aria-label="Open navigation"><Menu className="h-5 w-5" aria-hidden="true" /></Button>
-        <div className="min-w-0"><div className="flex items-center gap-2 text-[11px] text-muted-foreground"><span>Workspace</span><span>/</span><span className="truncate text-foreground">{current?.label || "Overview"}</span></div><p className="mt-1 hidden text-[11px] text-muted-foreground sm:block">Cryptographic discovery, risk, and migration control plane</p></div>
+        <div className="min-w-0"><div className="flex items-center gap-2 text-[11px] text-muted-foreground"><span>Scan</span><span>/</span><span className="truncate text-foreground">{current?.label || "Overview"}</span></div><p className="mt-1 hidden text-[11px] text-muted-foreground sm:block">Cryptographic discovery, risk, and migration control plane</p></div>
       </div>
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         {error ? <span className="hidden border border-destructive/30 bg-destructive/5 px-2 py-1 text-[10px] text-destructive md:inline-flex">Session unavailable</span> : null}

@@ -107,6 +107,17 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
+# SQLite is single-writer. A multi-source discovery run writes from several
+# scanner threads at once, and without a wait the loser of the race gets an
+# immediate "database is locked" and the scan fails outright.
+#
+# `timeout` is the only OPTIONS key the plain (non-pooled) sqlite backend
+# accepts on Django 5.0; WAL and busy_timeout are applied per connection by
+# core.sqlite_pragmas, which is the only supported way to set them here.
+_SQLITE_WRITE_OPTIONS = {
+    "timeout": 30,          # seconds to wait for a competing writer
+}
+
 DATABASES = {
     'default': {
         'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.sqlite3'),
@@ -115,10 +126,12 @@ DATABASES = {
         'PASSWORD': os.getenv('DB_PASSWORD', ''),
         'HOST': os.getenv('DB_HOST', ''),
         'PORT': os.getenv('DB_PORT', ''),
+        'OPTIONS': dict(_SQLITE_WRITE_OPTIONS),
     },
     'demo': {
         'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.sqlite3'),
         'NAME': BASE_DIR / 'demo.sqlite3',
+        'OPTIONS': dict(_SQLITE_WRITE_OPTIONS),
     },
 }
 

@@ -96,10 +96,12 @@ def build_analysis_payload(scan_job: ScanJob, max_findings: int = 500) -> Dict[s
                 continue
             seen.add(dedup_key)
             findings.append(finding)
-            if len(findings) >= max_findings:
-                return _payload(scan_job, findings)
 
-    return _payload(scan_job, findings)
+    total_available = len(findings)
+    if max_findings is not None and total_available > max_findings:
+        findings = findings[:max_findings]
+
+    return _payload(scan_job, findings, total_available, max_findings)
 
 
 def default_raw_system_context(
@@ -140,11 +142,35 @@ def parse_finding_id(finding_id: str) -> Optional[int]:
     return int(digits)
 
 
-def _payload(scan_job: ScanJob, findings: list) -> Dict[str, Any]:
-    return {
+def _payload(
+    scan_job: ScanJob,
+    findings: list,
+    total_available: int | None = None,
+    max_findings: int | None = None,
+) -> Dict[str, Any]:
+    """Build the analysis payload, recording any truncation explicitly.
+
+    A capped payload must never look like a complete one: every count derived
+    downstream (summary rows, plan coverage, reports) is only as complete as
+    this list, so the shortfall is reported rather than hidden.
+    """
+    available = len(findings) if total_available is None else total_available
+    truncated = (
+        max_findings is not None
+        and available > len(findings)
+    ) or (max_findings is not None and len(findings) >= max_findings)
+    payload: Dict[str, Any] = {
         "repository": {
             "name": scan_job.target or f"{scan_job.source_type} scan",
             "url": "",
         },
         "findings": findings,
     }
+    if truncated:
+        payload["truncation"] = {
+            "truncated": True,
+            "analysed": len(findings),
+            "available": available,
+            "limit": max_findings,
+        }
+    return payload

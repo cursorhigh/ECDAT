@@ -65,10 +65,21 @@ def thread_session_id():
 
 
 def scope(queryset, session_id=None):
-    """Narrow a queryset to a session; no/falsy session leaves it unfiltered."""
+    """Narrow a queryset to one session, or return nothing at all.
+
+    With no active session this used to return the queryset unfiltered, which
+    meant "no session selected" quietly became "every session's data". Two scans
+    then rendered as one list, and a report could be built from another scan's
+    findings without anything looking wrong.
+
+    Each scan owns its own session, so an absent session means there is nothing
+    to show rather than everything to show. The one place that legitimately
+    spans sessions is the audit scan history, and it asks for the rows
+    explicitly instead of relying on this default.
+    """
     if session_id:
         return queryset.filter(session_id=session_id)
-    return queryset
+    return queryset.none()
 
 
 def default_session():

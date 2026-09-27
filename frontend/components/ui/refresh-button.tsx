@@ -23,8 +23,15 @@ export function RefreshButton({ onRefresh, label = "Refresh", showLabel = true, 
     try {
       await onRefresh();
       pushToast(successMessage || `${label} complete.`, "success");
-    } catch {
-      return;
+    } catch (error) {
+      // A react-query refetch resolves rather than throws on failure, so
+      // callers must surface errors themselves (see refetchAllOrThrow).
+      pushToast(
+        error instanceof Error && error.message
+          ? error.message
+          : `${label} failed. Some data may be out of date.`,
+        "error",
+      );
     } finally {
       const remaining = Math.max(0, 350 - (Date.now() - startedAt));
       if (remaining) await new Promise((resolve) => window.setTimeout(resolve, remaining));

@@ -11,6 +11,8 @@ const RECENT_KEY = "ecdat.recent-sessions";
 type SessionContextValue = {
   info: SessionInfo | null;
   activeId: number | null;
+  /** True once a scan session is selected. Scan-scoped reads wait for this. */
+  hasSession: boolean;
   scopeKey: string;
   ready: boolean;
   loading: boolean;
@@ -138,7 +140,15 @@ export function SessionProvider({ children }: Readonly<{ children: React.ReactNo
     () => ({
       info,
       activeId,
-      scopeKey: activeId ? `session-${activeId}` : "all-data",
+      // Scan-scoped reads wait for this. `ready` only means the session lookup
+      // finished, which is true when it found nothing, so gating on `ready`
+      // alone fired every scan query against a scope that did not exist.
+      hasSession: activeId !== null,
+      // A scan and everything derived from it live in one session, so the
+      // cache key names that session. With no session there is no dataset to
+      // key -- it used to be "all-data", which meant no session quietly became
+      // every session's rows mixed into one list.
+      scopeKey: activeId ? `session-${activeId}` : "no-session",
       ready,
       loading,
       error,

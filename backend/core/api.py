@@ -35,6 +35,7 @@ import json
 import secrets
 import uuid
 
+from django.conf import settings
 from django.core.exceptions import (
     ObjectDoesNotExist,
     PermissionDenied,
@@ -91,6 +92,29 @@ class ApiError(Exception):
         super().__init__(self.message)
 
 
+NO_SCAN_SELECTED = "no_scan_selected"
+
+NO_SCAN_SELECTED_MESSAGE = (
+    "No scan is selected. Every scan owns its own session, so there is no data "
+    "scope to answer from. Open a scan from the audit history, or start one."
+)
+
+
+def require_scan_scope(session_id):
+    """Refuse an action that belongs to a scan when no scan is selected.
+
+    List endpoints deliberately keep returning an empty result, because "no
+    findings" is a real answer for a list. This is for the endpoints where the
+    absence is an error rather than an answer: exporting a BOM, rebuilding the
+    graph, correlating, or asking about one specific node or run. Those used to
+    quietly operate on whatever the thread session happened to hold, which is
+    how a rebuild could touch every scan in the database.
+    """
+    if session_id:
+        return session_id
+    raise ApiError(409, NO_SCAN_SELECTED, NO_SCAN_SELECTED_MESSAGE)
+
+
 def request_id(request):
     """Request id for a request: caller-provided or generated."""
     rid = getattr(request, "_ecdat_request_id", None)
@@ -136,10 +160,17 @@ def wrap_response(request, response):
     plain view produced an HTML/plain error page (e.g. Django debug pages or
     `require_POST` 405s), so API clients only ever see JSON.
 
+    A JSON body that is a *file download* is also left alone: an attachment
+    is consumed by whatever opens the file, not by an API client, and wrapping
+    it would silently produce a document the recipient cannot parse (a CBOM
+    exported as `{"success": true, "data": {...}}` is not a valid CBOM).
+
     Headers from the original response (Set-Cookie, X-Frame-Options, ...) are
     copied onto the wrapped response.
     """
     if not response.status_code or response.status_code == 204:
+        return response
+    if "attachment" in (response.get("Content-Disposition") or "").lower():
         return response
     content_type = response.get("Content-Type", "")
     if content_type.startswith("application/json"):
@@ -253,6 +284,27 @@ class EnvelopeMiddleware:
         if is_api:
             response = wrap_response(request, response)
         return response
+
+    def process_exception(self, request, exception):
+        """Render a view's exception as the error envelope.
+
+        The `except` block in `__call__` only ever sees failures raised by the
+        middleware around the view. An exception raised *inside* a view is caught
+        by Django's `convert_exception_to_response` first, so it reaches this
+        class already turned into a bare 500 response -- with the exception type,
+        the error code and the message all lost. That made the `ApiError` branch
+        below unreachable dead code: a view could raise a precise 409 and the
+        client still received a message-less 500.
+
+        `process_exception` is the hook Django calls for view exceptions before
+        that conversion, so this is the only place the envelope can be built with
+        the real status, code and message intact.
+        """
+        if not request.path_info.startswith(API_PREFIXES):
+            return None
+        if settings.DEBUG_PROPAGATE_EXCEPTIONS:
+            return None
+        return self._exception_response(request, exception)
 
     def _exception_response(self, request, exc):
         if isinstance(exc, ApiError):

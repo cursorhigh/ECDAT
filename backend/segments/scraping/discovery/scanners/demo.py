@@ -7,7 +7,7 @@ Supports both small quick demo scans and full 10,000-asset enterprise distributi
 """
 
 from ..models import ScanJob
-from .base import BaseScanner
+from .base import BaseScanner, ScanContext
 
 # User-defined exact distribution counts for enterprise demo dataset
 ALGORITHM_DISTRIBUTION = [
@@ -105,9 +105,22 @@ class DemoScreenshotScanner(BaseScanner):
 
     source_type = ScanJob.SourceType.SOURCE_CODE
 
+    scanner_id = "demo-distribution"
+    name = "Demo distribution"
+    description = "Synthetic discovery data used to demonstrate the platform. Not real enterprise evidence."
+    version = "1.0.0"
+    supported_targets = ("workspace",)
+    supported_artifacts = ("algorithm", "library", "protocol", "certificate")
+    capabilities = ("read_only", "synthetic")
+    configuration_schema = {}
+    status = "available"
+
     def __init__(self, scan_job: ScanJob = None, full_distribution: bool = True):
         super().__init__(scan_job)
         self.full_distribution = full_distribution
 
-    def run(self) -> list[dict]:
-        return generate_enterprise_demo_findings(full_distribution=self.full_distribution)
+    def run(self, context: ScanContext | None = None) -> list[dict]:
+        findings = generate_enterprise_demo_findings(full_distribution=self.full_distribution)
+        if context:
+            context.report("inspecting", len(findings), len(findings))
+        return findings

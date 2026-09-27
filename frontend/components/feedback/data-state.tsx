@@ -2,7 +2,7 @@ import { CircleAlert, Inbox, Loader2 } from "lucide-react";
 import { RefreshButton } from "@/components/ui/refresh-button";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export function LoadingState({ label = "Loading workspace data" }: { label?: string }) {
+export function LoadingState({ label = "Loading scan data" }: { label?: string }) {
   return (
     <div className="space-y-4" role="status" aria-live="polite">
       <div className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />{label}</div>

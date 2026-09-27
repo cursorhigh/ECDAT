@@ -130,7 +130,13 @@ def _risk_of(asset):
 
 
 def collect(sid=None, db=None):
-    """Gather every pipeline artifact for the current scope into one dict."""
+    """Gather every pipeline artifact for one session into one dict.
+
+    `sid` is honoured when given, for the same reason as in `build_report`: it
+    used to be overwritten by the thread session, so asking for a specific
+    scan's data returned whatever the thread held -- and with no session on the
+    thread, an empty report that looked valid.
+    """
     from django.db.models import Count, Q
 
     from segments.ml.analysis.models import AnalysisRun
@@ -138,7 +144,9 @@ def collect(sid=None, db=None):
     from segments.scraping.discovery.models import AssetRelation, CryptoAsset, NormalizedFinding, RawFinding, ScanJob
     from segments.mitigation.mitigation.models import MitigationPlan
 
-    sid, db = _scoped(db)
+    thread_sid, resolved_db = _scoped(db)
+    sid = sid if sid is not None else thread_sid
+    db = resolved_db
     _s = lambda qs: scope(qs, sid)
 
     now = datetime.now()
@@ -759,9 +767,16 @@ def render(full: dict) -> str:
 
 
 def build_report(sid=None, db=None) -> dict:
-    """Collect the full scope and render the enterprise HTML document."""
-    sid, db = _scoped(db)
-    data = collect(sid=sid, db=db)
+    """Collect the full scope and render the enterprise HTML document.
+
+    `sid` is honoured when given. It used to be accepted and then overwritten by
+    the thread session, so a caller that asked for one specific scan's report
+    silently received whatever scope the thread happened to be in -- which, with
+    no session on the thread, meant an empty report rather than an error.
+    """
+    thread_sid, resolved_db = _scoped(db)
+    sid = sid if sid is not None else thread_sid
+    data = collect(sid=sid, db=resolved_db)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     html = render(data)
     return {

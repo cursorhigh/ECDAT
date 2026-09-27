@@ -11,4 +11,7 @@ urlpatterns = [
     path("<int:run_id>/", views.analysis_detail, name="analysis-detail"),
     path("<int:run_id>/cancel/", views.analysis_cancel, name="analysis-cancel"),
     path("<int:run_id>/artifacts/", views.analysis_artifacts, name="analysis-artifacts"),
+    # Whole-scope export first: "cbom/" must not be swallowed by "<int:run_id>/".
+    path("cbom/", views.cbom_export, name="cbom-export"),
+    path("<int:run_id>/cbom/", views.cbom_export, name="analysis-cbom"),
 ]

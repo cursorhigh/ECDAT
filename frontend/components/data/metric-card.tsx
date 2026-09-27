@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ArrowUpRight, type LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn, formatNumber } from "@/lib/utils";
@@ -14,5 +15,5 @@ export function MetricCard({ label, value, detail, icon: Icon, tone = "default",
       {href ? <ArrowUpRight className="absolute bottom-4 right-4 h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true" /> : null}
     </Card>
   );
-  return href ? <a href={href} className="block rounded-none">{content}</a> : content;
+  return href ? <Link href={href} className="block rounded-none">{content}</Link> : content;
 }

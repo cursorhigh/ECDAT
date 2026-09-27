@@ -7,6 +7,8 @@ and outputs a validated CBOM JSON structure with field-level explainability prov
 """
 
 from .builder import CBOMBuilder
+from .cyclonedx import to_cyclonedx, to_cyclonedx_xml
+from .export import CBOMUnavailable, build_export
 from .validator import CBOMValidator
 from .cbom_agent import CBOMAgent, format_cbom_explanation
 from .extractor import DeterministicExtractor
@@ -24,6 +26,10 @@ __all__ = [
     "CBOMBuilder",
     "CBOMValidator",
     "CBOMAgent",
+    "to_cyclonedx",
+    "to_cyclonedx_xml",
+    "build_export",
+    "CBOMUnavailable",
     "format_cbom_explanation",
     "DeterministicExtractor",
     "BaseLLMProvider",

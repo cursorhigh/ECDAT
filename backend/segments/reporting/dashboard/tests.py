@@ -3,7 +3,7 @@
 ECDAT is a backend-only API service, so these cover the JSON endpoints that
 replaced the server-rendered dashboard pages.
 """
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from core.models import log_action
 from segments.ml.analysis.models import AnalysisRun
@@ -50,24 +50,33 @@ class WorkflowBuilderTests(TestCase):
         self.assertEqual(steps[-1]["api"], "/api/reports/full.json")
 
 
+@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class OverviewEndpointTests(TestCase):
     def setUp(self):
+        from core.models import WorkSession
+
+        self.session = WorkSession.objects.create(name="test-session")
+        self.client.post(f"/api/session/switch/{self.session.pk}/")
         self.scan = ScanJob.objects.create(
+            session=self.session,
             target="payments-core",
             source_type=ScanJob.SourceType.SOURCE_CODE,
             status=ScanJob.Status.COMPLETED,
         )
         raw = RawFinding.objects.create(
+            session=self.session,
             scan_job=self.scan,
             location="src/crypto/rsa_key.py",
         )
         NormalizedFinding.objects.create(
+            session=self.session,
             raw_finding=raw,
             family=NormalizedFinding.AlgorithmFamily.RSA,
             algorithm="RSA",
             key_size=2048,
         )
         CryptoAsset.objects.create(
+            session=self.session,
             name="payments-signing-key",
             family=NormalizedFinding.AlgorithmFamily.RSA,
             algorithm="RSA",
@@ -75,6 +84,7 @@ class OverviewEndpointTests(TestCase):
             source_type=ScanJob.SourceType.SOURCE_CODE,
         )
         self.run = AnalysisRun.objects.create(
+            session=self.session,
             scan_job=self.scan,
             status=AnalysisRun.Status.COMPLETED,
             executive_summary={
@@ -107,6 +117,7 @@ class OverviewEndpointTests(TestCase):
 
     def test_overview_after_mitigation(self):
         MitigationPlan.objects.create(
+            session=self.session,
             run=self.run,
             status=MitigationPlan.Status.COMPLETE,
             document={"summary": {"assets": 1}},
@@ -121,24 +132,33 @@ class OverviewEndpointTests(TestCase):
         self.assertTrue(all(workflow.values()))
 
 
+@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class ReportingEndpointTests(TestCase):
     def setUp(self):
+        from core.models import WorkSession
+
+        self.session = WorkSession.objects.create(name="test-session")
+        self.client.post(f"/api/session/switch/{self.session.pk}/")
         self.scan = ScanJob.objects.create(
+            session=self.session,
             target="api-gateway",
             source_type=ScanJob.SourceType.SOURCE_CODE,
             status=ScanJob.Status.COMPLETED,
         )
         raw = RawFinding.objects.create(
+            session=self.session,
             scan_job=self.scan,
             location="gw/keys/jwt_rsa.py",
         )
         self.finding = NormalizedFinding.objects.create(
+            session=self.session,
             raw_finding=raw,
             family=NormalizedFinding.AlgorithmFamily.RSA,
             algorithm="RSA",
             key_size=2048,
         )
         self.asset = CryptoAsset.objects.create(
+            session=self.session,
             name="api-gateway-signer",
             family=NormalizedFinding.AlgorithmFamily.RSA,
             algorithm="RSA",
@@ -160,7 +180,7 @@ class ReportingEndpointTests(TestCase):
         self.assertTrue(by_key["asset"]["done"])
 
     def test_audit_endpoint_lists_entries(self):
-        log_action("scan_created", "Test scan created", "scanjob", self.scan.pk)
+        log_action("scan_created", "Test scan created", "scanjob", self.scan.pk, session_id=self.session.pk)
         resp = self.client.get("/api/reporting/audit/")
         self.assertEqual(resp.status_code, 200)
         body = resp.json()["data"]

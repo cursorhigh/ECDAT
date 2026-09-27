@@ -65,18 +65,27 @@ def detect_platform() -> str:
 
 @dataclass(frozen=True)
 class ScopeLimits:
-    """Walker budget for one scan scope (override via ScanJob.config)."""
+    """Walker budget for one scan scope (override via ScanJob.config).
 
-    max_files: int
-    max_depth: int
-    max_file_size: int  # bytes; files larger than this are skipped
+    Every field is optional: ``None`` means unbounded, so discovery covers the
+    whole target by default and nothing is silently truncated. A caller can
+    still set an explicit ceiling through ``ScanJob.config``; when one is hit
+    the scan reports PARTIAL with the reason rather than reporting success.
+    """
+
+    max_files: int | None = None
+    max_depth: int | None = None
+    max_file_size: int | None = None  # bytes; None = inspect files of any size
 
 
-# Default budgets shared by all platforms (config may raise/lower them).
+# Discovery covers everything by default. Limits exist only as an opt-in
+# ceiling for very large targets.
+UNBOUNDED = ScopeLimits()
+
 SCOPE_LIMITS = {
-    "quick": ScopeLimits(max_files=10_000, max_depth=12, max_file_size=4 * 1024 * 1024),
-    "whole": ScopeLimits(max_files=200_000, max_depth=64, max_file_size=8 * 1024 * 1024),
-    "specified": ScopeLimits(max_files=20_000, max_depth=32, max_file_size=4 * 1024 * 1024),
+    "quick": UNBOUNDED,
+    "whole": UNBOUNDED,
+    "specified": UNBOUNDED,
 }
 
 # VCS / dependency / build-cache directory names skipped in every walk.
@@ -397,7 +406,11 @@ def resolve_scan_roots(scan_job) -> list[RootTarget]:
         if raw_target and raw_target.lower() not in ("quick", "whole"):
             expanded = _expand(raw_target)
             if os.path.isdir(expanded):
-                roots.append(RootTarget(root=expanded, label=expanded))
+                # An explicitly chosen target is scanned in full. The extension
+                # filter exists to keep broad `quick`/`whole` sweeps tractable,
+                # not to hide extension-less material (SSH keys, /etc/ssl files)
+                # from someone who deliberately pointed discovery at it.
+                roots.append(RootTarget(root=expanded, label=expanded, scan_all=True))
 
     return roots
 
@@ -408,13 +421,30 @@ def scan_type_of(scan_job) -> str:
 
 
 def get_scan_limits(scan_job) -> ScopeLimits:
-    """Merge per-scope defaults with per-job config overrides."""
+    """Merge per-scope defaults with per-job config overrides.
+
+    Scopes are unbounded by default; an explicit ``max_files`` / ``max_depth``
+    / ``max_file_size`` in ``ScanJob.config`` narrows a run on request.
+    """
     default = SCOPE_LIMITS[_scan_type_of(scan_job)]
     config = scan_job.config or {}
+
+    def limit(name: str) -> int | None:
+        raw = config.get(name)
+        if raw in (None, ""):
+            return getattr(default, name)
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            raise ValueError(
+                f"Invalid {name} limit: {raw!r} is not an integer."
+            ) from None
+        return value if value > 0 else None
+
     return ScopeLimits(
-        max_files=int(config.get("max_files") or default.max_files),
-        max_depth=int(config.get("max_depth") or default.max_depth),
-        max_file_size=int(config.get("max_file_size") or default.max_file_size),
+        max_files=limit("max_files"),
+        max_depth=limit("max_depth"),
+        max_file_size=limit("max_file_size"),
     )
 
 

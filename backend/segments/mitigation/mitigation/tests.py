@@ -251,9 +251,14 @@ class MitigationPlannerTests(TestCase):
 
     def setUp(self):
         self.client = Client()
+        from core.models import WorkSession
+
+        self.session = WorkSession.objects.using("default").create(name="test-session")
+        self.client.post(f"/api/session/switch/{self.session.pk}/")
 
     def _make_completed_run(self):
         job = ScanJob.objects.using("default").create(
+            session=self.session,
             source_type="source_code",
             target="work/app",
             mode="actual",
@@ -262,6 +267,7 @@ class MitigationPlannerTests(TestCase):
         )
         run = AnalysisRun.objects.using("default").create(
             scan_job=job,
+            session=self.session,
             mode="actual",
             status=AnalysisRun.Status.COMPLETED,
             progress=100,
