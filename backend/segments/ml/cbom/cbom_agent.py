@@ -1,14 +1,10 @@
 """
-CBOM Agent Component
+CBOM Agent Component (cbom_agent.py)
 
 Processes raw pre-discovered cryptographic findings JSON from the Discovery module
-and converts them into a structured Cryptography Bill of Materials (CBOM) document
-following deterministic extraction, AI-assisted reasoning fallback, field-level explainability,
-and quality validation.
-
-NOTE: This module strictly transforms pre-discovered findings.
-It does NOT clone repos, scan directories, perform quantum risk analysis,
-calculate Mosca's inequality, prioritize quantum risk, or recommend PQC algorithms.
+and converts them into a structured, standards-compliant Cryptography Bill of Materials (CBOM) document
+following deterministic extraction, NIST/FIPS crypto catalog enrichment, AI-assisted reasoning fallback,
+field-level explainability provenance, and strict quality validation.
 """
 
 from typing import Dict, Any, List, Optional
@@ -79,8 +75,9 @@ Confidence Reason:
 
 class CBOMAgent:
     """
-    CBOM Agent for transforming discovery findings into a structured CBOM object.
-    Uses deterministic extraction first, falling back to LLM assistance when important information is missing.
+    CBOM Agent for transforming discovery findings into structured CycloneDX 1.6 and ECDAT CBOM documents.
+    Uses deterministic extraction and NIST/FIPS catalog lookup first, falling back to LLM assistance
+    when critical context is missing or ambiguous.
     Applies quality validation and attaches field-level explainability provenance to every asset.
     """
 
@@ -93,10 +90,11 @@ class CBOMAgent:
 
     def process(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Processes Discovery-style JSON data and converts it into a structured CBOM JSON object.
+        Processes Discovery-style JSON data and converts it into a structured CBOM JSON object
+        containing both ECDAT summary statistics and embedded CycloneDX 1.6 BOM representation.
 
         :param data: Input dictionary containing repository metadata and findings.
-        :return: Structured CBOM dictionary object with format, version, generated_at, repository, summary, and crypto_assets.
+        :return: Structured CBOM dictionary object.
         """
         if not isinstance(data, dict):
             data = {}
@@ -107,8 +105,8 @@ class CBOMAgent:
             raw_repo = {}
 
         repository_metadata = {
-            "name": raw_repo.get("name"),
-            "url": raw_repo.get("url") or raw_repo.get("repository_url"),
+            "name": raw_repo.get("name") or "cryptographic-project",
+            "url": raw_repo.get("url") or raw_repo.get("repository_url") or "",
         }
 
         # 2. Read findings list
@@ -116,14 +114,14 @@ class CBOMAgent:
         if not isinstance(raw_findings, list):
             raw_findings = data.get("source_findings", [])
 
-        # 3. Iterate through every finding and convert to structured cryptographic asset with explainability
+        # 3. Iterate through findings and enrich with deterministic extraction + catalog lookup
         crypto_assets: List[Dict[str, Any]] = []
 
         for finding in raw_findings:
             if not isinstance(finding, dict):
                 continue
 
-            # Step A: Run deterministic extraction
+            # Step A: Run deterministic extraction & catalog lookup
             extracted = self.extractor.extract(finding)
             ai_was_used = False
 
@@ -156,6 +154,7 @@ class CBOMAgent:
                 "key_size": extracted.get("key_size"),
                 "mode": extracted.get("mode"),
                 "curve": extracted.get("curve"),
+                "padding": extracted.get("padding"),
                 "hash": extracted.get("hash"),
             }
             if isinstance(finding.get("parameters"), dict):
@@ -166,18 +165,35 @@ class CBOMAgent:
             # Calculate confidence score
             confidence = finding.get("confidence")
             if confidence is None:
-                confidence = 0.95 if (extracted.get("key_size") or extracted.get("mode")) else (0.80 if not ai_was_used else extracted.get("confidence", 0.70))
+                confidence = extracted.get("confidence", 0.95 if not ai_was_used else 0.85)
+
+            # Structured crypto properties block
+            crypto_props = {
+                "primitive": extracted.get("primitive"),
+                "crypto_role": extracted.get("crypto_role"),
+                "crypto_functions": extracted.get("crypto_functions", []),
+                "classical_security_bits": extracted.get("classical_security_bits"),
+                "nist_quantum_level": extracted.get("nist_quantum_level"),
+                "quantum_vulnerable": extracted.get("quantum_vulnerable"),
+                "quantum_attack_type": extracted.get("quantum_attack_type"),
+                "deprecated_or_disallowed": extracted.get("deprecated_or_disallowed"),
+                "oid": extracted.get("oid"),
+            }
+
+            asset_id = finding.get("id") or finding.get("asset_id")
+            if not asset_id:
+                asset_id = f"crypto-asset-{len(crypto_assets)+1:03d}"
 
             asset = {
-                "asset_id": finding.get("id") or finding.get("asset_id"),
+                "asset_id": asset_id,
                 "asset_type": extracted["asset_type"],
                 "algorithm": finding.get("algorithm") or finding.get("detected") or extracted.get("algorithm") or "unknown",
                 "family": extracted["family"],
                 "parameters": parameters,
+                "protocol": extracted.get("protocol"),
+                "crypto_library": extracted.get("crypto_library"),
                 "purpose": finding.get("purpose") or extracted.get("purpose"),
-                "implementation": finding.get("implementation")
-                or finding.get("library")
-                or extracted.get("implementation"),
+                "implementation": finding.get("implementation") or finding.get("library") or extracted.get("implementation"),
                 "location": {
                     "file": file_path,
                     "line": line_num,
@@ -185,10 +201,11 @@ class CBOMAgent:
                 "evidence": finding.get("code") or finding.get("evidence"),
                 "confidence": float(confidence),
                 "validation_status": finding.get("validation_status") or "unvalidated",
+                "crypto_properties": crypto_props,
                 "explainability": explainability,
             }
 
-            # Step C: Quality validation without mutating evidence or inventing corrections
+            # Step C: Quality validation
             asset = self.validator.validate_asset(asset)
             crypto_assets.append(asset)
 
@@ -220,6 +237,22 @@ class CBOMAgent:
         if output_filepath:
             self.builder.save_json(cbom_doc, output_filepath)
         return cbom_doc
+
+    def generate_cyclonedx_cbom(
+        self, data: Dict[str, Any], output_filepath: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Processes findings and returns/saves a standalone CycloneDX 1.6 CBOM document.
+
+        :param data: Discovery findings JSON object.
+        :param output_filepath: Optional path to save CycloneDX JSON file.
+        :return: CycloneDX 1.6 BOM dictionary object.
+        """
+        cbom_doc = self.process(data)
+        cdx_bom = cbom_doc.get("cyclonedx_bom", {})
+        if output_filepath:
+            self.builder.save_json(cdx_bom, output_filepath)
+        return cdx_bom
 
     def _is_information_missing(
         self, extracted: Dict[str, Any], finding: Dict[str, Any]

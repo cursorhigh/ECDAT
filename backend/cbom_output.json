@@ -1,7 +1,8 @@
 {
   "format": "ECDAT-CBOM",
   "version": "1.0",
-  "generated_at": "2026-09-27T22:34:56Z",
+  "spec_version": "1.6-CycloneDX",
+  "generated_at": "2026-09-27T12:15:33Z",
   "repository": {
     "name": "enterprise-auth-service",
     "url": "https://github.com/example/enterprise-auth-service"
@@ -17,6 +18,7 @@
       "symmetric": 1,
       "hash": 1,
       "protocol": 1,
+      "pqc": 0,
       "other": 1
     }
   },
@@ -30,10 +32,13 @@
         "key_size": 2048,
         "mode": null,
         "curve": null,
+        "padding": null,
         "hash": null
       },
-      "purpose": null,
-      "implementation": null,
+      "protocol": null,
+      "crypto_library": null,
+      "purpose": "authentication_and_signing",
+      "implementation": "rsa.generate_private_key(key_size=2048, public_exponent=65537)",
       "location": {
         "file": "src/auth/rsa_provider.py",
         "line": 24
@@ -41,30 +46,48 @@
       "evidence": "rsa.generate_private_key(key_size=2048, public_exponent=65537)",
       "confidence": 0.95,
       "validation_status": "confirmed",
+      "crypto_properties": {
+        "primitive": "asymmetric",
+        "crypto_role": "signature",
+        "crypto_functions": [
+          "sign",
+          "verify",
+          "encrypt",
+          "decrypt",
+          "key-encapsulate"
+        ],
+        "classical_security_bits": 112,
+        "nist_quantum_level": 0,
+        "quantum_vulnerable": true,
+        "quantum_attack_type": "Shor",
+        "deprecated_or_disallowed": false,
+        "oid": "1.2.840.113549.1.1.1"
+      },
       "explainability": {
         "method": "deterministic",
+        "detection_method": "deterministic",
         "ai_used": false,
-        "summary": "RSA was identified through an explicit deterministic cryptographic API pattern.",
-        "decision_reason": "The deterministic extraction rule successfully identified the algorithm and key size without requiring AI assistance.",
+        "summary": "RSA-2048 was identified through an explicit deterministic cryptographic API pattern.",
+        "decision_reason": "The deterministic extraction rule successfully identified the algorithm and key parameters without requiring AI assistance.",
         "field_evidence": [
           {
             "field": "algorithm",
-            "value": "RSA",
+            "value": "RSA-2048",
             "source": "source_code",
-            "snippet": "rsa.generate_private_key",
-            "evidence_type": "pattern_match",
-            "explanation": "The RSA cryptographic API is associated with RSA in matched deterministic rules."
+            "snippet": "rsa.generate_private_key(key_size=2048, public_exponent=65537)",
+            "evidence_type": "explicit",
+            "explanation": "The RSA-2048 algorithm is explicitly referenced in the source code."
           },
           {
             "field": "parameters.key_size",
             "value": 2048,
             "source": "source_code",
-            "snippet": "key_size=2048",
+            "snippet": "rsa.generate_private_key(key_size=2048, public_exponent=65537)",
             "evidence_type": "explicit",
             "explanation": "The key size is explicitly specified as 2048."
           }
         ],
-        "confidence_reason": "High confidence because the algorithm was identified through a known cryptographic API pattern and the key size is explicitly present."
+        "confidence_reason": "High confidence because explicit cryptographic evidence and standard API patterns were found in the source code."
       }
     },
     {
@@ -73,13 +96,16 @@
       "algorithm": "AES-GCM",
       "family": "symmetric",
       "parameters": {
-        "key_size": null,
+        "key_size": 256,
         "mode": "GCM",
         "curve": null,
+        "padding": null,
         "hash": null
       },
-      "purpose": null,
-      "implementation": null,
+      "protocol": null,
+      "crypto_library": null,
+      "purpose": "data_encryption",
+      "implementation": "Cipher(algorithms.AES(key)",
       "location": {
         "file": "src/crypto/aes_cipher.py",
         "line": 58
@@ -87,30 +113,53 @@
       "evidence": "Cipher(algorithms.AES(key), modes.GCM(nonce))",
       "confidence": 0.95,
       "validation_status": "confirmed",
+      "crypto_properties": {
+        "primitive": "symmetric",
+        "crypto_role": "encryption",
+        "crypto_functions": [
+          "encrypt",
+          "decrypt"
+        ],
+        "classical_security_bits": 256,
+        "nist_quantum_level": 5,
+        "quantum_vulnerable": false,
+        "quantum_attack_type": "Grover",
+        "deprecated_or_disallowed": false,
+        "oid": "2.16.840.1.101.3.4.1.42"
+      },
       "explainability": {
         "method": "deterministic",
+        "detection_method": "deterministic",
         "ai_used": false,
-        "summary": "AES encryption using GCM mode was identified through explicit cryptography library API patterns.",
-        "decision_reason": "The deterministic extraction rule successfully identified the symmetric algorithm and mode without requiring AI assistance.",
+        "summary": "AES-256 was identified through an explicit deterministic cryptographic API pattern.",
+        "decision_reason": "The deterministic extraction rule successfully identified the algorithm and key parameters without requiring AI assistance.",
         "field_evidence": [
           {
             "field": "algorithm",
-            "value": "AES-GCM",
+            "value": "AES-256",
             "source": "source_code",
-            "snippet": "algorithms.AES",
+            "snippet": "Cipher(algorithms.AES(key), modes.GCM(nonce))",
             "evidence_type": "explicit",
-            "explanation": "The AES-GCM algorithm is explicitly referenced in the source code."
+            "explanation": "The AES-256 algorithm is explicitly referenced in the source code."
+          },
+          {
+            "field": "parameters.key_size",
+            "value": 256,
+            "source": "source_code",
+            "snippet": "key_size=256",
+            "evidence_type": "pattern_match",
+            "explanation": "The key size of 256 bits was inferred from the standard algorithm specification."
           },
           {
             "field": "parameters.mode",
             "value": "GCM",
             "source": "source_code",
-            "snippet": "modes.GCM",
+            "snippet": "Cipher(algorithms.AES(key), modes.GCM(nonce))",
             "evidence_type": "explicit",
             "explanation": "The GCM mode is explicitly referenced in the source code."
           }
         ],
-        "confidence_reason": "High confidence because both the algorithm and mode are explicitly visible in the source code."
+        "confidence_reason": "High confidence because explicit cryptographic evidence and standard API patterns were found in the source code."
       }
     },
     {
@@ -119,36 +168,77 @@
       "algorithm": "SHA-256",
       "family": "hash",
       "parameters": {
-        "key_size": null,
+        "key_size": 256,
         "mode": null,
         "curve": null,
-        "hash": null
+        "padding": null,
+        "hash": "SHA-256"
       },
-      "purpose": null,
-      "implementation": null,
+      "protocol": null,
+      "crypto_library": "Python Standard Library",
+      "purpose": "integrity_verification",
+      "implementation": "hashlib.sha256(data)",
       "location": {
         "file": "src/utils/hash_util.py",
         "line": 12
       },
       "evidence": "hashlib.sha256(data).hexdigest()",
-      "confidence": 0.8,
+      "confidence": 0.95,
       "validation_status": "confirmed",
+      "crypto_properties": {
+        "primitive": "digest",
+        "crypto_role": "hash",
+        "crypto_functions": [
+          "digest"
+        ],
+        "classical_security_bits": 128,
+        "nist_quantum_level": 2,
+        "quantum_vulnerable": false,
+        "quantum_attack_type": "Grover",
+        "deprecated_or_disallowed": false,
+        "oid": "2.16.840.1.101.3.4.2.1"
+      },
       "explainability": {
         "method": "deterministic",
+        "detection_method": "deterministic",
         "ai_used": false,
-        "summary": "SHA-256 was identified through an explicit hashlib SHA-256 function call.",
-        "decision_reason": "The deterministic extraction rule successfully identified the hash algorithm without requiring AI assistance.",
+        "summary": "SHA-256 was identified through an explicit deterministic cryptographic API pattern.",
+        "decision_reason": "The deterministic extraction rule successfully identified the algorithm and key parameters without requiring AI assistance.",
         "field_evidence": [
           {
             "field": "algorithm",
             "value": "SHA-256",
             "source": "source_code",
-            "snippet": "hashlib.sha256",
+            "snippet": "hashlib.sha256(data).hexdigest()",
             "evidence_type": "explicit",
             "explanation": "The SHA-256 algorithm is explicitly referenced in the source code."
+          },
+          {
+            "field": "parameters.key_size",
+            "value": 256,
+            "source": "source_code",
+            "snippet": "hashlib.sha256(data).hexdigest()",
+            "evidence_type": "explicit",
+            "explanation": "The key size is explicitly specified as 256."
+          },
+          {
+            "field": "parameters.hash",
+            "value": "SHA-256",
+            "source": "source_code",
+            "snippet": "SHA-256",
+            "evidence_type": "pattern_match",
+            "explanation": "The SHA-256 digest is referenced in the source code."
+          },
+          {
+            "field": "crypto_library",
+            "value": "Python Standard Library",
+            "source": "source_code",
+            "snippet": "hashlib.sha256(data).hexdigest()",
+            "evidence_type": "pattern_match",
+            "explanation": "The cryptographic library Python Standard Library was identified from imports/symbols."
           }
         ],
-        "confidence_reason": "High confidence because the SHA-256 algorithm is explicitly named in the source code."
+        "confidence_reason": "High confidence because explicit cryptographic evidence and standard API patterns were found in the source code."
       }
     },
     {
@@ -157,44 +247,70 @@
       "algorithm": "ECDSA",
       "family": "asymmetric",
       "parameters": {
-        "key_size": null,
+        "key_size": 256,
         "mode": null,
         "curve": "SECP256R1",
+        "padding": null,
         "hash": null
       },
-      "purpose": null,
-      "implementation": null,
+      "protocol": null,
+      "crypto_library": null,
+      "purpose": "authentication_and_signing",
+      "implementation": "ec.generate_private_key(ec.SECP256R1()",
       "location": {
         "file": "src/auth/ecdsa_signer.py",
         "line": 89
       },
       "evidence": "ec.generate_private_key(ec.SECP256R1())",
-      "confidence": 0.8,
+      "confidence": 0.95,
       "validation_status": "confirmed",
+      "crypto_properties": {
+        "primitive": "signature",
+        "crypto_role": "signature",
+        "crypto_functions": [
+          "sign",
+          "verify"
+        ],
+        "classical_security_bits": 128,
+        "nist_quantum_level": 0,
+        "quantum_vulnerable": true,
+        "quantum_attack_type": "Shor",
+        "deprecated_or_disallowed": false,
+        "oid": "1.2.840.10045.3.1.7"
+      },
       "explainability": {
         "method": "deterministic",
+        "detection_method": "deterministic",
         "ai_used": false,
-        "summary": "ECDSA was identified through deterministic pattern matching.",
-        "decision_reason": "The deterministic extraction rule successfully identified cryptographic properties from code evidence.",
+        "summary": "ECDSA-P256 was identified through an explicit deterministic cryptographic API pattern.",
+        "decision_reason": "The deterministic extraction rule successfully identified the algorithm and key parameters without requiring AI assistance.",
         "field_evidence": [
           {
             "field": "algorithm",
-            "value": "ECDSA",
+            "value": "ECDSA-P256",
             "source": "source_code",
             "snippet": "ec.generate_private_key(ec.SECP256R1())",
             "evidence_type": "pattern_match",
-            "explanation": "The ECDSA cryptographic API is associated with ECDSA in matched deterministic rules."
+            "explanation": "The ECDSA cryptographic API is associated with ECDSA-P256 in matched deterministic rules."
+          },
+          {
+            "field": "parameters.key_size",
+            "value": 256,
+            "source": "source_code",
+            "snippet": "ec.generate_private_key(ec.SECP256R1())",
+            "evidence_type": "explicit",
+            "explanation": "The key size is explicitly specified as 256."
           },
           {
             "field": "parameters.curve",
             "value": "SECP256R1",
             "source": "source_code",
-            "snippet": "SECP256R1",
+            "snippet": "ec.generate_private_key(ec.SECP256R1())",
             "evidence_type": "explicit",
             "explanation": "The elliptic curve SECP256R1 is explicitly referenced in the source code."
           }
         ],
-        "confidence_reason": "High confidence based on explicit code evidence and rule pattern matching."
+        "confidence_reason": "High confidence because explicit cryptographic evidence and standard API patterns were found in the source code."
       }
     },
     {
@@ -206,22 +322,39 @@
         "key_size": null,
         "mode": null,
         "curve": null,
+        "padding": null,
         "hash": null
       },
-      "purpose": null,
-      "implementation": null,
+      "protocol": "TLS 1.2",
+      "crypto_library": "OpenSSL",
+      "purpose": "transport_encryption",
+      "implementation": "ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)",
       "location": {
         "file": "src/network/tls_client.py",
         "line": 105
       },
       "evidence": "ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)",
-      "confidence": 0.8,
+      "confidence": 0.9,
       "validation_status": "confirmed",
+      "crypto_properties": {
+        "primitive": "protocol",
+        "crypto_role": "hash",
+        "crypto_functions": [
+          "digest"
+        ],
+        "classical_security_bits": null,
+        "nist_quantum_level": 1,
+        "quantum_vulnerable": false,
+        "quantum_attack_type": "Grover",
+        "deprecated_or_disallowed": false,
+        "oid": null
+      },
       "explainability": {
         "method": "deterministic",
+        "detection_method": "deterministic",
         "ai_used": false,
-        "summary": "OpenSSL TLS was identified through deterministic pattern matching.",
-        "decision_reason": "The deterministic extraction rule successfully identified cryptographic properties from code evidence.",
+        "summary": "OpenSSL TLS was identified through an explicit deterministic cryptographic API pattern.",
+        "decision_reason": "The deterministic extraction rule successfully identified the algorithm and key parameters without requiring AI assistance.",
         "field_evidence": [
           {
             "field": "algorithm",
@@ -230,48 +363,475 @@
             "snippet": "ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)",
             "evidence_type": "pattern_match",
             "explanation": "The OpenSSL TLS cryptographic API is associated with OpenSSL TLS in matched deterministic rules."
+          },
+          {
+            "field": "protocol",
+            "value": "TLS 1.2",
+            "source": "source_code",
+            "snippet": "TLS 1.2",
+            "evidence_type": "pattern_match",
+            "explanation": "The protocol TLS 1.2 was detected in the communication context."
+          },
+          {
+            "field": "crypto_library",
+            "value": "OpenSSL",
+            "source": "source_code",
+            "snippet": "ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)",
+            "evidence_type": "pattern_match",
+            "explanation": "The cryptographic library OpenSSL was identified from imports/symbols."
           }
         ],
-        "confidence_reason": "High confidence based on explicit code evidence and rule pattern matching."
+        "confidence_reason": "High confidence because explicit cryptographic evidence and standard API patterns were found in the source code."
       }
     },
     {
       "asset_id": "F006",
       "asset_type": "algorithm",
       "algorithm": "CustomCryptoRef",
-      "family": "unknown",
+      "family": "other",
       "parameters": {
         "key_size": null,
         "mode": null,
         "curve": null,
+        "padding": null,
         "hash": null
       },
-      "purpose": null,
+      "protocol": null,
+      "crypto_library": null,
+      "purpose": "general_cryptographic_operation",
       "implementation": null,
       "location": {
         "file": "src/legacy/unknown_handler.py",
         "line": null
       },
       "evidence": null,
-      "confidence": 0.8,
+      "confidence": 0.3,
       "validation_status": "partial",
+      "crypto_properties": {
+        "primitive": "other",
+        "crypto_role": "hash",
+        "crypto_functions": [
+          "digest"
+        ],
+        "classical_security_bits": null,
+        "nist_quantum_level": 1,
+        "quantum_vulnerable": false,
+        "quantum_attack_type": "Grover",
+        "deprecated_or_disallowed": false,
+        "oid": null
+      },
       "explainability": {
         "method": "deterministic",
+        "detection_method": "deterministic",
         "ai_used": false,
-        "summary": "CustomCryptoRef was identified through deterministic pattern matching.",
-        "decision_reason": "The deterministic extraction rule successfully identified cryptographic properties from code evidence.",
+        "summary": "Unknown-Algorithm was matched via deterministic discovery finding metadata.",
+        "decision_reason": "The deterministic extraction rule successfully identified the algorithm and key parameters without requiring AI assistance.",
         "field_evidence": [
           {
             "field": "algorithm",
-            "value": "CustomCryptoRef",
+            "value": "Unknown-Algorithm",
             "source": "source_code",
-            "snippet": "CustomCryptoRef",
+            "snippet": "Unknown-Algorithm",
             "evidence_type": "pattern_match",
-            "explanation": "The CustomCryptoRef cryptographic API is associated with CustomCryptoRef in matched deterministic rules."
+            "explanation": "The CustomCryptoRef cryptographic API is associated with Unknown-Algorithm in matched deterministic rules."
           }
         ],
-        "confidence_reason": "High confidence based on explicit code evidence and rule pattern matching."
+        "confidence_reason": "Moderate confidence based on artifact metadata without full code context."
       }
     }
-  ]
+  ],
+  "cyclonedx_bom": {
+    "bomFormat": "CycloneDX",
+    "specVersion": "1.6",
+    "serialNumber": "urn:uuid:11113823-a37d-4d62-8759-63d8e28dbf91",
+    "version": 1,
+    "metadata": {
+      "timestamp": "2026-09-27T12:15:33Z",
+      "tools": {
+        "components": [
+          {
+            "type": "application",
+            "name": "ECDAT-Discovery-CBOM-Agent",
+            "version": "1.1.0"
+          }
+        ]
+      },
+      "component": {
+        "type": "application",
+        "name": "enterprise-auth-service"
+      }
+    },
+    "components": [
+      {
+        "type": "cryptographic-asset",
+        "bom-ref": "crypto-asset-F001-rsa",
+        "name": "RSA",
+        "description": "authentication_and_signing",
+        "evidence": {
+          "occurrences": [
+            {
+              "location": "src/auth/rsa_provider.py",
+              "line": 24,
+              "additionalContext": "rsa.generate_private_key(key_size=2048, public_exponent=65537)",
+              "symbol": "rsa.generate_private_key(key_size=2048, public_exponent=65537)"
+            }
+          ]
+        },
+        "cryptoProperties": {
+          "assetType": "algorithm",
+          "algorithmProperties": {
+            "primitive": "asymmetric",
+            "parameterSetIdentifier": "2048",
+            "curve": null,
+            "executionEnvironment": "software-plain",
+            "implementationPlatform": "rsa.generate_private_key(key_size=2048, public_exponent=65537)",
+            "certificationLevel": "none",
+            "mode": null,
+            "padding": null,
+            "cryptoFunctions": [
+              "sign",
+              "verify",
+              "encrypt",
+              "decrypt",
+              "key-encapsulate"
+            ],
+            "classicalSecurityLevel": 112,
+            "nistQuantumSecurityLevel": 0
+          },
+          "protocolProperties": null,
+          "oid": "1.2.840.113549.1.1.1"
+        },
+        "properties": [
+          {
+            "name": "ecdat:validation_status",
+            "value": "confirmed"
+          },
+          {
+            "name": "ecdat:detection_method",
+            "value": "deterministic"
+          },
+          {
+            "name": "ecdat:confidence",
+            "value": "0.95"
+          },
+          {
+            "name": "ecdat:quantum_vulnerable",
+            "value": "true"
+          },
+          {
+            "name": "ecdat:quantum_attack_type",
+            "value": "Shor"
+          },
+          {
+            "name": "ecdat:deprecated_or_disallowed",
+            "value": "false"
+          }
+        ]
+      },
+      {
+        "type": "cryptographic-asset",
+        "bom-ref": "crypto-asset-F002-aes-gcm",
+        "name": "AES-GCM",
+        "description": "data_encryption",
+        "evidence": {
+          "occurrences": [
+            {
+              "location": "src/crypto/aes_cipher.py",
+              "line": 58,
+              "additionalContext": "Cipher(algorithms.AES(key), modes.GCM(nonce))",
+              "symbol": "Cipher(algorithms.AES(key)"
+            }
+          ]
+        },
+        "cryptoProperties": {
+          "assetType": "algorithm",
+          "algorithmProperties": {
+            "primitive": "symmetric",
+            "parameterSetIdentifier": "256",
+            "curve": null,
+            "executionEnvironment": "software-plain",
+            "implementationPlatform": "Cipher(algorithms.AES(key)",
+            "certificationLevel": "none",
+            "mode": "GCM",
+            "padding": null,
+            "cryptoFunctions": [
+              "encrypt",
+              "decrypt"
+            ],
+            "classicalSecurityLevel": 256,
+            "nistQuantumSecurityLevel": 5
+          },
+          "protocolProperties": null,
+          "oid": "2.16.840.1.101.3.4.1.42"
+        },
+        "properties": [
+          {
+            "name": "ecdat:validation_status",
+            "value": "confirmed"
+          },
+          {
+            "name": "ecdat:detection_method",
+            "value": "deterministic"
+          },
+          {
+            "name": "ecdat:confidence",
+            "value": "0.95"
+          },
+          {
+            "name": "ecdat:quantum_vulnerable",
+            "value": "false"
+          },
+          {
+            "name": "ecdat:quantum_attack_type",
+            "value": "Grover"
+          },
+          {
+            "name": "ecdat:deprecated_or_disallowed",
+            "value": "false"
+          }
+        ]
+      },
+      {
+        "type": "cryptographic-asset",
+        "bom-ref": "crypto-asset-F003-sha-256",
+        "name": "SHA-256",
+        "description": "integrity_verification",
+        "evidence": {
+          "occurrences": [
+            {
+              "location": "src/utils/hash_util.py",
+              "line": 12,
+              "additionalContext": "hashlib.sha256(data).hexdigest()",
+              "symbol": "hashlib.sha256(data)"
+            }
+          ]
+        },
+        "cryptoProperties": {
+          "assetType": "algorithm",
+          "algorithmProperties": {
+            "primitive": "digest",
+            "parameterSetIdentifier": "256",
+            "curve": null,
+            "executionEnvironment": "software-plain",
+            "implementationPlatform": "Python Standard Library",
+            "certificationLevel": "none",
+            "mode": null,
+            "padding": null,
+            "cryptoFunctions": [
+              "digest"
+            ],
+            "classicalSecurityLevel": 128,
+            "nistQuantumSecurityLevel": 2
+          },
+          "protocolProperties": null,
+          "oid": "2.16.840.1.101.3.4.2.1"
+        },
+        "properties": [
+          {
+            "name": "ecdat:validation_status",
+            "value": "confirmed"
+          },
+          {
+            "name": "ecdat:detection_method",
+            "value": "deterministic"
+          },
+          {
+            "name": "ecdat:confidence",
+            "value": "0.95"
+          },
+          {
+            "name": "ecdat:quantum_vulnerable",
+            "value": "false"
+          },
+          {
+            "name": "ecdat:quantum_attack_type",
+            "value": "Grover"
+          },
+          {
+            "name": "ecdat:deprecated_or_disallowed",
+            "value": "false"
+          }
+        ]
+      },
+      {
+        "type": "cryptographic-asset",
+        "bom-ref": "crypto-asset-F004-ecdsa",
+        "name": "ECDSA",
+        "description": "authentication_and_signing",
+        "evidence": {
+          "occurrences": [
+            {
+              "location": "src/auth/ecdsa_signer.py",
+              "line": 89,
+              "additionalContext": "ec.generate_private_key(ec.SECP256R1())",
+              "symbol": "ec.generate_private_key(ec.SECP256R1()"
+            }
+          ]
+        },
+        "cryptoProperties": {
+          "assetType": "algorithm",
+          "algorithmProperties": {
+            "primitive": "signature",
+            "parameterSetIdentifier": "256",
+            "curve": "SECP256R1",
+            "executionEnvironment": "software-plain",
+            "implementationPlatform": "ec.generate_private_key(ec.SECP256R1()",
+            "certificationLevel": "none",
+            "mode": null,
+            "padding": null,
+            "cryptoFunctions": [
+              "sign",
+              "verify"
+            ],
+            "classicalSecurityLevel": 128,
+            "nistQuantumSecurityLevel": 0
+          },
+          "protocolProperties": null,
+          "oid": "1.2.840.10045.3.1.7"
+        },
+        "properties": [
+          {
+            "name": "ecdat:validation_status",
+            "value": "confirmed"
+          },
+          {
+            "name": "ecdat:detection_method",
+            "value": "deterministic"
+          },
+          {
+            "name": "ecdat:confidence",
+            "value": "0.95"
+          },
+          {
+            "name": "ecdat:quantum_vulnerable",
+            "value": "true"
+          },
+          {
+            "name": "ecdat:quantum_attack_type",
+            "value": "Shor"
+          },
+          {
+            "name": "ecdat:deprecated_or_disallowed",
+            "value": "false"
+          }
+        ]
+      },
+      {
+        "type": "cryptographic-asset",
+        "bom-ref": "crypto-asset-F005-openssl-tls",
+        "name": "OpenSSL TLS",
+        "description": "transport_encryption",
+        "evidence": {
+          "occurrences": [
+            {
+              "location": "src/network/tls_client.py",
+              "line": 105,
+              "additionalContext": "ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)",
+              "symbol": "ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)"
+            }
+          ]
+        },
+        "cryptoProperties": {
+          "assetType": "protocol",
+          "algorithmProperties": null,
+          "protocolProperties": {
+            "type": "TLS 1.2",
+            "version": null,
+            "cipherSuites": [
+              "OpenSSL TLS"
+            ]
+          },
+          "oid": null
+        },
+        "properties": [
+          {
+            "name": "ecdat:validation_status",
+            "value": "confirmed"
+          },
+          {
+            "name": "ecdat:detection_method",
+            "value": "deterministic"
+          },
+          {
+            "name": "ecdat:confidence",
+            "value": "0.9"
+          },
+          {
+            "name": "ecdat:quantum_vulnerable",
+            "value": "false"
+          },
+          {
+            "name": "ecdat:quantum_attack_type",
+            "value": "Grover"
+          },
+          {
+            "name": "ecdat:deprecated_or_disallowed",
+            "value": "false"
+          }
+        ]
+      },
+      {
+        "type": "cryptographic-asset",
+        "bom-ref": "crypto-asset-F006-customcryptoref",
+        "name": "CustomCryptoRef",
+        "description": "general_cryptographic_operation",
+        "evidence": {
+          "occurrences": [
+            {
+              "location": "src/legacy/unknown_handler.py",
+              "line": null,
+              "additionalContext": null,
+              "symbol": null
+            }
+          ]
+        },
+        "cryptoProperties": {
+          "assetType": "algorithm",
+          "algorithmProperties": {
+            "primitive": "other",
+            "parameterSetIdentifier": null,
+            "curve": null,
+            "executionEnvironment": "software-plain",
+            "implementationPlatform": null,
+            "certificationLevel": "none",
+            "mode": null,
+            "padding": null,
+            "cryptoFunctions": [
+              "digest"
+            ],
+            "classicalSecurityLevel": null,
+            "nistQuantumSecurityLevel": 1
+          },
+          "protocolProperties": null,
+          "oid": null
+        },
+        "properties": [
+          {
+            "name": "ecdat:validation_status",
+            "value": "partial"
+          },
+          {
+            "name": "ecdat:detection_method",
+            "value": "deterministic"
+          },
+          {
+            "name": "ecdat:confidence",
+            "value": "0.3"
+          },
+          {
+            "name": "ecdat:quantum_vulnerable",
+            "value": "false"
+          },
+          {
+            "name": "ecdat:quantum_attack_type",
+            "value": "Grover"
+          },
+          {
+            "name": "ecdat:deprecated_or_disallowed",
+            "value": "false"
+          }
+        ]
+      }
+    ]
+  }
 }

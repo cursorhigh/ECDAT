@@ -1,0 +1,40 @@
+{
+  "model_name": "random_forest",
+  "saved_at": "2026-09-25T03:09:11.301358",
+  "artifact_path": "model.joblib",
+  "validation_metrics": {
+    "accuracy": 0.9281,
+    "macro_precision": 0.919,
+    "macro_recall": 0.9032,
+    "macro_f1": 0.9107,
+    "weighted_f1": 0.9276,
+    "per_class_f1": {
+      "LOW": 0.8969,
+      "MEDIUM": 0.934,
+      "HIGH": 0.9546,
+      "CRITICAL": 0.8571
+    }
+  },
+  "training_time_sec": 3.58,
+  "hyperparameters": {
+    "bootstrap": true,
+    "ccp_alpha": 0.0,
+    "class_weight": null,
+    "criterion": "gini",
+    "max_depth": 20,
+    "max_features": "sqrt",
+    "max_leaf_nodes": null,
+    "max_samples": null,
+    "min_impurity_decrease": 0.0,
+    "min_samples_leaf": 2,
+    "min_samples_split": 5,
+    "min_weight_fraction_leaf": 0.0,
+    "monotonic_cst": null,
+    "n_estimators": 200,
+    "n_jobs": -1,
+    "oob_score": false,
+    "random_state": 42,
+    "verbose": 0,
+    "warm_start": false
+  }
+}

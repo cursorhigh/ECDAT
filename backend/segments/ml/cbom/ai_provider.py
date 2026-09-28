@@ -228,13 +228,14 @@ class GeminiLLMProvider(BaseLLMProvider):
     """
 
     DEFAULT_MODELS = [
-        "gemini-3.6-flash",
+        "gemini-3.5-flash-lite",
         "gemini-3.1-flash-lite",
+        "gemini-3.6-flash",
     ]
 
     def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         self.api_key = api_key or os.getenv("GEMINI_API_KEY_CBOM") or os.getenv("GEMINI_API_KEY")
-        user_model = model or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+        user_model = model or os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
 
         # Build candidate models list maintaining preference order
         candidate_list = [user_model] + [m for m in self.DEFAULT_MODELS if m != user_model]

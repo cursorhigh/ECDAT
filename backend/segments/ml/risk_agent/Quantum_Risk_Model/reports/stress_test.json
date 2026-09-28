@@ -1,0 +1,1840 @@
+{
+  "metadata": {
+    "audited_at": "2026-09-25T03:10:27.484281",
+    "model_path": "D:\\Quantum_Risk_Model\\models\\tuned\\model.joblib",
+    "evaluation_dataset": "test_raw.parquet (15,000 samples)",
+    "total_slices_evaluated": 42
+  },
+  "feature_dominance_audit": {
+    "is_single_feature_dominant": false,
+    "top_feature_name": "num__HNDL_exposure",
+    "top_feature_importance_pct": 24.23,
+    "top_5_features_cumulative_pct": 56.9,
+    "top_10_features": [
+      {
+        "feature": "num__HNDL_exposure",
+        "importance": 24.23379033843075,
+        "importance_pct": 24.23379033843074
+      },
+      {
+        "feature": "cat__quantum_attack_scenario_generic_quantum_effect",
+        "importance": 11.126911005909022,
+        "importance_pct": 11.126911005909019
+      },
+      {
+        "feature": "num__data_sensitivity",
+        "importance": 7.447954329646891,
+        "importance_pct": 7.447954329646889
+      },
+      {
+        "feature": "num__business_criticality",
+        "importance": 7.332546537068094,
+        "importance_pct": 7.332546537068091
+      },
+      {
+        "feature": "cat__quantum_estimate_confidence_scenario-dependent",
+        "importance": 6.762021304228474,
+        "importance_pct": 6.762021304228472
+      },
+      {
+        "feature": "cat__quantum_estimate_confidence_not-applicable",
+        "importance": 6.429042922738288,
+        "importance_pct": 6.429042922738286
+      },
+      {
+        "feature": "bin__internet_exposed",
+        "importance": 6.218877075994477,
+        "importance_pct": 6.218877075994475
+      },
+      {
+        "feature": "bin__quantum_vulnerable",
+        "importance": 4.94280028996301,
+        "importance_pct": 4.9428002899630075
+      },
+      {
+        "feature": "bin__deprecated_or_disallowed",
+        "importance": 3.3252329625717354,
+        "importance_pct": 3.3252329625717345
+      },
+      {
+        "feature": "num__data_lifetime_years",
+        "importance": 3.121497151771965,
+        "importance_pct": 3.1214971517719636
+      }
+    ]
+  },
+  "worst_performing_subgroups_by_macro_f1": [
+    {
+      "sample_count": 320,
+      "accuracy": 0.9719,
+      "macro_f1": 0.7971,
+      "weighted_f1": 0.9701,
+      "macro_precision": 0.8403,
+      "macro_recall": 0.7643,
+      "class_counts": {
+        "LOW": 0,
+        "MEDIUM": 0,
+        "HIGH": 13,
+        "CRITICAL": 307
+      },
+      "per_class_f1": {
+        "LOW": 0.0,
+        "MEDIUM": 0.0,
+        "HIGH": 0.6087,
+        "CRITICAL": 0.9854
+      },
+      "per_class_recall": {
+        "LOW": 0.0,
+        "MEDIUM": 0.0,
+        "HIGH": 0.5385,
+        "CRITICAL": 0.9902
+      },
+      "per_class_precision": {
+        "LOW": 0.0,
+        "MEDIUM": 0.0,
+        "HIGH": 0.7,
+        "CRITICAL": 0.9806
+      },
+      "dimension": "HNDL_exposure_tier",
+      "subgroup_value": "Severe HNDL (x > 0.66)"
+    },
+    {
+      "sample_count": 4228,
+      "accuracy": 0.9264,
+      "macro_f1": 0.8731,
+      "weighted_f1": 0.9256,
+      "macro_precision": 0.8896,
+      "macro_recall": 0.8588,
+      "class_counts": {
+        "LOW": 1449,
+        "MEDIUM": 846,
+        "HIGH": 1893,
+        "CRITICAL": 40
+      },
+      "per_class_f1": {
+        "LOW": 0.9129,
+        "MEDIUM": 0.8207,
+        "HIGH": 0.9853,
+        "CRITICAL": 0.7733
+      },
+      "per_class_recall": {
+        "LOW": 0.922,
+        "MEDIUM": 0.7955,
+        "HIGH": 0.9926,
+        "CRITICAL": 0.725
+      },
+      "per_class_precision": {
+        "LOW": 0.9039,
+        "MEDIUM": 0.8476,
+        "HIGH": 0.9781,
+        "CRITICAL": 0.8286
+      },
+      "dimension": "environment_context",
+      "subgroup_value": "enterprise_internal"
+    },
+    {
+      "sample_count": 2361,
+      "accuracy": 0.9475,
+      "macro_f1": 0.8849,
+      "weighted_f1": 0.946,
+      "macro_precision": 0.9078,
+      "macro_recall": 0.8654,
+      "class_counts": {
+        "LOW": 0,
+        "MEDIUM": 330,
+        "HIGH": 2031,
+        "CRITICAL": 0
+      },
+      "per_class_f1": {
+        "LOW": 0.0,
+        "MEDIUM": 0.8,
+        "HIGH": 0.9698,
+        "CRITICAL": 0.0
+      },
+      "per_class_recall": {
+        "LOW": 0.0,
+        "MEDIUM": 0.7515,
+        "HIGH": 0.9793,
+        "CRITICAL": 0.0
+      },
+      "per_class_precision": {
+        "LOW": 0.0,
+        "MEDIUM": 0.8552,
+        "HIGH": 0.9604,
+        "CRITICAL": 0.0
+      },
+      "dimension": "HNDL_exposure_tier",
+      "subgroup_value": "Low HNDL (0.0 < x <= 0.33)"
+    },
+    {
+      "sample_count": 7057,
+      "accuracy": 0.9442,
+      "macro_f1": 0.8867,
+      "weighted_f1": 0.9436,
+      "macro_precision": 0.9065,
+      "macro_recall": 0.8692,
+      "class_counts": {
+        "LOW": 0,
+        "MEDIUM": 330,
+        "HIGH": 5411,
+        "CRITICAL": 1316
+      },
+      "per_class_f1": {
+        "LOW": 0.0,
+        "MEDIUM": 0.8,
+        "HIGH": 0.9638,
+        "CRITICAL": 0.8962
+      },
+      "per_class_recall": {
+        "LOW": 0.0,
+        "MEDIUM": 0.7515,
+        "HIGH": 0.9701,
+        "CRITICAL": 0.886
+      },
+      "per_class_precision": {
+        "LOW": 0.0,
+        "MEDIUM": 0.8552,
+        "HIGH": 0.9577,
+        "CRITICAL": 0.9067
+      },
+      "dimension": "quantum_vulnerable",
+      "subgroup_value": "Quantum Vulnerable (1)"
+    },
+    {
+      "sample_count": 7057,
+      "accuracy": 0.9442,
+      "macro_f1": 0.8867,
+      "weighted_f1": 0.9436,
+      "macro_precision": 0.9065,
+      "macro_recall": 0.8692,
+      "class_counts": {
+        "LOW": 0,
+        "MEDIUM": 330,
+        "HIGH": 5411,
+        "CRITICAL": 1316
+      },
+      "per_class_f1": {
+        "LOW": 0.0,
+        "MEDIUM": 0.8,
+        "HIGH": 0.9638,
+        "CRITICAL": 0.8962
+      },
+      "per_class_recall": {
+        "LOW": 0.0,
+        "MEDIUM": 0.7515,
+        "HIGH": 0.9701,
+        "CRITICAL": 0.886
+      },
+      "per_class_precision": {
+        "LOW": 0.0,
+        "MEDIUM": 0.8552,
+        "HIGH": 0.9577,
+        "CRITICAL": 0.9067
+      },
+      "dimension": "HNDL_exposure_category",
+      "subgroup_value": "Active Exposure (HNDL > 0.0)"
+    }
+  ],
+  "worst_performing_subgroups_by_critical_recall": [
+    {
+      "sample_count": 414,
+      "accuracy": 1.0,
+      "macro_f1": 1.0,
+      "weighted_f1": 1.0,
+      "macro_precision": 1.0,
+      "macro_recall": 1.0,
+      "class_counts": {
+        "LOW": 414,
+        "MEDIUM": 0,
+        "HIGH": 0,
+        "CRITICAL": 0
+      },
+      "per_class_f1": {
+        "LOW": 1.0,
+        "MEDIUM": 0.0,
+        "HIGH": 0.0,
+        "CRITICAL": 0.0
+      },
+      "per_class_recall": {
+        "LOW": 1.0,
+        "MEDIUM": 0.0,
+        "HIGH": 0.0,
+        "CRITICAL": 0.0
+      },
+      "per_class_precision": {
+        "LOW": 1.0,
+        "MEDIUM": 0.0,
+        "HIGH": 0.0,
+        "CRITICAL": 0.0
+      },
+      "dimension": "algorithm_family",
+      "subgroup_value": "pqc"
+    },
+    {
+      "sample_count": 7943,
+      "accuracy": 0.9398,
+      "macro_f1": 0.9346,
+      "weighted_f1": 0.9397,
+      "macro_precision": 0.9358,
+      "macro_recall": 0.9334,
+      "class_counts": {
+        "LOW": 2865,
+        "MEDIUM": 5078,
+        "HIGH": 0,
+        "CRITICAL": 0
+      },
+      "per_class_f1": {
+        "LOW": 0.9161,
+        "MEDIUM": 0.9531,
+        "HIGH": 0.0,
+        "CRITICAL": 0.0
+      },
+      "per_class_recall": {
+        "LOW": 0.9103,
+        "MEDIUM": 0.9565,
+        "HIGH": 0.0,
+        "CRITICAL": 0.0
+      },
+      "per_class_precision": {
+        "LOW": 0.9219,
+        "MEDIUM": 0.9497,
+        "HIGH": 0.0,
+        "CRITICAL": 0.0
+      },
+      "dimension": "quantum_vulnerable",
+      "subgroup_value": "Quantum Resistant (0)"
+    },
+    {
+      "sample_count": 7943,
+      "accuracy": 0.9398,
+      "macro_f1": 0.9346,
+      "weighted_f1": 0.9397,
+      "macro_precision": 0.9358,
+      "macro_recall": 0.9334,
+      "class_counts": {
+        "LOW": 2865,
+        "MEDIUM": 5078,
+        "HIGH": 0,
+        "CRITICAL": 0
+      },
+      "per_class_f1": {
+        "LOW": 0.9161,
+        "MEDIUM": 0.9531,
+        "HIGH": 0.0,
+        "CRITICAL": 0.0
+      },
+      "per_class_recall": {
+        "LOW": 0.9103,
+        "MEDIUM": 0.9565,
+        "HIGH": 0.0,
+        "CRITICAL": 0.0
+      },
+      "per_class_precision": {
+        "LOW": 0.9219,
+        "MEDIUM": 0.9497,
+        "HIGH": 0.0,
+        "CRITICAL": 0.0
+      },
+      "dimension": "HNDL_exposure_category",
+      "subgroup_value": "Zero Exposure (HNDL == 0.0)"
+    },
+    {
+      "sample_count": 2361,
+      "accuracy": 0.9475,
+      "macro_f1": 0.8849,
+      "weighted_f1": 0.946,
+      "macro_precision": 0.9078,
+      "macro_recall": 0.8654,
+      "class_counts": {
+        "LOW": 0,
+        "MEDIUM": 330,
+        "HIGH": 2031,
+        "CRITICAL": 0
+      },
+      "per_class_f1": {
+        "LOW": 0.0,
+        "MEDIUM": 0.8,
+        "HIGH": 0.9698,
+        "CRITICAL": 0.0
+      },
+      "per_class_recall": {
+        "LOW": 0.0,
+        "MEDIUM": 0.7515,
+        "HIGH": 0.9793,
+        "CRITICAL": 0.0
+      },
+      "per_class_precision": {
+        "LOW": 0.0,
+        "MEDIUM": 0.8552,
+        "HIGH": 0.9604,
+        "CRITICAL": 0.0
+      },
+      "dimension": "HNDL_exposure_tier",
+      "subgroup_value": "Low HNDL (0.0 < x <= 0.33)"
+    },
+    {
+      "sample_count": 8407,
+      "accuracy": 0.9391,
+      "macro_f1": 0.8969,
+      "weighted_f1": 0.9385,
+      "macro_precision": 0.9277,
+      "macro_recall": 0.874,
+      "class_counts": {
+        "LOW": 2276,
+        "MEDIUM": 2502,
+        "HIGH": 3478,
+        "CRITICAL": 151
+      },
+      "per_class_f1": {
+        "LOW": 0.9272,
+        "MEDIUM": 0.9089,
+        "HIGH": 0.9743,
+        "CRITICAL": 0.7774
+      },
+      "per_class_recall": {
+        "LOW": 0.9262,
+        "MEDIUM": 0.9029,
+        "HIGH": 0.9848,
+        "CRITICAL": 0.6821
+      },
+      "per_class_precision": {
+        "LOW": 0.9282,
+        "MEDIUM": 0.9149,
+        "HIGH": 0.964,
+        "CRITICAL": 0.9035
+      },
+      "dimension": "internet_exposed",
+      "subgroup_value": "Internal Only (0)"
+    }
+  ],
+  "all_subgroups": [
+    {
+      "sample_count": 5548,
+      "accuracy": 0.9441,
+      "macro_f1": 0.887,
+      "weighted_f1": 0.9436,
+      "macro_precision": 0.9038,
+      "macro_recall": 0.8719,
+      "class_counts": {
+        "LOW": 0,
+        "MEDIUM": 311,
+        "HIGH": 4358,
+        "CRITICAL": 879
+      },
+      "per_class_f1": {
+        "LOW": 0.0,
+        "MEDIUM": 0.8102,
+        "HIGH": 0.9646,
+        "CRITICAL": 0.8862
+      },
+      "per_class_recall": {
+        "LOW": 0.0,
+        "MEDIUM": 0.7685,
+        "HIGH": 0.9702,
+        "CRITICAL": 0.8771
+      },
+      "per_class_precision": {
+        "LOW": 0.0,
+        "MEDIUM": 0.8566,
+        "HIGH": 0.9592,
+        "CRITICAL": 0.8955
+      },
+      "dimension": "algorithm_family",
+      "subgroup_value": "asymmetric"
+    },
+    {
+      "sample_count": 5164,
+      "accuracy": 0.9411,
+      "macro_f1": 0.9374,
+      "weighted_f1": 0.941,
+      "macro_precision": 0.939,
+      "macro_recall": 0.9359,
+      "class_counts": {
+        "LOW": 1357,
+        "MEDIUM": 2852,
+        "HIGH": 687,
+        "CRITICAL": 268
+      },
+      "per_class_f1": {
+        "LOW": 0.9043,
+        "MEDIUM": 0.9538,
+        "HIGH": 0.9667,
+        "CRITICAL": 0.9248
+      },
+      "per_class_recall": {
+        "LOW": 0.8983,
+        "MEDIUM": 0.9565,
+        "HIGH": 0.9709,
+        "CRITICAL": 0.9179
+      },
+      "per_class_precision": {
+        "LOW": 0.9104,
+        "MEDIUM": 0.9512,
+        "HIGH": 0.9625,
+        "CRITICAL": 0.9318
+      },
+      "dimension": "algorithm_family",
+      "subgroup_value": "symmetric"
+    },
+    {
+      "sample_count": 3874,
+      "accuracy": 0.9334,
+      "macro_f1": 0.9251,
+      "weighted_f1": 0.9332,
+      "macro_precision": 0.9276,
+      "macro_recall": 0.9231,
+      "class_counts": {
+        "LOW": 1094,
+        "MEDIUM": 2245,
+        "HIGH": 366,
+        "CRITICAL": 169
+      },
+      "per_class_f1": {
+        "LOW": 0.8986,
+        "MEDIUM": 0.9498,
+        "HIGH": 0.9491,
+        "CRITICAL": 0.903
+      },
+      "per_class_recall": {
+        "LOW": 0.8912,
+        "MEDIUM": 0.9523,
+        "HIGH": 0.9672,
+        "CRITICAL": 0.8817
+      },
+      "per_class_precision": {
+        "LOW": 0.9061,
+        "MEDIUM": 0.9473,
+        "HIGH": 0.9316,
+        "CRITICAL": 0.9255
+      },
+      "dimension": "algorithm_family",
+      "subgroup_value": "hash"
+    },
+    {
+      "sample_count": 414,
+      "accuracy": 1.0,
+      "macro_f1": 1.0,
+      "weighted_f1": 1.0,
+      "macro_precision": 1.0,
+      "macro_recall": 1.0,
+      "class_counts": {
+        "LOW": 414,
+        "MEDIUM": 0,
+        "HIGH": 0,
+        "CRITICAL": 0
+      },
+      "per_class_f1": {
+        "LOW": 1.0,
+        "MEDIUM": 0.0,
+        "HIGH": 0.0,
+        "CRITICAL": 0.0
+      },
+      "per_class_recall": {
+        "LOW": 1.0,
+        "MEDIUM": 0.0,
+        "HIGH": 0.0,
+        "CRITICAL": 0.0
+      },
+      "per_class_precision": {
+        "LOW": 1.0,
+        "MEDIUM": 0.0,
+        "HIGH": 0.0,
+        "CRITICAL": 0.0
+      },
+      "dimension": "algorithm_family",
+      "subgroup_value": "pqc"
+    },
+    {
+      "sample_count": 4187,
+      "accuracy": 0.9396,
+      "macro_f1": 0.9256,
+      "weighted_f1": 0.9395,
+      "macro_precision": 0.9266,
+      "macro_recall": 0.9246,
+      "class_counts": {
+        "LOW": 784,
+        "MEDIUM": 1553,
+        "HIGH": 1486,
+        "CRITICAL": 364
+      },
+      "per_class_f1": {
+        "LOW": 0.9178,
+        "MEDIUM": 0.9464,
+        "HIGH": 0.9584,
+        "CRITICAL": 0.8797
+      },
+      "per_class_recall": {
+        "LOW": 0.9184,
+        "MEDIUM": 0.944,
+        "HIGH": 0.9623,
+        "CRITICAL": 0.8736
+      },
+      "per_class_precision": {
+        "LOW": 0.9172,
+        "MEDIUM": 0.9489,
+        "HIGH": 0.9546,
+        "CRITICAL": 0.8858
+      },
+      "dimension": "protocol",
+      "subgroup_value": "TLS1.3"
+    },
+    {
+      "sample_count": 1762,
+      "accuracy": 0.9438,
+      "macro_f1": 0.935,
+      "weighted_f1": 0.9437,
+      "macro_precision": 0.9387,
+      "macro_recall": 0.9314,
+      "class_counts": {
+        "LOW": 342,
+        "MEDIUM": 618,
+        "HIGH": 645,
+        "CRITICAL": 157
+      },
+      "per_class_f1": {
+        "LOW": 0.915,
+        "MEDIUM": 0.941,
+        "HIGH": 0.9684,
+        "CRITICAL": 0.9156
+      },
+      "per_class_recall": {
+        "LOW": 0.9123,
+        "MEDIUM": 0.9417,
+        "HIGH": 0.9736,
+        "CRITICAL": 0.8981
+      },
+      "per_class_precision": {
+        "LOW": 0.9176,
+        "MEDIUM": 0.9402,
+        "HIGH": 0.9632,
+        "CRITICAL": 0.9338
+      },
+      "dimension": "protocol",
+      "subgroup_value": "X.509/PKI"
+    },
+    {
+      "sample_count": 1505,
+      "accuracy": 0.9522,
+      "macro_f1": 0.9426,
+      "weighted_f1": 0.9521,
+      "macro_precision": 0.9419,
+      "macro_recall": 0.9433,
+      "class_counts": {
+        "LOW": 288,
+        "MEDIUM": 536,
+        "HIGH": 552,
+        "CRITICAL": 129
+      },
+      "per_class_f1": {
+        "LOW": 0.9244,
+        "MEDIUM": 0.9525,
+        "HIGH": 0.9738,
+        "CRITICAL": 0.9195
+      },
+      "per_class_recall": {
+        "LOW": 0.9132,
+        "MEDIUM": 0.9534,
+        "HIGH": 0.9764,
+        "CRITICAL": 0.9302
+      },
+      "per_class_precision": {
+        "LOW": 0.9359,
+        "MEDIUM": 0.9516,
+        "HIGH": 0.9712,
+        "CRITICAL": 0.9091
+      },
+      "dimension": "protocol",
+      "subgroup_value": "TLS1.2"
+    },
+    {
+      "sample_count": 1230,
+      "accuracy": 0.9439,
+      "macro_f1": 0.9311,
+      "weighted_f1": 0.9437,
+      "macro_precision": 0.9363,
+      "macro_recall": 0.9262,
+      "class_counts": {
+        "LOW": 228,
+        "MEDIUM": 436,
+        "HIGH": 445,
+        "CRITICAL": 121
+      },
+      "per_class_f1": {
+        "LOW": 0.9204,
+        "MEDIUM": 0.9507,
+        "HIGH": 0.9633,
+        "CRITICAL": 0.8898
+      },
+      "per_class_recall": {
+        "LOW": 0.9123,
+        "MEDIUM": 0.9518,
+        "HIGH": 0.973,
+        "CRITICAL": 0.8678
+      },
+      "per_class_precision": {
+        "LOW": 0.9286,
+        "MEDIUM": 0.9497,
+        "HIGH": 0.9537,
+        "CRITICAL": 0.913
+      },
+      "dimension": "protocol",
+      "subgroup_value": "Application"
+    },
+    {
+      "sample_count": 1224,
+      "accuracy": 0.9371,
+      "macro_f1": 0.9202,
+      "weighted_f1": 0.9367,
+      "macro_precision": 0.9273,
+      "macro_recall": 0.9136,
+      "class_counts": {
+        "LOW": 239,
+        "MEDIUM": 423,
+        "HIGH": 475,
+        "CRITICAL": 87
+      },
+      "per_class_f1": {
+        "LOW": 0.9045,
+        "MEDIUM": 0.9338,
+        "HIGH": 0.9667,
+        "CRITICAL": 0.8757
+      },
+      "per_class_recall": {
+        "LOW": 0.8912,
+        "MEDIUM": 0.9338,
+        "HIGH": 0.9789,
+        "CRITICAL": 0.8506
+      },
+      "per_class_precision": {
+        "LOW": 0.9181,
+        "MEDIUM": 0.9338,
+        "HIGH": 0.9548,
+        "CRITICAL": 0.9024
+      },
+      "dimension": "protocol",
+      "subgroup_value": "Database"
+    },
+    {
+      "sample_count": 1206,
+      "accuracy": 0.9478,
+      "macro_f1": 0.9381,
+      "weighted_f1": 0.9477,
+      "macro_precision": 0.9396,
+      "macro_recall": 0.9366,
+      "class_counts": {
+        "LOW": 209,
+        "MEDIUM": 452,
+        "HIGH": 436,
+        "CRITICAL": 109
+      },
+      "per_class_f1": {
+        "LOW": 0.9187,
+        "MEDIUM": 0.9501,
+        "HIGH": 0.9669,
+        "CRITICAL": 0.9167
+      },
+      "per_class_recall": {
+        "LOW": 0.9187,
+        "MEDIUM": 0.9469,
+        "HIGH": 0.9725,
+        "CRITICAL": 0.9083
+      },
+      "per_class_precision": {
+        "LOW": 0.9187,
+        "MEDIUM": 0.9532,
+        "HIGH": 0.9615,
+        "CRITICAL": 0.9252
+      },
+      "dimension": "protocol",
+      "subgroup_value": "Storage"
+    },
+    {
+      "sample_count": 1164,
+      "accuracy": 0.9373,
+      "macro_f1": 0.9275,
+      "weighted_f1": 0.9373,
+      "macro_precision": 0.9272,
+      "macro_recall": 0.9279,
+      "class_counts": {
+        "LOW": 245,
+        "MEDIUM": 399,
+        "HIGH": 420,
+        "CRITICAL": 100
+      },
+      "per_class_f1": {
+        "LOW": 0.9275,
+        "MEDIUM": 0.9365,
+        "HIGH": 0.9548,
+        "CRITICAL": 0.8911
+      },
+      "per_class_recall": {
+        "LOW": 0.9143,
+        "MEDIUM": 0.9424,
+        "HIGH": 0.9548,
+        "CRITICAL": 0.9
+      },
+      "per_class_precision": {
+        "LOW": 0.9412,
+        "MEDIUM": 0.9307,
+        "HIGH": 0.9548,
+        "CRITICAL": 0.8824
+      },
+      "dimension": "protocol",
+      "subgroup_value": "SSH"
+    },
+    {
+      "sample_count": 887,
+      "accuracy": 0.9369,
+      "macro_f1": 0.9278,
+      "weighted_f1": 0.9363,
+      "macro_precision": 0.9351,
+      "macro_recall": 0.9217,
+      "class_counts": {
+        "LOW": 178,
+        "MEDIUM": 328,
+        "HIGH": 297,
+        "CRITICAL": 84
+      },
+      "per_class_f1": {
+        "LOW": 0.8882,
+        "MEDIUM": 0.9373,
+        "HIGH": 0.9699,
+        "CRITICAL": 0.9157
+      },
+      "per_class_recall": {
+        "LOW": 0.8483,
+        "MEDIUM": 0.9573,
+        "HIGH": 0.9764,
+        "CRITICAL": 0.9048
+      },
+      "per_class_precision": {
+        "LOW": 0.9321,
+        "MEDIUM": 0.9181,
+        "HIGH": 0.9635,
+        "CRITICAL": 0.9268
+      },
+      "dimension": "protocol",
+      "subgroup_value": "IPsec"
+    },
+    {
+      "sample_count": 760,
+      "accuracy": 0.9355,
+      "macro_f1": 0.9279,
+      "weighted_f1": 0.9353,
+      "macro_precision": 0.9356,
+      "macro_recall": 0.9221,
+      "class_counts": {
+        "LOW": 149,
+        "MEDIUM": 278,
+        "HIGH": 261,
+        "CRITICAL": 72
+      },
+      "per_class_f1": {
+        "LOW": 0.9175,
+        "MEDIUM": 0.9338,
+        "HIGH": 0.9552,
+        "CRITICAL": 0.9051
+      },
+      "per_class_recall": {
+        "LOW": 0.9329,
+        "MEDIUM": 0.9137,
+        "HIGH": 0.9808,
+        "CRITICAL": 0.8611
+      },
+      "per_class_precision": {
+        "LOW": 0.9026,
+        "MEDIUM": 0.9549,
+        "HIGH": 0.9309,
+        "CRITICAL": 0.9538
+      },
+      "dimension": "protocol",
+      "subgroup_value": "S/MIME"
+    },
+    {
+      "sample_count": 604,
+      "accuracy": 0.947,
+      "macro_f1": 0.9324,
+      "weighted_f1": 0.9468,
+      "macro_precision": 0.9395,
+      "macro_recall": 0.9266,
+      "class_counts": {
+        "LOW": 112,
+        "MEDIUM": 215,
+        "HIGH": 223,
+        "CRITICAL": 54
+      },
+      "per_class_f1": {
+        "LOW": 0.9123,
+        "MEDIUM": 0.9506,
+        "HIGH": 0.9735,
+        "CRITICAL": 0.8932
+      },
+      "per_class_recall": {
+        "LOW": 0.9286,
+        "MEDIUM": 0.9395,
+        "HIGH": 0.9865,
+        "CRITICAL": 0.8519
+      },
+      "per_class_precision": {
+        "LOW": 0.8966,
+        "MEDIUM": 0.9619,
+        "HIGH": 0.9607,
+        "CRITICAL": 0.9388
+      },
+      "dimension": "protocol",
+      "subgroup_value": "JWE/JWS"
+    },
+    {
+      "sample_count": 471,
+      "accuracy": 0.9384,
+      "macro_f1": 0.9216,
+      "weighted_f1": 0.9386,
+      "macro_precision": 0.9179,
+      "macro_recall": 0.9262,
+      "class_counts": {
+        "LOW": 91,
+        "MEDIUM": 170,
+        "HIGH": 171,
+        "CRITICAL": 39
+      },
+      "per_class_f1": {
+        "LOW": 0.9162,
+        "MEDIUM": 0.9474,
+        "HIGH": 0.9588,
+        "CRITICAL": 0.8642
+      },
+      "per_class_recall": {
+        "LOW": 0.9011,
+        "MEDIUM": 0.9529,
+        "HIGH": 0.9532,
+        "CRITICAL": 0.8974
+      },
+      "per_class_precision": {
+        "LOW": 0.9318,
+        "MEDIUM": 0.9419,
+        "HIGH": 0.9645,
+        "CRITICAL": 0.8333
+      },
+      "dimension": "protocol",
+      "subgroup_value": "Missing / Unspecified"
+    },
+    {
+      "sample_count": 4821,
+      "accuracy": 0.9432,
+      "macro_f1": 0.9301,
+      "weighted_f1": 0.943,
+      "macro_precision": 0.9341,
+      "macro_recall": 0.9265,
+      "class_counts": {
+        "LOW": 897,
+        "MEDIUM": 1733,
+        "HIGH": 1778,
+        "CRITICAL": 413
+      },
+      "per_class_f1": {
+        "LOW": 0.9215,
+        "MEDIUM": 0.9463,
+        "HIGH": 0.963,
+        "CRITICAL": 0.8897
+      },
+      "per_class_recall": {
+        "LOW": 0.9231,
+        "MEDIUM": 0.9411,
+        "HIGH": 0.9724,
+        "CRITICAL": 0.8692
+      },
+      "per_class_precision": {
+        "LOW": 0.92,
+        "MEDIUM": 0.9516,
+        "HIGH": 0.9537,
+        "CRITICAL": 0.9112
+      },
+      "dimension": "deployment_environment",
+      "subgroup_value": "cloud"
+    },
+    {
+      "sample_count": 3270,
+      "accuracy": 0.9358,
+      "macro_f1": 0.9229,
+      "weighted_f1": 0.9357,
+      "macro_precision": 0.925,
+      "macro_recall": 0.9209,
+      "class_counts": {
+        "LOW": 636,
+        "MEDIUM": 1181,
+        "HIGH": 1154,
+        "CRITICAL": 299
+      },
+      "per_class_f1": {
+        "LOW": 0.9115,
+        "MEDIUM": 0.9407,
+        "HIGH": 0.9578,
+        "CRITICAL": 0.8818
+      },
+      "per_class_recall": {
+        "LOW": 0.9072,
+        "MEDIUM": 0.9399,
+        "HIGH": 0.9636,
+        "CRITICAL": 0.8729
+      },
+      "per_class_precision": {
+        "LOW": 0.9159,
+        "MEDIUM": 0.9415,
+        "HIGH": 0.9521,
+        "CRITICAL": 0.8908
+      },
+      "dimension": "deployment_environment",
+      "subgroup_value": "hybrid"
+    },
+    {
+      "sample_count": 2945,
+      "accuracy": 0.9436,
+      "macro_f1": 0.9335,
+      "weighted_f1": 0.9435,
+      "macro_precision": 0.9364,
+      "macro_recall": 0.9306,
+      "class_counts": {
+        "LOW": 565,
+        "MEDIUM": 1075,
+        "HIGH": 1058,
+        "CRITICAL": 247
+      },
+      "per_class_f1": {
+        "LOW": 0.912,
+        "MEDIUM": 0.9436,
+        "HIGH": 0.968,
+        "CRITICAL": 0.9102
+      },
+      "per_class_recall": {
+        "LOW": 0.8991,
+        "MEDIUM": 0.9498,
+        "HIGH": 0.9707,
+        "CRITICAL": 0.9028
+      },
+      "per_class_precision": {
+        "LOW": 0.9253,
+        "MEDIUM": 0.9376,
+        "HIGH": 0.9652,
+        "CRITICAL": 0.9177
+      },
+      "dimension": "deployment_environment",
+      "subgroup_value": "on_prem"
+    },
+    {
+      "sample_count": 2163,
+      "accuracy": 0.9464,
+      "macro_f1": 0.9354,
+      "weighted_f1": 0.9464,
+      "macro_precision": 0.9356,
+      "macro_recall": 0.9352,
+      "class_counts": {
+        "LOW": 406,
+        "MEDIUM": 776,
+        "HIGH": 785,
+        "CRITICAL": 196
+      },
+      "per_class_f1": {
+        "LOW": 0.9155,
+        "MEDIUM": 0.9481,
+        "HIGH": 0.9702,
+        "CRITICAL": 0.9077
+      },
+      "per_class_recall": {
+        "LOW": 0.9212,
+        "MEDIUM": 0.942,
+        "HIGH": 0.9745,
+        "CRITICAL": 0.9031
+      },
+      "per_class_precision": {
+        "LOW": 0.91,
+        "MEDIUM": 0.9543,
+        "HIGH": 0.9659,
+        "CRITICAL": 0.9124
+      },
+      "dimension": "deployment_environment",
+      "subgroup_value": "container"
+    },
+    {
+      "sample_count": 1078,
+      "accuracy": 0.9388,
+      "macro_f1": 0.9295,
+      "weighted_f1": 0.9387,
+      "macro_precision": 0.9301,
+      "macro_recall": 0.9294,
+      "class_counts": {
+        "LOW": 227,
+        "MEDIUM": 380,
+        "HIGH": 365,
+        "CRITICAL": 106
+      },
+      "per_class_f1": {
+        "LOW": 0.9276,
+        "MEDIUM": 0.9438,
+        "HIGH": 0.9537,
+        "CRITICAL": 0.893
+      },
+      "per_class_recall": {
+        "LOW": 0.9031,
+        "MEDIUM": 0.95,
+        "HIGH": 0.9589,
+        "CRITICAL": 0.9057
+      },
+      "per_class_precision": {
+        "LOW": 0.9535,
+        "MEDIUM": 0.9377,
+        "HIGH": 0.9485,
+        "CRITICAL": 0.8807
+      },
+      "dimension": "deployment_environment",
+      "subgroup_value": "saas"
+    },
+    {
+      "sample_count": 723,
+      "accuracy": 0.9447,
+      "macro_f1": 0.9349,
+      "weighted_f1": 0.9443,
+      "macro_precision": 0.9431,
+      "macro_recall": 0.9277,
+      "class_counts": {
+        "LOW": 134,
+        "MEDIUM": 263,
+        "HIGH": 271,
+        "CRITICAL": 55
+      },
+      "per_class_f1": {
+        "LOW": 0.8992,
+        "MEDIUM": 0.9401,
+        "HIGH": 0.9744,
+        "CRITICAL": 0.9259
+      },
+      "per_class_recall": {
+        "LOW": 0.8657,
+        "MEDIUM": 0.9544,
+        "HIGH": 0.9815,
+        "CRITICAL": 0.9091
+      },
+      "per_class_precision": {
+        "LOW": 0.9355,
+        "MEDIUM": 0.9262,
+        "HIGH": 0.9673,
+        "CRITICAL": 0.9434
+      },
+      "dimension": "deployment_environment",
+      "subgroup_value": "edge"
+    },
+    {
+      "sample_count": 4228,
+      "accuracy": 0.9264,
+      "macro_f1": 0.8731,
+      "weighted_f1": 0.9256,
+      "macro_precision": 0.8896,
+      "macro_recall": 0.8588,
+      "class_counts": {
+        "LOW": 1449,
+        "MEDIUM": 846,
+        "HIGH": 1893,
+        "CRITICAL": 40
+      },
+      "per_class_f1": {
+        "LOW": 0.9129,
+        "MEDIUM": 0.8207,
+        "HIGH": 0.9853,
+        "CRITICAL": 0.7733
+      },
+      "per_class_recall": {
+        "LOW": 0.922,
+        "MEDIUM": 0.7955,
+        "HIGH": 0.9926,
+        "CRITICAL": 0.725
+      },
+      "per_class_precision": {
+        "LOW": 0.9039,
+        "MEDIUM": 0.8476,
+        "HIGH": 0.9781,
+        "CRITICAL": 0.8286
+      },
+      "dimension": "environment_context",
+      "subgroup_value": "enterprise_internal"
+    },
+    {
+      "sample_count": 2711,
+      "accuracy": 0.948,
+      "macro_f1": 0.9129,
+      "weighted_f1": 0.9469,
+      "macro_precision": 0.9291,
+      "macro_recall": 0.8991,
+      "class_counts": {
+        "LOW": 292,
+        "MEDIUM": 1177,
+        "HIGH": 1029,
+        "CRITICAL": 213
+      },
+      "per_class_f1": {
+        "LOW": 0.8373,
+        "MEDIUM": 0.9623,
+        "HIGH": 0.9749,
+        "CRITICAL": 0.8771
+      },
+      "per_class_recall": {
+        "LOW": 0.7842,
+        "MEDIUM": 0.9771,
+        "HIGH": 0.9806,
+        "CRITICAL": 0.8545
+      },
+      "per_class_precision": {
+        "LOW": 0.898,
+        "MEDIUM": 0.9481,
+        "HIGH": 0.9693,
+        "CRITICAL": 0.901
+      },
+      "dimension": "environment_context",
+      "subgroup_value": "internet_service"
+    },
+    {
+      "sample_count": 1787,
+      "accuracy": 0.9536,
+      "macro_f1": 0.9304,
+      "weighted_f1": 0.9533,
+      "macro_precision": 0.9465,
+      "macro_recall": 0.9167,
+      "class_counts": {
+        "LOW": 61,
+        "MEDIUM": 869,
+        "HIGH": 411,
+        "CRITICAL": 446
+      },
+      "per_class_f1": {
+        "LOW": 0.8947,
+        "MEDIUM": 0.9931,
+        "HIGH": 0.9127,
+        "CRITICAL": 0.9212
+      },
+      "per_class_recall": {
+        "LOW": 0.8361,
+        "MEDIUM": 0.9977,
+        "HIGH": 0.9027,
+        "CRITICAL": 0.9305
+      },
+      "per_class_precision": {
+        "LOW": 0.9623,
+        "MEDIUM": 0.9886,
+        "HIGH": 0.9229,
+        "CRITICAL": 0.9121
+      },
+      "dimension": "environment_context",
+      "subgroup_value": "financial"
+    },
+    {
+      "sample_count": 1557,
+      "accuracy": 0.9287,
+      "macro_f1": 0.9253,
+      "weighted_f1": 0.9271,
+      "macro_precision": 0.9318,
+      "macro_recall": 0.9204,
+      "class_counts": {
+        "LOW": 778,
+        "MEDIUM": 302,
+        "HIGH": 476,
+        "CRITICAL": 1
+      },
+      "per_class_f1": {
+        "LOW": 0.9829,
+        "MEDIUM": 0.8049,
+        "HIGH": 0.9132,
+        "CRITICAL": 1.0
+      },
+      "per_class_recall": {
+        "LOW": 0.9949,
+        "MEDIUM": 0.7583,
+        "HIGH": 0.9286,
+        "CRITICAL": 1.0
+      },
+      "per_class_precision": {
+        "LOW": 0.9711,
+        "MEDIUM": 0.8577,
+        "HIGH": 0.8984,
+        "CRITICAL": 1.0
+      },
+      "dimension": "environment_context",
+      "subgroup_value": "developer_ci"
+    },
+    {
+      "sample_count": 1309,
+      "accuracy": 0.945,
+      "macro_f1": 0.908,
+      "weighted_f1": 0.9446,
+      "macro_precision": 0.9111,
+      "macro_recall": 0.9053,
+      "class_counts": {
+        "LOW": 134,
+        "MEDIUM": 558,
+        "HIGH": 522,
+        "CRITICAL": 95
+      },
+      "per_class_f1": {
+        "LOW": 0.7969,
+        "MEDIUM": 0.9528,
+        "HIGH": 0.9818,
+        "CRITICAL": 0.9005
+      },
+      "per_class_recall": {
+        "LOW": 0.7761,
+        "MEDIUM": 0.9588,
+        "HIGH": 0.9808,
+        "CRITICAL": 0.9053
+      },
+      "per_class_precision": {
+        "LOW": 0.8189,
+        "MEDIUM": 0.9469,
+        "HIGH": 0.9827,
+        "CRITICAL": 0.8958
+      },
+      "dimension": "environment_context",
+      "subgroup_value": "data_platform"
+    },
+    {
+      "sample_count": 1240,
+      "accuracy": 0.9677,
+      "macro_f1": 0.9411,
+      "weighted_f1": 0.9674,
+      "macro_precision": 0.9627,
+      "macro_recall": 0.9227,
+      "class_counts": {
+        "LOW": 46,
+        "MEDIUM": 592,
+        "HIGH": 451,
+        "CRITICAL": 151
+      },
+      "per_class_f1": {
+        "LOW": 0.9176,
+        "MEDIUM": 0.9941,
+        "HIGH": 0.9636,
+        "CRITICAL": 0.8889
+      },
+      "per_class_recall": {
+        "LOW": 0.8478,
+        "MEDIUM": 1.0,
+        "HIGH": 0.969,
+        "CRITICAL": 0.8742
+      },
+      "per_class_precision": {
+        "LOW": 1.0,
+        "MEDIUM": 0.9883,
+        "HIGH": 0.9583,
+        "CRITICAL": 0.9041
+      },
+      "dimension": "environment_context",
+      "subgroup_value": "critical_infrastructure"
+    },
+    {
+      "sample_count": 1143,
+      "accuracy": 0.951,
+      "macro_f1": 0.9005,
+      "weighted_f1": 0.9494,
+      "macro_precision": 0.9372,
+      "macro_recall": 0.8733,
+      "class_counts": {
+        "LOW": 59,
+        "MEDIUM": 558,
+        "HIGH": 387,
+        "CRITICAL": 139
+      },
+      "per_class_f1": {
+        "LOW": 0.7961,
+        "MEDIUM": 0.9814,
+        "HIGH": 0.9554,
+        "CRITICAL": 0.8689
+      },
+      "per_class_recall": {
+        "LOW": 0.6949,
+        "MEDIUM": 0.9946,
+        "HIGH": 0.969,
+        "CRITICAL": 0.8345
+      },
+      "per_class_precision": {
+        "LOW": 0.9318,
+        "MEDIUM": 0.9686,
+        "HIGH": 0.9422,
+        "CRITICAL": 0.9062
+      },
+      "dimension": "environment_context",
+      "subgroup_value": "healthcare"
+    },
+    {
+      "sample_count": 1025,
+      "accuracy": 0.9434,
+      "macro_f1": 0.9073,
+      "weighted_f1": 0.9426,
+      "macro_precision": 0.9341,
+      "macro_recall": 0.8871,
+      "class_counts": {
+        "LOW": 46,
+        "MEDIUM": 506,
+        "HIGH": 242,
+        "CRITICAL": 231
+      },
+      "per_class_f1": {
+        "LOW": 0.8293,
+        "MEDIUM": 0.9863,
+        "HIGH": 0.9106,
+        "CRITICAL": 0.9031
+      },
+      "per_class_recall": {
+        "LOW": 0.7391,
+        "MEDIUM": 0.996,
+        "HIGH": 0.9256,
+        "CRITICAL": 0.8874
+      },
+      "per_class_precision": {
+        "LOW": 0.9444,
+        "MEDIUM": 0.9767,
+        "HIGH": 0.896,
+        "CRITICAL": 0.9193
+      },
+      "dimension": "environment_context",
+      "subgroup_value": "government"
+    },
+    {
+      "sample_count": 7057,
+      "accuracy": 0.9442,
+      "macro_f1": 0.8867,
+      "weighted_f1": 0.9436,
+      "macro_precision": 0.9065,
+      "macro_recall": 0.8692,
+      "class_counts": {
+        "LOW": 0,
+        "MEDIUM": 330,
+        "HIGH": 5411,
+        "CRITICAL": 1316
+      },
+      "per_class_f1": {
+        "LOW": 0.0,
+        "MEDIUM": 0.8,
+        "HIGH": 0.9638,
+        "CRITICAL": 0.8962
+      },
+      "per_class_recall": {
+        "LOW": 0.0,
+        "MEDIUM": 0.7515,
+        "HIGH": 0.9701,
+        "CRITICAL": 0.886
+      },
+      "per_class_precision": {
+        "LOW": 0.0,
+        "MEDIUM": 0.8552,
+        "HIGH": 0.9577,
+        "CRITICAL": 0.9067
+      },
+      "dimension": "quantum_vulnerable",
+      "subgroup_value": "Quantum Vulnerable (1)"
+    },
+    {
+      "sample_count": 7943,
+      "accuracy": 0.9398,
+      "macro_f1": 0.9346,
+      "weighted_f1": 0.9397,
+      "macro_precision": 0.9358,
+      "macro_recall": 0.9334,
+      "class_counts": {
+        "LOW": 2865,
+        "MEDIUM": 5078,
+        "HIGH": 0,
+        "CRITICAL": 0
+      },
+      "per_class_f1": {
+        "LOW": 0.9161,
+        "MEDIUM": 0.9531,
+        "HIGH": 0.0,
+        "CRITICAL": 0.0
+      },
+      "per_class_recall": {
+        "LOW": 0.9103,
+        "MEDIUM": 0.9565,
+        "HIGH": 0.0,
+        "CRITICAL": 0.0
+      },
+      "per_class_precision": {
+        "LOW": 0.9219,
+        "MEDIUM": 0.9497,
+        "HIGH": 0.0,
+        "CRITICAL": 0.0
+      },
+      "dimension": "quantum_vulnerable",
+      "subgroup_value": "Quantum Resistant (0)"
+    },
+    {
+      "sample_count": 7943,
+      "accuracy": 0.9398,
+      "macro_f1": 0.9346,
+      "weighted_f1": 0.9397,
+      "macro_precision": 0.9358,
+      "macro_recall": 0.9334,
+      "class_counts": {
+        "LOW": 2865,
+        "MEDIUM": 5078,
+        "HIGH": 0,
+        "CRITICAL": 0
+      },
+      "per_class_f1": {
+        "LOW": 0.9161,
+        "MEDIUM": 0.9531,
+        "HIGH": 0.0,
+        "CRITICAL": 0.0
+      },
+      "per_class_recall": {
+        "LOW": 0.9103,
+        "MEDIUM": 0.9565,
+        "HIGH": 0.0,
+        "CRITICAL": 0.0
+      },
+      "per_class_precision": {
+        "LOW": 0.9219,
+        "MEDIUM": 0.9497,
+        "HIGH": 0.0,
+        "CRITICAL": 0.0
+      },
+      "dimension": "HNDL_exposure_category",
+      "subgroup_value": "Zero Exposure (HNDL == 0.0)"
+    },
+    {
+      "sample_count": 7057,
+      "accuracy": 0.9442,
+      "macro_f1": 0.8867,
+      "weighted_f1": 0.9436,
+      "macro_precision": 0.9065,
+      "macro_recall": 0.8692,
+      "class_counts": {
+        "LOW": 0,
+        "MEDIUM": 330,
+        "HIGH": 5411,
+        "CRITICAL": 1316
+      },
+      "per_class_f1": {
+        "LOW": 0.0,
+        "MEDIUM": 0.8,
+        "HIGH": 0.9638,
+        "CRITICAL": 0.8962
+      },
+      "per_class_recall": {
+        "LOW": 0.0,
+        "MEDIUM": 0.7515,
+        "HIGH": 0.9701,
+        "CRITICAL": 0.886
+      },
+      "per_class_precision": {
+        "LOW": 0.0,
+        "MEDIUM": 0.8552,
+        "HIGH": 0.9577,
+        "CRITICAL": 0.9067
+      },
+      "dimension": "HNDL_exposure_category",
+      "subgroup_value": "Active Exposure (HNDL > 0.0)"
+    },
+    {
+      "sample_count": 2361,
+      "accuracy": 0.9475,
+      "macro_f1": 0.8849,
+      "weighted_f1": 0.946,
+      "macro_precision": 0.9078,
+      "macro_recall": 0.8654,
+      "class_counts": {
+        "LOW": 0,
+        "MEDIUM": 330,
+        "HIGH": 2031,
+        "CRITICAL": 0
+      },
+      "per_class_f1": {
+        "LOW": 0.0,
+        "MEDIUM": 0.8,
+        "HIGH": 0.9698,
+        "CRITICAL": 0.0
+      },
+      "per_class_recall": {
+        "LOW": 0.0,
+        "MEDIUM": 0.7515,
+        "HIGH": 0.9793,
+        "CRITICAL": 0.0
+      },
+      "per_class_precision": {
+        "LOW": 0.0,
+        "MEDIUM": 0.8552,
+        "HIGH": 0.9604,
+        "CRITICAL": 0.0
+      },
+      "dimension": "HNDL_exposure_tier",
+      "subgroup_value": "Low HNDL (0.0 < x <= 0.33)"
+    },
+    {
+      "sample_count": 4376,
+      "accuracy": 0.9404,
+      "macro_f1": 0.915,
+      "weighted_f1": 0.94,
+      "macro_precision": 0.92,
+      "macro_recall": 0.9102,
+      "class_counts": {
+        "LOW": 0,
+        "MEDIUM": 0,
+        "HIGH": 3367,
+        "CRITICAL": 1009
+      },
+      "per_class_f1": {
+        "LOW": 0.0,
+        "MEDIUM": 0.0,
+        "HIGH": 0.9614,
+        "CRITICAL": 0.8685
+      },
+      "per_class_recall": {
+        "LOW": 0.0,
+        "MEDIUM": 0.0,
+        "HIGH": 0.9661,
+        "CRITICAL": 0.8543
+      },
+      "per_class_precision": {
+        "LOW": 0.0,
+        "MEDIUM": 0.0,
+        "HIGH": 0.9568,
+        "CRITICAL": 0.8832
+      },
+      "dimension": "HNDL_exposure_tier",
+      "subgroup_value": "Moderate HNDL (0.33 < x <= 0.66)"
+    },
+    {
+      "sample_count": 320,
+      "accuracy": 0.9719,
+      "macro_f1": 0.7971,
+      "weighted_f1": 0.9701,
+      "macro_precision": 0.8403,
+      "macro_recall": 0.7643,
+      "class_counts": {
+        "LOW": 0,
+        "MEDIUM": 0,
+        "HIGH": 13,
+        "CRITICAL": 307
+      },
+      "per_class_f1": {
+        "LOW": 0.0,
+        "MEDIUM": 0.0,
+        "HIGH": 0.6087,
+        "CRITICAL": 0.9854
+      },
+      "per_class_recall": {
+        "LOW": 0.0,
+        "MEDIUM": 0.0,
+        "HIGH": 0.5385,
+        "CRITICAL": 0.9902
+      },
+      "per_class_precision": {
+        "LOW": 0.0,
+        "MEDIUM": 0.0,
+        "HIGH": 0.7,
+        "CRITICAL": 0.9806
+      },
+      "dimension": "HNDL_exposure_tier",
+      "subgroup_value": "Severe HNDL (x > 0.66)"
+    },
+    {
+      "sample_count": 6593,
+      "accuracy": 0.9454,
+      "macro_f1": 0.9252,
+      "weighted_f1": 0.9452,
+      "macro_precision": 0.9297,
+      "macro_recall": 0.9211,
+      "class_counts": {
+        "LOW": 589,
+        "MEDIUM": 2906,
+        "HIGH": 1933,
+        "CRITICAL": 1165
+      },
+      "per_class_f1": {
+        "LOW": 0.8718,
+        "MEDIUM": 0.9745,
+        "HIGH": 0.9448,
+        "CRITICAL": 0.9097
+      },
+      "per_class_recall": {
+        "LOW": 0.8489,
+        "MEDIUM": 0.9794,
+        "HIGH": 0.9436,
+        "CRITICAL": 0.9124
+      },
+      "per_class_precision": {
+        "LOW": 0.8961,
+        "MEDIUM": 0.9697,
+        "HIGH": 0.9461,
+        "CRITICAL": 0.907
+      },
+      "dimension": "internet_exposed",
+      "subgroup_value": "Internet Exposed (1)"
+    },
+    {
+      "sample_count": 8407,
+      "accuracy": 0.9391,
+      "macro_f1": 0.8969,
+      "weighted_f1": 0.9385,
+      "macro_precision": 0.9277,
+      "macro_recall": 0.874,
+      "class_counts": {
+        "LOW": 2276,
+        "MEDIUM": 2502,
+        "HIGH": 3478,
+        "CRITICAL": 151
+      },
+      "per_class_f1": {
+        "LOW": 0.9272,
+        "MEDIUM": 0.9089,
+        "HIGH": 0.9743,
+        "CRITICAL": 0.7774
+      },
+      "per_class_recall": {
+        "LOW": 0.9262,
+        "MEDIUM": 0.9029,
+        "HIGH": 0.9848,
+        "CRITICAL": 0.6821
+      },
+      "per_class_precision": {
+        "LOW": 0.9282,
+        "MEDIUM": 0.9149,
+        "HIGH": 0.964,
+        "CRITICAL": 0.9035
+      },
+      "dimension": "internet_exposed",
+      "subgroup_value": "Internal Only (0)"
+    },
+    {
+      "sample_count": 8091,
+      "accuracy": 0.9427,
+      "macro_f1": 0.9275,
+      "weighted_f1": 0.9424,
+      "macro_precision": 0.9311,
+      "macro_recall": 0.9241,
+      "class_counts": {
+        "LOW": 1001,
+        "MEDIUM": 3376,
+        "HIGH": 2522,
+        "CRITICAL": 1192
+      },
+      "per_class_f1": {
+        "LOW": 0.8866,
+        "MEDIUM": 0.9644,
+        "HIGH": 0.9521,
+        "CRITICAL": 0.9068
+      },
+      "per_class_recall": {
+        "LOW": 0.8671,
+        "MEDIUM": 0.9701,
+        "HIGH": 0.9532,
+        "CRITICAL": 0.906
+      },
+      "per_class_precision": {
+        "LOW": 0.907,
+        "MEDIUM": 0.9587,
+        "HIGH": 0.9509,
+        "CRITICAL": 0.9076
+      },
+      "dimension": "external_facing",
+      "subgroup_value": "External Facing (1)"
+    },
+    {
+      "sample_count": 6909,
+      "accuracy": 0.9409,
+      "macro_f1": 0.8994,
+      "weighted_f1": 0.9404,
+      "macro_precision": 0.9273,
+      "macro_recall": 0.8781,
+      "class_counts": {
+        "LOW": 1864,
+        "MEDIUM": 2032,
+        "HIGH": 2889,
+        "CRITICAL": 124
+      },
+      "per_class_f1": {
+        "LOW": 0.9315,
+        "MEDIUM": 0.9104,
+        "HIGH": 0.974,
+        "CRITICAL": 0.7818
+      },
+      "per_class_recall": {
+        "LOW": 0.9335,
+        "MEDIUM": 0.9006,
+        "HIGH": 0.9848,
+        "CRITICAL": 0.6935
+      },
+      "per_class_precision": {
+        "LOW": 0.9295,
+        "MEDIUM": 0.9205,
+        "HIGH": 0.9634,
+        "CRITICAL": 0.8958
+      },
+      "dimension": "external_facing",
+      "subgroup_value": "Internal Facing (0)"
+    },
+    {
+      "sample_count": 1031,
+      "accuracy": 0.9573,
+      "macro_f1": 0.9547,
+      "weighted_f1": 0.9574,
+      "macro_precision": 0.953,
+      "macro_recall": 0.9565,
+      "class_counts": {
+        "LOW": 471,
+        "MEDIUM": 286,
+        "HIGH": 217,
+        "CRITICAL": 57
+      },
+      "per_class_f1": {
+        "LOW": 0.9668,
+        "MEDIUM": 0.9343,
+        "HIGH": 0.9703,
+        "CRITICAL": 0.9474
+      },
+      "per_class_recall": {
+        "LOW": 0.9575,
+        "MEDIUM": 0.9441,
+        "HIGH": 0.977,
+        "CRITICAL": 0.9474
+      },
+      "per_class_precision": {
+        "LOW": 0.9762,
+        "MEDIUM": 0.9247,
+        "HIGH": 0.9636,
+        "CRITICAL": 0.9474
+      },
+      "dimension": "combination_rarity",
+      "subgroup_value": "Rare Triplet Combinations (<25 instances; N=1031)"
+    },
+    {
+      "sample_count": 13969,
+      "accuracy": 0.9407,
+      "macro_f1": 0.9271,
+      "weighted_f1": 0.9406,
+      "macro_precision": 0.9298,
+      "macro_recall": 0.9245,
+      "class_counts": {
+        "LOW": 2394,
+        "MEDIUM": 5122,
+        "HIGH": 5194,
+        "CRITICAL": 1259
+      },
+      "per_class_f1": {
+        "LOW": 0.9061,
+        "MEDIUM": 0.9449,
+        "HIGH": 0.9636,
+        "CRITICAL": 0.8939
+      },
+      "per_class_recall": {
+        "LOW": 0.901,
+        "MEDIUM": 0.944,
+        "HIGH": 0.9698,
+        "CRITICAL": 0.8832
+      },
+      "per_class_precision": {
+        "LOW": 0.9113,
+        "MEDIUM": 0.9458,
+        "HIGH": 0.9574,
+        "CRITICAL": 0.9048
+      },
+      "dimension": "combination_rarity",
+      "subgroup_value": "Standard Combinations (>=25 instances; N=13969)"
+    }
+  ]
+}

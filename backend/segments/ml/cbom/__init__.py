@@ -1,9 +1,8 @@
 """
 CBOM (Cryptography Bill of Materials) Module
 
-This module takes pre-discovered cryptographic findings (JSON) from the Discovery module,
-processes and structures them into Cryptographic Assets using deterministic extraction and AI assistance,
-and outputs a validated CBOM JSON structure with field-level explainability provenance.
+Transforms discovery findings into standards-compliant CycloneDX 1.6 and ECDAT
+CBOM structures with deterministic cryptographic catalog enrichment and explainability provenance.
 """
 
 from .builder import CBOMBuilder
@@ -12,6 +11,25 @@ from .export import CBOMUnavailable, build_export
 from .validator import CBOMValidator
 from .cbom_agent import CBOMAgent, format_cbom_explanation
 from .extractor import DeterministicExtractor
+from .ml_adapter import MLFeatureAdapter
+from .crypto_catalog import (
+    lookup_crypto_algorithm,
+    canonicalize_algorithm_name,
+    is_quantum_vulnerable,
+    get_nist_quantum_level,
+    get_classical_security_level,
+    CRYPTO_CATALOG,
+)
+from .cyclonedx_schema import (
+    CycloneDX16CBOM,
+    CryptoComponent,
+    CryptoProperties,
+    AlgorithmProperties,
+    ProtocolProperties,
+    CertificateProperties,
+    Evidence,
+    Occurrence,
+)
 from .ai_provider import (
     BaseLLMProvider,
     FallbackLLMProvider,
@@ -26,12 +44,23 @@ __all__ = [
     "CBOMBuilder",
     "CBOMValidator",
     "CBOMAgent",
-    "to_cyclonedx",
-    "to_cyclonedx_xml",
-    "build_export",
-    "CBOMUnavailable",
+    "MLFeatureAdapter",
     "format_cbom_explanation",
     "DeterministicExtractor",
+    "lookup_crypto_algorithm",
+    "canonicalize_algorithm_name",
+    "is_quantum_vulnerable",
+    "get_nist_quantum_level",
+    "get_classical_security_level",
+    "CRYPTO_CATALOG",
+    "CycloneDX16CBOM",
+    "CryptoComponent",
+    "CryptoProperties",
+    "AlgorithmProperties",
+    "ProtocolProperties",
+    "CertificateProperties",
+    "Evidence",
+    "Occurrence",
     "BaseLLMProvider",
     "FallbackLLMProvider",
     "GeminiLLMProvider",

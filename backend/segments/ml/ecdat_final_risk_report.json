@@ -1,0 +1,3676 @@
+{
+  "report_title": "ECDAT Enterprise Post-Quantum Cryptographic Risk Report",
+  "generated_at": "2026-09-28T06:27:17.987873+00:00",
+  "generation_provider": "Google Gemini AI",
+  "portfolio_stats": {
+    "total_assets": 10,
+    "critical_risk_count": 0,
+    "high_risk_count": 6,
+    "medium_risk_count": 1,
+    "low_risk_count": 3,
+    "negligible_risk_count": 0,
+    "hndl_exposed_count": 8,
+    "mosca_deficit_count": 5,
+    "overdue_migration_count": 0,
+    "average_risk_score": 24.07,
+    "highest_risk_score": 46.0,
+    "earliest_migration_deadline_year": 2029.8
+  },
+  "executive_summary": "An assessment of the enterprise cryptographic portfolio comprising 10 assets reveals significant post-quantum vulnerability, with 6 assets classified under HIGH risk tiers and 8 assets exposed to Harvest-Now-Decrypt-Later (HNDL) risks. Although no assets currently exhibit critical risk or overdue migration statuses, 5 assets demonstrate active Mosca Theorem timeline deficits with a mandatory migration start deadline of 2029.8. The portfolio requires immediate attention to replace legacy classical asymmetric primitives (such as RSA-2048, RSA-3072, RSA-4096, ECDSA, and Ed25519) with quantum-resistant alternatives.",
+  "key_findings": [
+    "6 out of 10 portfolio assets (including RSA-2048, ECDSA, RSA-3072, RSA-4096, and Ed25519) are categorized as HIGH risk under the [ML Risk Model], validated by CatBoost confidence scores ranging between 84.0% and 87.3%.",
+    "The [HNDL Engine] identifies 8 exposed assets facing future decryption risks, driven by long-lived data shelf-life extending to 2034 and classic encryption vulnerabilities.",
+    "According to [Mosca Theorem], 5 assets violate the migration inequality (X+Y>Z) with a timeline deficit of up to +4.2 years, establishing a strict enterprise-wide migration start deadline of 2029.8."
+  ],
+  "source_attribution_summary": {
+    "ML_RISK": "CatBoost 37-feature classifier evaluated multi-variable cryptographic feature vectors and class probabilities.",
+    "HNDL_ENGINE": "Evaluated adversary interceptability and data confidentiality shelf-life against the CRQC horizon.",
+    "MOSCA_THEOREM": "Calculated mathematical migration time (X), data shelf-life (Y), and CRQC horizon (Z) deficits.",
+    "POLICY_ENGINE": "Enforced NIST SP 800-131A legacy algorithm deprecation and FIPS 203-205 compliance standards."
+  },
+  "asset_reports": [
+    {
+      "asset_id": "DISC-001",
+      "algorithm": "RSA-2048",
+      "pqc_status": "CLASSICAL_VULNERABLE",
+      "policy_status": "CLASSICAL_VULNERABLE",
+      "policy_overrides": [],
+      "base_risk_class": "HIGH",
+      "final_risk_class": "HIGH",
+      "overall_quantum_risk_tier": "HIGH",
+      "unified_risk_score": 26.1,
+      "migration_required": true,
+      "migration_deadline": 2029.8,
+      "urgency_tier": "HIGH",
+      "ml_prediction": "HIGH",
+      "ml_confidence_pct": 87.3,
+      "risk_drivers": [
+        "ML_PREDICTION_HIGH"
+      ],
+      "primary_risk_driver": "Quantum-Vulnerable Classical Asymmetric Primitive (RSA-2048)",
+      "executive_narrative": "Asset DISC-001 utilizing RSA-2048 for key establishment has been evaluated by the cryptographic risk engine. According to [ML Risk Model], the asset is classified under the HIGH risk tier with a confidence of 0.8732, driven primarily by features such as quantum vulnerability, key size, and cryptographic role. The [HNDL Engine] notes a harvestability score of 0.3 and a data expiry year of 2034. Based on [Mosca Theorem], the variables indicate a migration time X of 3.2 years, data lifetime Y of 1.0 year, and CRQC horizon Z of 7.0 years, yielding a migration start deadline of 2029.8 with a safe buffer posture.",
+      "attributions": [
+        {
+          "pillar": "ML_RISK",
+          "metric_name": "prediction_confidence",
+          "value": "HIGH (87.3%)",
+          "source_detail": "CatBoost 37-feature model classified asset as HIGH with 87.3% probability based on features ['quantum_vulnerable', 'key_or_hash_size_bits', 'crypto_role']"
+        },
+        {
+          "pillar": "CBOM_CATALOG",
+          "metric_name": "pqc_status",
+          "value": "CLASSICAL_VULNERABLE",
+          "source_detail": "NIST SP 800-57 / FIPS 203-205 reference catalog mapped algorithm to CLASSICAL_VULNERABLE"
+        },
+        {
+          "pillar": "HNDL_ENGINE",
+          "metric_name": "hndl_exposure_score",
+          "value": 0.03,
+          "source_detail": "HNDL Engine evaluated harvestability 0.30 and decryption risk tier as MEDIUM"
+        },
+        {
+          "pillar": "MOSCA_THEOREM",
+          "metric_name": "mosca_deficit_years",
+          "value": -2.8,
+          "source_detail": "Mosca Inequality X+Y<=Z computed timeline margin 2.8y (\u0394M = -2.8y, Must start by: 2029.8)"
+        }
+      ],
+      "recommended_action": "Migrate RSA-2048 key establishment mechanisms to post-quantum standards such as ML-KEM-768 (FIPS 203) prior to the 2029.8 migration deadline.",
+      "ml_summary": {
+        "risk_tier": "HIGH",
+        "confidence": 0.8732,
+        "probabilities": {
+          "LOW": 0.0462,
+          "MEDIUM": 0.0797,
+          "HIGH": 0.8732,
+          "CRITICAL": 0.001
+        },
+        "top_contributing_features": [
+          "quantum_vulnerable",
+          "key_or_hash_size_bits",
+          "crypto_role",
+          "HNDL_exposure"
+        ]
+      },
+      "hndl_summary": {
+        "hndl_exposure_score": 0.03,
+        "harvestability_score": 0.3,
+        "future_decryption_risk": "MEDIUM",
+        "is_exposed": true,
+        "applicable": true,
+        "exposure_factor": 0.0,
+        "data_expiry_year": 2034.0
+      },
+      "mosca_summary": {
+        "inequality_satisfied": false,
+        "deficit_years": -2.8,
+        "must_start_by_year": 2029.8,
+        "is_overdue_to_start": false,
+        "urgency_tier": "NEGLIGIBLE",
+        "migration_posture": "SAFE_BUFFER",
+        "mosca_risk_index": 0.0,
+        "variables": {
+          "X_migration_time": 3.2,
+          "Y_data_lifetime": 1.0,
+          "Z_time_to_crqc": 7.0
+        }
+      }
+    },
+    {
+      "asset_id": "DISC-002",
+      "algorithm": "ECDSA",
+      "pqc_status": "CLASSICAL_VULNERABLE",
+      "policy_status": "CLASSICAL_VULNERABLE",
+      "policy_overrides": [],
+      "base_risk_class": "HIGH",
+      "final_risk_class": "HIGH",
+      "overall_quantum_risk_tier": "HIGH",
+      "unified_risk_score": 45.3,
+      "migration_required": true,
+      "migration_deadline": 2029.8,
+      "urgency_tier": "HIGH",
+      "ml_prediction": "HIGH",
+      "ml_confidence_pct": 84.1,
+      "risk_drivers": [
+        "ML_PREDICTION_HIGH",
+        "MOSCA_DEFICIT_+4.2Y"
+      ],
+      "primary_risk_driver": "Mosca Theorem Timeline Deficit (+4.2y) & Long-Lived Shelf Life",
+      "executive_narrative": "Asset DISC-002 utilizing ECDSA P-256 for signing has been classified as a HIGH risk asset with a model confidence of 84.07% [ML Risk Model]. While the HNDL Engine notes a low future decryption risk and harvestability score of 0.3 due to its role in signing rather than encryption [HNDL Engine], Michele Mosca's Theorem indicates an active migration deficit of 4.2 years (X=3.2 years, Y=8.0 years, Z=7.0 years) requiring a migration start deadline no later than year 2029.8 [Mosca Theorem].",
+      "attributions": [
+        {
+          "pillar": "ML_RISK",
+          "metric_name": "prediction_confidence",
+          "value": "HIGH (84.1%)",
+          "source_detail": "CatBoost 37-feature model classified asset as HIGH with 84.1% probability based on features ['quantum_vulnerable', 'key_or_hash_size_bits', 'crypto_role']"
+        },
+        {
+          "pillar": "CBOM_CATALOG",
+          "metric_name": "pqc_status",
+          "value": "CLASSICAL_VULNERABLE",
+          "source_detail": "NIST SP 800-57 / FIPS 203-205 reference catalog mapped algorithm to CLASSICAL_VULNERABLE"
+        },
+        {
+          "pillar": "HNDL_ENGINE",
+          "metric_name": "hndl_exposure_score",
+          "value": 0.009,
+          "source_detail": "HNDL Engine evaluated harvestability 0.30 and decryption risk tier as LOW"
+        },
+        {
+          "pillar": "MOSCA_THEOREM",
+          "metric_name": "mosca_deficit_years",
+          "value": 4.2,
+          "source_detail": "Mosca Inequality X+Y>Z computed timeline deficit +4.2y (Must start by: 2029.8)"
+        }
+      ],
+      "recommended_action": "Migrate ECDSA signature mechanisms to quantum-resistant digital signature algorithms compliant with FIPS 204 (ML-DSA / Dilithium) or FIPS 205 (SLH-DSA / SPHINCS+).",
+      "ml_summary": {
+        "risk_tier": "HIGH",
+        "confidence": 0.8407,
+        "probabilities": {
+          "LOW": 0.0575,
+          "MEDIUM": 0.1009,
+          "HIGH": 0.8407,
+          "CRITICAL": 0.0009
+        },
+        "top_contributing_features": [
+          "quantum_vulnerable",
+          "key_or_hash_size_bits",
+          "crypto_role",
+          "HNDL_exposure"
+        ]
+      },
+      "hndl_summary": {
+        "hndl_exposure_score": 0.009,
+        "harvestability_score": 0.3,
+        "future_decryption_risk": "LOW",
+        "is_exposed": true,
+        "applicable": true,
+        "exposure_factor": 0.0,
+        "data_expiry_year": 2034.0
+      },
+      "mosca_summary": {
+        "inequality_satisfied": true,
+        "deficit_years": 4.2,
+        "must_start_by_year": 2029.8,
+        "is_overdue_to_start": false,
+        "urgency_tier": "HIGH",
+        "migration_posture": "MIGRATION_DEFICIT",
+        "mosca_risk_index": 0.21,
+        "variables": {
+          "X_migration_time": 3.2,
+          "Y_data_lifetime": 8.0,
+          "Z_time_to_crqc": 7.0
+        }
+      }
+    },
+    {
+      "asset_id": "DISC-003",
+      "algorithm": "AES-256-GCM",
+      "pqc_status": "SYMMETRIC_QUANTUM_RESILIENT",
+      "policy_status": "COMPLIANT",
+      "policy_overrides": [],
+      "base_risk_class": "LOW",
+      "final_risk_class": "LOW",
+      "overall_quantum_risk_tier": "LOW",
+      "unified_risk_score": 5.0,
+      "migration_required": false,
+      "migration_deadline": null,
+      "urgency_tier": "LOW",
+      "ml_prediction": "LOW",
+      "ml_confidence_pct": 91.3,
+      "risk_drivers": [
+        "SYMMETRIC_QUANTUM_RESILIENT_256BIT"
+      ],
+      "primary_risk_driver": "Quantum-Resilient Baseline Cryptography",
+      "executive_narrative": "Asset DISC-003 utilizing AES-256-GCM is classified as LOW risk [ML Risk Model] with a model confidence of 91.31%. The HNDL Timeline Engine calculates an extremely low exposure score of 0.0015 and a future decryption risk of LOW, reflecting strong resistance to Harvest-Now-Decrypt-Later threats. According to Mosca's Inequality [Mosca Theorem], the sum of migration time X (3.2 years) and shelf-life Y (8.0 years) is 11.2 years, which exceeds the CRQC horizon Z (7.0 years) starting in 2033; however, the inequality is not violated (inequality_satisfied: false, deficit_years: 0.0) because symmetric AES-256 security parameters mitigate the effective quantum attack surface (Grover's algorithm reduces effective security to 128 bits, which remains secure).",
+      "attributions": [
+        {
+          "pillar": "ML_RISK",
+          "metric_name": "prediction_confidence",
+          "value": "LOW (91.3%)",
+          "source_detail": "CatBoost 37-feature model classified asset as LOW with 91.3% probability based on features ['quantum_vulnerable', 'key_or_hash_size_bits', 'crypto_role']"
+        },
+        {
+          "pillar": "CBOM_CATALOG",
+          "metric_name": "pqc_status",
+          "value": "SYMMETRIC_QUANTUM_RESILIENT",
+          "source_detail": "NIST SP 800-57 / FIPS 203-205 reference catalog mapped algorithm to SYMMETRIC_QUANTUM_RESILIENT"
+        }
+      ],
+      "recommended_action": "Maintain current AES-256-GCM implementation; ensure proper key management lifecycle practices and adherence to approved cipher suites without requiring immediate post-quantum algorithmic replacement.",
+      "ml_summary": {
+        "risk_tier": "LOW",
+        "confidence": 0.9131,
+        "probabilities": {
+          "LOW": 0.9131,
+          "MEDIUM": 0.086,
+          "HIGH": 0.0009,
+          "CRITICAL": 0.0
+        },
+        "top_contributing_features": [
+          "quantum_vulnerable",
+          "key_or_hash_size_bits",
+          "crypto_role",
+          "HNDL_exposure"
+        ]
+      },
+      "hndl_summary": {
+        "hndl_exposure_score": 0.0015,
+        "harvestability_score": 0.3,
+        "future_decryption_risk": "LOW",
+        "is_exposed": true,
+        "applicable": true,
+        "exposure_factor": 0.0,
+        "data_expiry_year": 2034.0
+      },
+      "mosca_summary": {
+        "inequality_satisfied": false,
+        "deficit_years": 0.0,
+        "must_start_by_year": null,
+        "is_overdue_to_start": false,
+        "urgency_tier": "NEGLIGIBLE",
+        "migration_posture": "QUANTUM_RESILIENT",
+        "mosca_risk_index": 0.0,
+        "variables": {
+          "X_migration_time": 3.2,
+          "Y_data_lifetime": 8.0,
+          "Z_time_to_crqc": 7.0
+        }
+      }
+    },
+    {
+      "asset_id": "DISC-004",
+      "algorithm": "3DES-CBC",
+      "pqc_status": "LEGACY_DEPRECATED",
+      "policy_status": "DEPRECATED_ALGORITHM",
+      "policy_overrides": [
+        "POLICY_OVERRIDE: 3DES-CBC is deprecated by NIST SP 800-131A (disallowed after 2023)"
+      ],
+      "base_risk_class": "MEDIUM",
+      "final_risk_class": "HIGH",
+      "overall_quantum_risk_tier": "HIGH",
+      "unified_risk_score": 20.0,
+      "migration_required": true,
+      "migration_deadline": 2029.8,
+      "urgency_tier": "HIGH",
+      "ml_prediction": "LOW",
+      "ml_confidence_pct": 81.5,
+      "risk_drivers": [
+        "DEPRECATED_PRIMITIVE",
+        "POLICY_DEPRECATED_OVERRIDE"
+      ],
+      "primary_risk_driver": "Cryptographic Policy Override: 3DES-CBC is deprecated and disallowed",
+      "executive_narrative": "Asset DISC-004 utilizes 3DES-CBC encryption, which faces cryptographic vulnerability and long-term quantum exposure. According to [ML Risk Model], the asset is classified under a LOW ML risk tier with 81.52% confidence, driven primarily by key size and quantum vulnerability features. However, the [HNDL Engine] notes a data expiry year of 2034 with future decryption risk rated as MEDIUM and a harvestability score of 0.3. Furthermore, [Mosca Theorem] identifies a strict timeline deficit (\u0394M = 4.2 years) where the migration duration (X = 3.2 years) plus data lifetime (Y = 8.0 years) exceeds the CRQC horizon (Z = 7.0 years), establishing a mandatory migration start deadline of 2029.8 and a HIGH urgency tier.",
+      "attributions": [
+        {
+          "pillar": "ML_RISK",
+          "metric_name": "prediction_confidence",
+          "value": "LOW (81.5%)",
+          "source_detail": "CatBoost 37-feature model classified asset as LOW with 81.5% probability based on features ['quantum_vulnerable', 'key_or_hash_size_bits', 'crypto_role']"
+        },
+        {
+          "pillar": "CBOM_CATALOG",
+          "metric_name": "pqc_status",
+          "value": "LEGACY_DEPRECATED",
+          "source_detail": "NIST SP 800-57 / FIPS 203-205 reference catalog mapped algorithm to LEGACY_DEPRECATED"
+        },
+        {
+          "pillar": "MOSCA_THEOREM",
+          "metric_name": "mosca_deficit_years",
+          "value": 4.2,
+          "source_detail": "Mosca Inequality X+Y>Z computed timeline deficit +4.2y (Must start by: 2029.8)"
+        },
+        {
+          "pillar": "POLICY_ENGINE",
+          "metric_name": "policy_override",
+          "value": "POLICY_OVERRIDE: 3DES-CBC is deprecated by NIST SP 800-131A (disallowed after 2023)",
+          "source_detail": "Policy compliance rule triggered risk reclassification"
+        }
+      ],
+      "recommended_action": "Migrate 3DES-CBC encryption to AES-GCM-256 or post-quantum symmetric alternatives (or appropriate hybrid encryption schemas compliant with NIST standards) before the 2029.8 deadline.",
+      "ml_summary": {
+        "risk_tier": "LOW",
+        "confidence": 0.8152,
+        "probabilities": {
+          "LOW": 0.8152,
+          "MEDIUM": 0.1833,
+          "HIGH": 0.0015,
+          "CRITICAL": 0.0
+        },
+        "top_contributing_features": [
+          "quantum_vulnerable",
+          "key_or_hash_size_bits",
+          "crypto_role",
+          "HNDL_exposure"
+        ]
+      },
+      "hndl_summary": {
+        "hndl_exposure_score": 0.024,
+        "harvestability_score": 0.3,
+        "future_decryption_risk": "MEDIUM",
+        "is_exposed": true,
+        "applicable": true,
+        "exposure_factor": 0.0,
+        "data_expiry_year": 2034.0
+      },
+      "mosca_summary": {
+        "inequality_satisfied": true,
+        "deficit_years": 4.2,
+        "must_start_by_year": 2029.8,
+        "is_overdue_to_start": false,
+        "urgency_tier": "HIGH",
+        "migration_posture": "MIGRATION_DEFICIT",
+        "mosca_risk_index": 0.24,
+        "variables": {
+          "X_migration_time": 3.2,
+          "Y_data_lifetime": 8.0,
+          "Z_time_to_crqc": 7.0
+        }
+      }
+    },
+    {
+      "asset_id": "DISC-005",
+      "algorithm": "ML-KEM-768",
+      "pqc_status": "PQC_NATIVE",
+      "policy_status": "PQC_DEPLOYED",
+      "policy_overrides": [],
+      "base_risk_class": "LOW",
+      "final_risk_class": "LOW",
+      "overall_quantum_risk_tier": "LOW",
+      "unified_risk_score": 0.0,
+      "migration_required": false,
+      "migration_deadline": null,
+      "urgency_tier": "NEGLIGIBLE",
+      "ml_prediction": "LOW",
+      "ml_confidence_pct": 99.5,
+      "risk_drivers": [
+        "PQC_NATIVE_ALGORITHM"
+      ],
+      "primary_risk_driver": "Native Post-Quantum Key Encapsulation (NIST FIPS 203 ML-KEM-768)",
+      "executive_narrative": "Asset DISC-005 utilizes ML-KEM-768 for key establishment under the NIST FIPS 203 standard, which is classified as [ML Risk Model] LOW risk with a high confidence of 0.9953, driven by features such as quantum_vulnerable (false) and key_or_hash_size_bits. According to the [HNDL Engine], the harvest-now-decrypt-later exposure score is 0.0 with a negligible future decryption risk. Furthermore, the [Mosca Theorem] inequality (X + Y > Z) is not satisfied, showing a migration time X of 3.2 years, data lifetime Y of 1.0 year, and a time to CRQC Z of 7.0 years, yielding a deficit of 0.0 years and a quantum-resilient migration posture.",
+      "attributions": [
+        {
+          "pillar": "ML_RISK",
+          "metric_name": "prediction_confidence",
+          "value": "LOW (99.5%)",
+          "source_detail": "CatBoost 37-feature model classified asset as LOW with 99.5% probability based on features ['quantum_vulnerable', 'key_or_hash_size_bits', 'crypto_role']"
+        },
+        {
+          "pillar": "CBOM_CATALOG",
+          "metric_name": "pqc_status",
+          "value": "PQC_NATIVE",
+          "source_detail": "NIST SP 800-57 / FIPS 203-205 reference catalog mapped algorithm to PQC_NATIVE"
+        }
+      ],
+      "recommended_action": "Maintain current cryptographic configuration utilizing ML-KEM-768 (NIST FIPS 203) and continue standard cryptographic inventory monitoring.",
+      "ml_summary": {
+        "risk_tier": "LOW",
+        "confidence": 0.9953,
+        "probabilities": {
+          "LOW": 0.9953,
+          "MEDIUM": 0.0042,
+          "HIGH": 0.0004,
+          "CRITICAL": 0.0
+        },
+        "top_contributing_features": [
+          "quantum_vulnerable",
+          "key_or_hash_size_bits",
+          "crypto_role",
+          "HNDL_exposure"
+        ]
+      },
+      "hndl_summary": {
+        "hndl_exposure_score": 0.0,
+        "harvestability_score": 0.3,
+        "future_decryption_risk": "NEGLIGIBLE",
+        "is_exposed": false,
+        "applicable": false,
+        "exposure_factor": 0.0,
+        "data_expiry_year": 2034.0
+      },
+      "mosca_summary": {
+        "inequality_satisfied": false,
+        "deficit_years": 0.0,
+        "must_start_by_year": null,
+        "is_overdue_to_start": false,
+        "urgency_tier": "NEGLIGIBLE",
+        "migration_posture": "QUANTUM_RESILIENT",
+        "mosca_risk_index": 0.0,
+        "variables": {
+          "X_migration_time": 3.2,
+          "Y_data_lifetime": 1.0,
+          "Z_time_to_crqc": 7.0
+        }
+      }
+    },
+    {
+      "asset_id": "DISC-006",
+      "algorithm": "RSA-3072",
+      "pqc_status": "CLASSICAL_VULNERABLE",
+      "policy_status": "CLASSICAL_VULNERABLE",
+      "policy_overrides": [],
+      "base_risk_class": "HIGH",
+      "final_risk_class": "HIGH",
+      "overall_quantum_risk_tier": "HIGH",
+      "unified_risk_score": 36.0,
+      "migration_required": true,
+      "migration_deadline": 2029.8,
+      "urgency_tier": "HIGH",
+      "ml_prediction": "HIGH",
+      "ml_confidence_pct": 84.7,
+      "risk_drivers": [
+        "ML_PREDICTION_HIGH",
+        "MOSCA_DEFICIT_+1.2Y"
+      ],
+      "primary_risk_driver": "Mosca Theorem Timeline Deficit (+1.2y) & Long-Lived Shelf Life",
+      "executive_narrative": "Asset DISC-006 utilizing RSA-3072 for authentication has been classified with a HIGH risk tier (probability 0.8469) driven by its quantum vulnerability, key size, role, and exposure factors [ML Risk Model]. Although the HNDL Engine evaluates its future decryption risk as MEDIUM with a data expiry year of 2034.0, the Mosca Theorem inequality is satisfied with X (migration time 3.2 years) + Y (data lifetime 5.0 years) > Z (CRQC horizon 7.0 years), yielding a migration deficit (\u0394M = 1.2 years) and establishing a mandatory migration start deadline of 2029.8 [Mosca Theorem].",
+      "attributions": [
+        {
+          "pillar": "ML_RISK",
+          "metric_name": "prediction_confidence",
+          "value": "HIGH (84.7%)",
+          "source_detail": "CatBoost 37-feature model classified asset as HIGH with 84.7% probability based on features ['quantum_vulnerable', 'key_or_hash_size_bits', 'crypto_role']"
+        },
+        {
+          "pillar": "CBOM_CATALOG",
+          "metric_name": "pqc_status",
+          "value": "CLASSICAL_VULNERABLE",
+          "source_detail": "NIST SP 800-57 / FIPS 203-205 reference catalog mapped algorithm to CLASSICAL_VULNERABLE"
+        },
+        {
+          "pillar": "HNDL_ENGINE",
+          "metric_name": "hndl_exposure_score",
+          "value": 0.03,
+          "source_detail": "HNDL Engine evaluated harvestability 0.30 and decryption risk tier as MEDIUM"
+        },
+        {
+          "pillar": "MOSCA_THEOREM",
+          "metric_name": "mosca_deficit_years",
+          "value": 1.2,
+          "source_detail": "Mosca Inequality X+Y>Z computed timeline deficit +1.2y (Must start by: 2029.8)"
+        }
+      ],
+      "recommended_action": "Migrate RSA-3072 authentication mechanisms to post-quantum standards such as ML-DSA (FIPS 204) for digital signatures and quantum-resistant key encapsulation mechanisms.",
+      "ml_summary": {
+        "risk_tier": "HIGH",
+        "confidence": 0.8469,
+        "probabilities": {
+          "LOW": 0.0576,
+          "MEDIUM": 0.0947,
+          "HIGH": 0.8469,
+          "CRITICAL": 0.0008
+        },
+        "top_contributing_features": [
+          "quantum_vulnerable",
+          "key_or_hash_size_bits",
+          "crypto_role",
+          "HNDL_exposure"
+        ]
+      },
+      "hndl_summary": {
+        "hndl_exposure_score": 0.03,
+        "harvestability_score": 0.3,
+        "future_decryption_risk": "MEDIUM",
+        "is_exposed": true,
+        "applicable": true,
+        "exposure_factor": 0.0,
+        "data_expiry_year": 2034.0
+      },
+      "mosca_summary": {
+        "inequality_satisfied": true,
+        "deficit_years": 1.2,
+        "must_start_by_year": 2029.8,
+        "is_overdue_to_start": false,
+        "urgency_tier": "MEDIUM",
+        "migration_posture": "MIGRATION_DEFICIT",
+        "mosca_risk_index": 0.1171,
+        "variables": {
+          "X_migration_time": 3.2,
+          "Y_data_lifetime": 5.0,
+          "Z_time_to_crqc": 7.0
+        }
+      }
+    },
+    {
+      "asset_id": "DISC-007",
+      "algorithm": "RSA-4096",
+      "pqc_status": "CLASSICAL_VULNERABLE",
+      "policy_status": "CLASSICAL_VULNERABLE",
+      "policy_overrides": [],
+      "base_risk_class": "HIGH",
+      "final_risk_class": "HIGH",
+      "overall_quantum_risk_tier": "HIGH",
+      "unified_risk_score": 46.0,
+      "migration_required": true,
+      "migration_deadline": 2029.8,
+      "urgency_tier": "HIGH",
+      "ml_prediction": "HIGH",
+      "ml_confidence_pct": 84.0,
+      "risk_drivers": [
+        "ML_PREDICTION_HIGH",
+        "MOSCA_DEFICIT_+4.2Y"
+      ],
+      "primary_risk_driver": "Mosca Theorem Timeline Deficit (+4.2y) & Long-Lived Shelf Life",
+      "executive_narrative": "Cryptographic asset DISC-007 (RSA-4096) is classified as HIGH risk with an 84.05% confidence probability by the [ML Risk Model], driven heavily by features such as quantum vulnerability, key size, and cryptographic role. While the [HNDL Engine] notes a moderate data expiry year of 2034.0 and a harvestability score of 0.3, the [Mosca Theorem] confirms an active inequality satisfaction (X + Y > Z) with a migration time X of 3.2 years, data lifetime Y of 8.0 years, and a CRQC horizon Z of 7.0 years. This results in a timeline deficit \u0394M of 4.2 years, mandating that migration must start by year 2029.8 to prevent exposure.",
+      "attributions": [
+        {
+          "pillar": "ML_RISK",
+          "metric_name": "prediction_confidence",
+          "value": "HIGH (84.0%)",
+          "source_detail": "CatBoost 37-feature model classified asset as HIGH with 84.0% probability based on features ['quantum_vulnerable', 'key_or_hash_size_bits', 'crypto_role']"
+        },
+        {
+          "pillar": "CBOM_CATALOG",
+          "metric_name": "pqc_status",
+          "value": "CLASSICAL_VULNERABLE",
+          "source_detail": "NIST SP 800-57 / FIPS 203-205 reference catalog mapped algorithm to CLASSICAL_VULNERABLE"
+        },
+        {
+          "pillar": "HNDL_ENGINE",
+          "metric_name": "hndl_exposure_score",
+          "value": 0.03,
+          "source_detail": "HNDL Engine evaluated harvestability 0.30 and decryption risk tier as MEDIUM"
+        },
+        {
+          "pillar": "MOSCA_THEOREM",
+          "metric_name": "mosca_deficit_years",
+          "value": 4.2,
+          "source_detail": "Mosca Inequality X+Y>Z computed timeline deficit +4.2y (Must start by: 2029.8)"
+        }
+      ],
+      "recommended_action": "Migrate asymmetric signing from RSA-4096 to post-quantum cryptographic signature standards such as ML-DSA (FIPS 204) or SLH-DSA (FIPS 205) prior to the 2029.8 migration deadline.",
+      "ml_summary": {
+        "risk_tier": "HIGH",
+        "confidence": 0.8405,
+        "probabilities": {
+          "LOW": 0.0596,
+          "MEDIUM": 0.0991,
+          "HIGH": 0.8405,
+          "CRITICAL": 0.0008
+        },
+        "top_contributing_features": [
+          "quantum_vulnerable",
+          "key_or_hash_size_bits",
+          "crypto_role",
+          "HNDL_exposure"
+        ]
+      },
+      "hndl_summary": {
+        "hndl_exposure_score": 0.03,
+        "harvestability_score": 0.3,
+        "future_decryption_risk": "MEDIUM",
+        "is_exposed": true,
+        "applicable": true,
+        "exposure_factor": 0.0,
+        "data_expiry_year": 2034.0
+      },
+      "mosca_summary": {
+        "inequality_satisfied": true,
+        "deficit_years": 4.2,
+        "must_start_by_year": 2029.8,
+        "is_overdue_to_start": false,
+        "urgency_tier": "HIGH",
+        "migration_posture": "MIGRATION_DEFICIT",
+        "mosca_risk_index": 0.3,
+        "variables": {
+          "X_migration_time": 3.2,
+          "Y_data_lifetime": 8.0,
+          "Z_time_to_crqc": 7.0
+        }
+      }
+    },
+    {
+      "asset_id": "DISC-008",
+      "algorithm": "Ed25519",
+      "pqc_status": "CLASSICAL_VULNERABLE",
+      "policy_status": "CLASSICAL_VULNERABLE",
+      "policy_overrides": [],
+      "base_risk_class": "HIGH",
+      "final_risk_class": "HIGH",
+      "overall_quantum_risk_tier": "HIGH",
+      "unified_risk_score": 45.3,
+      "migration_required": true,
+      "migration_deadline": 2029.8,
+      "urgency_tier": "HIGH",
+      "ml_prediction": "HIGH",
+      "ml_confidence_pct": 84.3,
+      "risk_drivers": [
+        "ML_PREDICTION_HIGH",
+        "MOSCA_DEFICIT_+4.2Y"
+      ],
+      "primary_risk_driver": "Mosca Theorem Timeline Deficit (+4.2y) & Long-Lived Shelf Life",
+      "executive_narrative": "Asset DISC-008 (Ed25519) has been classified in the HIGH risk tier with a confidence score of 84.29% [ML Risk Model]. The primary influencing features identified by the model include its quantum vulnerability and key size [ML Risk Model]. Although the HNDL exposure score is low at 0.009 due to its signing role rather than encryption [HNDL Engine], Michele Mosca's inequality confirms a migration deficit of 4.2 years (X + Y > Z: 3.2 migration years + 8.0 shelf-life > 7.0 CRQC horizon) [Mosca Theorem]. Consequently, migration planning must commence by the calculated deadline of late 2029 [Mosca Theorem].",
+      "attributions": [
+        {
+          "pillar": "ML_RISK",
+          "metric_name": "prediction_confidence",
+          "value": "HIGH (84.3%)",
+          "source_detail": "CatBoost 37-feature model classified asset as HIGH with 84.3% probability based on features ['quantum_vulnerable', 'key_or_hash_size_bits', 'crypto_role']"
+        },
+        {
+          "pillar": "CBOM_CATALOG",
+          "metric_name": "pqc_status",
+          "value": "CLASSICAL_VULNERABLE",
+          "source_detail": "NIST SP 800-57 / FIPS 203-205 reference catalog mapped algorithm to CLASSICAL_VULNERABLE"
+        },
+        {
+          "pillar": "HNDL_ENGINE",
+          "metric_name": "hndl_exposure_score",
+          "value": 0.009,
+          "source_detail": "HNDL Engine evaluated harvestability 0.30 and decryption risk tier as LOW"
+        },
+        {
+          "pillar": "MOSCA_THEOREM",
+          "metric_name": "mosca_deficit_years",
+          "value": 4.2,
+          "source_detail": "Mosca Inequality X+Y>Z computed timeline deficit +4.2y (Must start by: 2029.8)"
+        }
+      ],
+      "recommended_action": "Migrate Ed25519 signing implementation to post-quantum cryptographic signature standards such as ML-DSA (FIPS 204) or SLH-DSA (FIPS 205) before the 2029 migration start deadline.",
+      "ml_summary": {
+        "risk_tier": "HIGH",
+        "confidence": 0.8429,
+        "probabilities": {
+          "LOW": 0.057,
+          "MEDIUM": 0.0992,
+          "HIGH": 0.8429,
+          "CRITICAL": 0.0009
+        },
+        "top_contributing_features": [
+          "quantum_vulnerable",
+          "key_or_hash_size_bits",
+          "crypto_role",
+          "HNDL_exposure"
+        ]
+      },
+      "hndl_summary": {
+        "hndl_exposure_score": 0.009,
+        "harvestability_score": 0.3,
+        "future_decryption_risk": "LOW",
+        "is_exposed": true,
+        "applicable": true,
+        "exposure_factor": 0.0,
+        "data_expiry_year": 2034.0
+      },
+      "mosca_summary": {
+        "inequality_satisfied": true,
+        "deficit_years": 4.2,
+        "must_start_by_year": 2029.8,
+        "is_overdue_to_start": false,
+        "urgency_tier": "HIGH",
+        "migration_posture": "MIGRATION_DEFICIT",
+        "mosca_risk_index": 0.21,
+        "variables": {
+          "X_migration_time": 3.2,
+          "Y_data_lifetime": 8.0,
+          "Z_time_to_crqc": 7.0
+        }
+      }
+    },
+    {
+      "asset_id": "DISC-009",
+      "algorithm": "AES-128-GCM",
+      "pqc_status": "SYMMETRIC_TRANSITIONAL",
+      "policy_status": "CLASSICAL_VULNERABLE",
+      "policy_overrides": [],
+      "base_risk_class": "MEDIUM",
+      "final_risk_class": "MEDIUM",
+      "overall_quantum_risk_tier": "MEDIUM",
+      "unified_risk_score": 12.0,
+      "migration_required": false,
+      "migration_deadline": null,
+      "urgency_tier": "MEDIUM",
+      "ml_prediction": "LOW",
+      "ml_confidence_pct": 81.5,
+      "risk_drivers": [
+        "SYMMETRIC_128BIT_TRANSITIONAL"
+      ],
+      "primary_risk_driver": "Quantum-Resilient Baseline Cryptography",
+      "executive_narrative": "Asset DISC-009 (AES-128-GCM) is classified with a LOW risk tier and 0.8152 confidence [ML Risk Model], driven heavily by features such as quantum_vulnerable and key_or_hash_size_bits. Although the HNDL Engine registers a low harvestability score of 0.3 and HNDL exposure score of 0.0105 [HNDL Engine], the Mosca Theorem inequality (X + Y > Z) is satisfied with a migration duration of 3.2 years, a data lifetime of 8.0 years, and a CRQC horizon of 7.0 years [Mosca Theorem]. This yields a 4.2-year timeline deficit (\u0394M), establishing a migration start deadline of 2029.8 [Mosca Theorem] and an overall MEDIUM urgency tier.",
+      "attributions": [
+        {
+          "pillar": "ML_RISK",
+          "metric_name": "prediction_confidence",
+          "value": "LOW (81.5%)",
+          "source_detail": "CatBoost 37-feature model classified asset as LOW with 81.5% probability based on features ['quantum_vulnerable', 'key_or_hash_size_bits', 'crypto_role']"
+        },
+        {
+          "pillar": "CBOM_CATALOG",
+          "metric_name": "pqc_status",
+          "value": "SYMMETRIC_TRANSITIONAL",
+          "source_detail": "NIST SP 800-57 / FIPS 203-205 reference catalog mapped algorithm to SYMMETRIC_TRANSITIONAL"
+        }
+      ],
+      "recommended_action": "Migrate symmetric encryption from AES-128-GCM to AES-256-GCM to protect against Grover's algorithm quantum attacks and ensure compliance ahead of the 2029.8 Mosca migration start deadline.",
+      "ml_summary": {
+        "risk_tier": "LOW",
+        "confidence": 0.8152,
+        "probabilities": {
+          "LOW": 0.8152,
+          "MEDIUM": 0.1833,
+          "HIGH": 0.0015,
+          "CRITICAL": 0.0
+        },
+        "top_contributing_features": [
+          "quantum_vulnerable",
+          "key_or_hash_size_bits",
+          "crypto_role",
+          "HNDL_exposure"
+        ]
+      },
+      "hndl_summary": {
+        "hndl_exposure_score": 0.0105,
+        "harvestability_score": 0.3,
+        "future_decryption_risk": "MEDIUM",
+        "is_exposed": true,
+        "applicable": true,
+        "exposure_factor": 0.0,
+        "data_expiry_year": 2034.0
+      },
+      "mosca_summary": {
+        "inequality_satisfied": true,
+        "deficit_years": 4.2,
+        "must_start_by_year": 2029.8,
+        "is_overdue_to_start": false,
+        "urgency_tier": "MEDIUM",
+        "migration_posture": "MIGRATION_DEFICIT",
+        "mosca_risk_index": 0.045,
+        "variables": {
+          "X_migration_time": 3.2,
+          "Y_data_lifetime": 8.0,
+          "Z_time_to_crqc": 7.0
+        }
+      }
+    },
+    {
+      "asset_id": "DISC-010",
+      "algorithm": "X25519+ML-KEM-768",
+      "pqc_status": "HYBRID_PQC",
+      "policy_status": "PQC_DEPLOYED",
+      "policy_overrides": [],
+      "base_risk_class": "LOW",
+      "final_risk_class": "LOW",
+      "overall_quantum_risk_tier": "LOW",
+      "unified_risk_score": 5.0,
+      "migration_required": false,
+      "migration_deadline": null,
+      "urgency_tier": "LOW",
+      "ml_prediction": "LOW",
+      "ml_confidence_pct": 95.7,
+      "risk_drivers": [
+        "HYBRID_PQC_DEPLOYED"
+      ],
+      "primary_risk_driver": "Hybrid Post-Quantum Key Establishment Deployed",
+      "executive_narrative": "Asset DISC-010 is classified with a LOW risk tier and a confidence score of 0.957 [ML Risk Model], driven by features such as quantum vulnerability state and key size. The HNDL Engine reports a negligible future decryption risk and an exposure score of 0.0, indicating that current configurations effectively mitigate harvest-now-decrypt-later attacks [HNDL Engine]. Furthermore, Mosca's Inequality is not satisfied (X + Y = 4.2 <= Z = 7.0), resulting in a migration posture of QUANTUM_RESILIENT with 0.0 deficit years [Mosca Theorem].",
+      "attributions": [
+        {
+          "pillar": "ML_RISK",
+          "metric_name": "prediction_confidence",
+          "value": "LOW (95.7%)",
+          "source_detail": "CatBoost 37-feature model classified asset as LOW with 95.7% probability based on features ['quantum_vulnerable', 'key_or_hash_size_bits', 'crypto_role']"
+        },
+        {
+          "pillar": "CBOM_CATALOG",
+          "metric_name": "pqc_status",
+          "value": "HYBRID_PQC",
+          "source_detail": "NIST SP 800-57 / FIPS 203-205 reference catalog mapped algorithm to HYBRID_PQC"
+        }
+      ],
+      "recommended_action": "Maintain current NIST FIPS 203 compliant X25519+ML-KEM-768 hybrid configuration and continue periodic cryptographic inventory audits.",
+      "ml_summary": {
+        "risk_tier": "LOW",
+        "confidence": 0.957,
+        "probabilities": {
+          "LOW": 0.957,
+          "MEDIUM": 0.0417,
+          "HIGH": 0.0013,
+          "CRITICAL": 0.0
+        },
+        "top_contributing_features": [
+          "quantum_vulnerable",
+          "key_or_hash_size_bits",
+          "crypto_role",
+          "HNDL_exposure"
+        ]
+      },
+      "hndl_summary": {
+        "hndl_exposure_score": 0.0,
+        "harvestability_score": 0.3,
+        "future_decryption_risk": "NEGLIGIBLE",
+        "is_exposed": false,
+        "applicable": false,
+        "exposure_factor": 0.0,
+        "data_expiry_year": 2034.0
+      },
+      "mosca_summary": {
+        "inequality_satisfied": false,
+        "deficit_years": 0.0,
+        "must_start_by_year": null,
+        "is_overdue_to_start": false,
+        "urgency_tier": "NEGLIGIBLE",
+        "migration_posture": "QUANTUM_RESILIENT",
+        "mosca_risk_index": 0.0,
+        "variables": {
+          "X_migration_time": 3.2,
+          "Y_data_lifetime": 1.0,
+          "Z_time_to_crqc": 7.0
+        }
+      }
+    }
+  ],
+  "cbom_document": {
+    "format": "ECDAT-CBOM",
+    "version": "1.0",
+    "spec_version": "1.6-CycloneDX",
+    "generated_at": "2026-09-28T06:26:28Z",
+    "repository": {
+      "name": "enterprise-banking-core",
+      "url": "https://github.com/enterprise/banking-core"
+    },
+    "summary": {
+      "total_assets": 10,
+      "confirmed_assets": 9,
+      "partial_assets": 0,
+      "needs_review_assets": 1,
+      "invalid_assets": 0,
+      "by_family": {
+        "asymmetric": 6,
+        "symmetric": 3,
+        "hash": 0,
+        "protocol": 0,
+        "pqc": 1,
+        "other": 0
+      }
+    },
+    "crypto_assets": [
+      {
+        "asset_id": "DISC-001",
+        "asset_type": "algorithm",
+        "algorithm": "RSA-2048",
+        "family": "asymmetric",
+        "parameters": {
+          "key_size": 2048,
+          "mode": "ECB",
+          "curve": null,
+          "padding": null,
+          "hash": null
+        },
+        "protocol": null,
+        "crypto_library": null,
+        "purpose": "key_establishment",
+        "implementation": "Cipher.getInstance('RSA/ECB/OAEPWithSHA-256AndMGF1Padding')",
+        "location": {
+          "file": "src/security/TlsKeyManager.java",
+          "line": 42
+        },
+        "evidence": "Cipher.getInstance('RSA/ECB/OAEPWithSHA-256AndMGF1Padding')",
+        "confidence": 0.98,
+        "validation_status": "needs_review",
+        "crypto_properties": {
+          "primitive": "asymmetric",
+          "crypto_role": "signature",
+          "crypto_functions": [
+            "sign",
+            "verify",
+            "encrypt",
+            "decrypt",
+            "key-encapsulate"
+          ],
+          "classical_security_bits": 112,
+          "nist_quantum_level": 0,
+          "quantum_vulnerable": true,
+          "quantum_attack_type": "Shor",
+          "deprecated_or_disallowed": false,
+          "oid": "1.2.840.113549.1.1.1"
+        },
+        "explainability": {
+          "method": "deterministic",
+          "detection_method": "deterministic",
+          "ai_used": false,
+          "summary": "RSA-2048 was identified through an explicit deterministic cryptographic API pattern.",
+          "decision_reason": "The deterministic extraction rule successfully identified the algorithm and key parameters without requiring AI assistance.",
+          "field_evidence": [
+            {
+              "field": "algorithm",
+              "value": "RSA-2048",
+              "source": "source_code",
+              "snippet": "Cipher.getInstance('RSA/ECB/OAEPWithSHA-256AndMGF1Padding')",
+              "evidence_type": "explicit",
+              "explanation": "The RSA-2048 algorithm is explicitly referenced in the source code."
+            },
+            {
+              "field": "parameters.key_size",
+              "value": 2048,
+              "source": "source_code",
+              "snippet": "key_size=2048",
+              "evidence_type": "pattern_match",
+              "explanation": "The key size of 2048 bits was inferred from the standard algorithm specification."
+            },
+            {
+              "field": "parameters.mode",
+              "value": "ECB",
+              "source": "source_code",
+              "snippet": "Cipher.getInstance('RSA/ECB/OAEPWithSHA-256AndMGF1Padding')",
+              "evidence_type": "explicit",
+              "explanation": "The ECB mode is explicitly referenced in the source code."
+            }
+          ],
+          "confidence_reason": "High confidence because explicit cryptographic evidence and standard API patterns were found in the source code."
+        },
+        "validation_issues": [
+          "Cipher mode ECB is not applicable to asymmetric RSA."
+        ]
+      },
+      {
+        "asset_id": "DISC-002",
+        "asset_type": "algorithm",
+        "algorithm": "ECDSA",
+        "family": "asymmetric",
+        "parameters": {
+          "key_size": 256,
+          "mode": null,
+          "curve": "P-256",
+          "padding": null,
+          "hash": null
+        },
+        "protocol": null,
+        "crypto_library": null,
+        "purpose": "signing",
+        "implementation": "Signature.getInstance('SHA256withECDSA')",
+        "location": {
+          "file": "src/auth/JwtTokenSigner.java",
+          "line": 105
+        },
+        "evidence": "Signature.getInstance('SHA256withECDSA')",
+        "confidence": 0.95,
+        "validation_status": "confirmed",
+        "crypto_properties": {
+          "primitive": "signature",
+          "crypto_role": "signature",
+          "crypto_functions": [
+            "sign",
+            "verify"
+          ],
+          "classical_security_bits": 128,
+          "nist_quantum_level": 0,
+          "quantum_vulnerable": true,
+          "quantum_attack_type": "Shor",
+          "deprecated_or_disallowed": false,
+          "oid": "1.2.840.10045.3.1.7"
+        },
+        "explainability": {
+          "method": "deterministic",
+          "detection_method": "deterministic",
+          "ai_used": false,
+          "summary": "ECDSA-P256 was identified through an explicit deterministic cryptographic API pattern.",
+          "decision_reason": "The deterministic extraction rule successfully identified the algorithm and key parameters without requiring AI assistance.",
+          "field_evidence": [
+            {
+              "field": "algorithm",
+              "value": "ECDSA-P256",
+              "source": "source_code",
+              "snippet": "Signature.getInstance('SHA256withECDSA')",
+              "evidence_type": "explicit",
+              "explanation": "The ECDSA-P256 algorithm is explicitly referenced in the source code."
+            },
+            {
+              "field": "parameters.key_size",
+              "value": 256,
+              "source": "source_code",
+              "snippet": "Signature.getInstance('SHA256withECDSA')",
+              "evidence_type": "explicit",
+              "explanation": "The key size is explicitly specified as 256."
+            },
+            {
+              "field": "parameters.curve",
+              "value": "P-256",
+              "source": "source_code",
+              "snippet": "P-256",
+              "evidence_type": "pattern_match",
+              "explanation": "The elliptic curve P-256 is explicitly referenced in the source code."
+            }
+          ],
+          "confidence_reason": "High confidence because explicit cryptographic evidence and standard API patterns were found in the source code."
+        }
+      },
+      {
+        "asset_id": "DISC-003",
+        "asset_type": "algorithm",
+        "algorithm": "AES-256-GCM",
+        "family": "symmetric",
+        "parameters": {
+          "key_size": 256,
+          "mode": "GCM",
+          "curve": null,
+          "padding": null,
+          "hash": null
+        },
+        "protocol": null,
+        "crypto_library": null,
+        "purpose": "encryption",
+        "implementation": "Cipher.getInstance('AES/GCM/NoPadding')",
+        "location": {
+          "file": "src/db/CustomerVaultStorage.java",
+          "line": 88
+        },
+        "evidence": "Cipher.getInstance('AES/GCM/NoPadding')",
+        "confidence": 0.99,
+        "validation_status": "confirmed",
+        "crypto_properties": {
+          "primitive": "symmetric",
+          "crypto_role": "encryption",
+          "crypto_functions": [
+            "encrypt",
+            "decrypt"
+          ],
+          "classical_security_bits": 256,
+          "nist_quantum_level": 5,
+          "quantum_vulnerable": false,
+          "quantum_attack_type": "Grover",
+          "deprecated_or_disallowed": false,
+          "oid": "2.16.840.1.101.3.4.1.42"
+        },
+        "explainability": {
+          "method": "deterministic",
+          "detection_method": "deterministic",
+          "ai_used": false,
+          "summary": "AES-256 was identified through an explicit deterministic cryptographic API pattern.",
+          "decision_reason": "The deterministic extraction rule successfully identified the algorithm and key parameters without requiring AI assistance.",
+          "field_evidence": [
+            {
+              "field": "algorithm",
+              "value": "AES-256",
+              "source": "source_code",
+              "snippet": "Cipher.getInstance('AES/GCM/NoPadding')",
+              "evidence_type": "explicit",
+              "explanation": "The AES-256 algorithm is explicitly referenced in the source code."
+            },
+            {
+              "field": "parameters.key_size",
+              "value": 256,
+              "source": "source_code",
+              "snippet": "key_size=256",
+              "evidence_type": "pattern_match",
+              "explanation": "The key size of 256 bits was inferred from the standard algorithm specification."
+            },
+            {
+              "field": "parameters.mode",
+              "value": "GCM",
+              "source": "source_code",
+              "snippet": "Cipher.getInstance('AES/GCM/NoPadding')",
+              "evidence_type": "explicit",
+              "explanation": "The GCM mode is explicitly referenced in the source code."
+            }
+          ],
+          "confidence_reason": "High confidence because explicit cryptographic evidence and standard API patterns were found in the source code."
+        }
+      },
+      {
+        "asset_id": "DISC-004",
+        "asset_type": "algorithm",
+        "algorithm": "3DES-CBC",
+        "family": "symmetric",
+        "parameters": {
+          "key_size": 168,
+          "mode": "CBC",
+          "curve": null,
+          "padding": null,
+          "hash": null
+        },
+        "protocol": null,
+        "crypto_library": null,
+        "purpose": "encryption",
+        "implementation": "Cipher.getInstance('DESede/CBC/PKCS5Padding')",
+        "location": {
+          "file": "src/legacy/LegacyCardStorage.java",
+          "line": 12
+        },
+        "evidence": "Cipher.getInstance('DESede/CBC/PKCS5Padding')",
+        "confidence": 0.92,
+        "validation_status": "confirmed",
+        "crypto_properties": {
+          "primitive": "symmetric",
+          "crypto_role": "encryption",
+          "crypto_functions": [
+            "encrypt",
+            "decrypt"
+          ],
+          "classical_security_bits": 168,
+          "nist_quantum_level": 1,
+          "quantum_vulnerable": false,
+          "quantum_attack_type": "Grover",
+          "deprecated_or_disallowed": false,
+          "oid": null
+        },
+        "explainability": {
+          "method": "deterministic",
+          "detection_method": "deterministic",
+          "ai_used": false,
+          "summary": "3DES-CBC was identified through an explicit deterministic cryptographic API pattern.",
+          "decision_reason": "The deterministic extraction rule successfully identified the algorithm and key parameters without requiring AI assistance.",
+          "field_evidence": [
+            {
+              "field": "algorithm",
+              "value": "3DES-CBC",
+              "source": "source_code",
+              "snippet": "Cipher.getInstance('DESede/CBC/PKCS5Padding')",
+              "evidence_type": "pattern_match",
+              "explanation": "The 3DES-CBC cryptographic API is associated with 3DES-CBC in matched deterministic rules."
+            },
+            {
+              "field": "parameters.key_size",
+              "value": 168,
+              "source": "source_code",
+              "snippet": "key_size=168",
+              "evidence_type": "pattern_match",
+              "explanation": "The key size of 168 bits was inferred from the standard algorithm specification."
+            },
+            {
+              "field": "parameters.mode",
+              "value": "CBC",
+              "source": "source_code",
+              "snippet": "Cipher.getInstance('DESede/CBC/PKCS5Padding')",
+              "evidence_type": "explicit",
+              "explanation": "The CBC mode is explicitly referenced in the source code."
+            }
+          ],
+          "confidence_reason": "High confidence because explicit cryptographic evidence and standard API patterns were found in the source code."
+        }
+      },
+      {
+        "asset_id": "DISC-005",
+        "asset_type": "algorithm",
+        "algorithm": "ML-KEM-768",
+        "family": "pqc",
+        "parameters": {
+          "key_size": 768,
+          "mode": null,
+          "curve": null,
+          "padding": null,
+          "hash": null,
+          "claim": "NIST FIPS 203"
+        },
+        "protocol": null,
+        "crypto_library": null,
+        "purpose": "key_establishment",
+        "implementation": "MLKEMGenerator.generateSecretKey(768)",
+        "location": {
+          "file": "src/pqc/QuantumSafeChannel.java",
+          "line": 34
+        },
+        "evidence": "MLKEMGenerator.generateSecretKey(768)",
+        "confidence": 0.99,
+        "validation_status": "confirmed",
+        "crypto_properties": {
+          "primitive": "key_establishment",
+          "crypto_role": "key_establishment",
+          "crypto_functions": [
+            "key-encapsulate"
+          ],
+          "classical_security_bits": 192,
+          "nist_quantum_level": 3,
+          "quantum_vulnerable": false,
+          "quantum_attack_type": "None known",
+          "deprecated_or_disallowed": false,
+          "oid": "2.16.840.1.101.3.4.4.2"
+        },
+        "explainability": {
+          "method": "deterministic",
+          "detection_method": "deterministic",
+          "ai_used": false,
+          "summary": "ML-KEM-768 was identified through an explicit deterministic cryptographic API pattern.",
+          "decision_reason": "The deterministic extraction rule successfully identified the algorithm and key parameters without requiring AI assistance.",
+          "field_evidence": [
+            {
+              "field": "algorithm",
+              "value": "ML-KEM-768",
+              "source": "source_code",
+              "snippet": "MLKEMGenerator.generateSecretKey(768)",
+              "evidence_type": "pattern_match",
+              "explanation": "The ML-KEM-768 cryptographic API is associated with ML-KEM-768 in matched deterministic rules."
+            },
+            {
+              "field": "parameters.key_size",
+              "value": 768,
+              "source": "source_code",
+              "snippet": "MLKEMGenerator.generateSecretKey(768)",
+              "evidence_type": "explicit",
+              "explanation": "The key size is explicitly specified as 768."
+            }
+          ],
+          "confidence_reason": "High confidence because explicit cryptographic evidence and standard API patterns were found in the source code."
+        }
+      },
+      {
+        "asset_id": "DISC-006",
+        "asset_type": "algorithm",
+        "algorithm": "RSA-3072",
+        "family": "asymmetric",
+        "parameters": {
+          "key_size": 3072,
+          "mode": null,
+          "curve": null,
+          "padding": null,
+          "hash": null
+        },
+        "protocol": null,
+        "crypto_library": null,
+        "purpose": "authentication",
+        "implementation": "KeyPairGenerator.getInstance('RSA')",
+        "location": {
+          "file": "src/ssh/SshHostKeyManager.java",
+          "line": 57
+        },
+        "evidence": "KeyPairGenerator.getInstance('RSA')",
+        "confidence": 0.97,
+        "validation_status": "confirmed",
+        "crypto_properties": {
+          "primitive": "asymmetric",
+          "crypto_role": "signature",
+          "crypto_functions": [
+            "sign",
+            "verify",
+            "encrypt",
+            "decrypt",
+            "key-encapsulate"
+          ],
+          "classical_security_bits": 128,
+          "nist_quantum_level": 0,
+          "quantum_vulnerable": true,
+          "quantum_attack_type": "Shor",
+          "deprecated_or_disallowed": false,
+          "oid": "1.2.840.113549.1.1.1"
+        },
+        "explainability": {
+          "method": "deterministic",
+          "detection_method": "deterministic",
+          "ai_used": false,
+          "summary": "RSA-3072 was identified through an explicit deterministic cryptographic API pattern.",
+          "decision_reason": "The deterministic extraction rule successfully identified the algorithm and key parameters without requiring AI assistance.",
+          "field_evidence": [
+            {
+              "field": "algorithm",
+              "value": "RSA-3072",
+              "source": "source_code",
+              "snippet": "KeyPairGenerator.getInstance('RSA')",
+              "evidence_type": "explicit",
+              "explanation": "The RSA-3072 algorithm is explicitly referenced in the source code."
+            },
+            {
+              "field": "parameters.key_size",
+              "value": 3072,
+              "source": "source_code",
+              "snippet": "key_size=3072",
+              "evidence_type": "pattern_match",
+              "explanation": "The key size of 3072 bits was inferred from the standard algorithm specification."
+            }
+          ],
+          "confidence_reason": "High confidence because explicit cryptographic evidence and standard API patterns were found in the source code."
+        }
+      },
+      {
+        "asset_id": "DISC-007",
+        "asset_type": "algorithm",
+        "algorithm": "RSA-4096",
+        "family": "asymmetric",
+        "parameters": {
+          "key_size": 4096,
+          "mode": null,
+          "curve": null,
+          "padding": null,
+          "hash": "SHA-512"
+        },
+        "protocol": null,
+        "crypto_library": null,
+        "purpose": "signing",
+        "implementation": "Signature.getInstance('SHA512withRSA')",
+        "location": {
+          "file": "src/firmware/FirmwareSigner.java",
+          "line": 76
+        },
+        "evidence": "Signature.getInstance('SHA512withRSA')",
+        "confidence": 0.96,
+        "validation_status": "confirmed",
+        "crypto_properties": {
+          "primitive": "asymmetric",
+          "crypto_role": "signature",
+          "crypto_functions": [
+            "sign",
+            "verify",
+            "encrypt",
+            "decrypt",
+            "key-encapsulate"
+          ],
+          "classical_security_bits": 152,
+          "nist_quantum_level": 0,
+          "quantum_vulnerable": true,
+          "quantum_attack_type": "Shor",
+          "deprecated_or_disallowed": false,
+          "oid": "1.2.840.113549.1.1.1"
+        },
+        "explainability": {
+          "method": "deterministic",
+          "detection_method": "deterministic",
+          "ai_used": false,
+          "summary": "RSA-4096 was identified through an explicit deterministic cryptographic API pattern.",
+          "decision_reason": "The deterministic extraction rule successfully identified the algorithm and key parameters without requiring AI assistance.",
+          "field_evidence": [
+            {
+              "field": "algorithm",
+              "value": "RSA-4096",
+              "source": "source_code",
+              "snippet": "Signature.getInstance('SHA512withRSA')",
+              "evidence_type": "explicit",
+              "explanation": "The RSA-4096 algorithm is explicitly referenced in the source code."
+            },
+            {
+              "field": "parameters.key_size",
+              "value": 4096,
+              "source": "source_code",
+              "snippet": "key_size=4096",
+              "evidence_type": "pattern_match",
+              "explanation": "The key size of 4096 bits was inferred from the standard algorithm specification."
+            },
+            {
+              "field": "parameters.hash",
+              "value": "SHA-512",
+              "source": "source_code",
+              "snippet": "SHA-512",
+              "evidence_type": "pattern_match",
+              "explanation": "The SHA-512 digest is referenced in the source code."
+            }
+          ],
+          "confidence_reason": "High confidence because explicit cryptographic evidence and standard API patterns were found in the source code."
+        }
+      },
+      {
+        "asset_id": "DISC-008",
+        "asset_type": "algorithm",
+        "algorithm": "Ed25519",
+        "family": "asymmetric",
+        "parameters": {
+          "key_size": 256,
+          "mode": null,
+          "curve": "Ed25519",
+          "padding": null,
+          "hash": null
+        },
+        "protocol": null,
+        "crypto_library": null,
+        "purpose": "signing",
+        "implementation": "Signature.getInstance('Ed25519')",
+        "location": {
+          "file": "src/mobile/DeviceAuthenticator.java",
+          "line": 119
+        },
+        "evidence": "Signature.getInstance('Ed25519')",
+        "confidence": 0.98,
+        "validation_status": "confirmed",
+        "crypto_properties": {
+          "primitive": "signature",
+          "crypto_role": "signature",
+          "crypto_functions": [
+            "sign",
+            "verify"
+          ],
+          "classical_security_bits": 128,
+          "nist_quantum_level": 0,
+          "quantum_vulnerable": true,
+          "quantum_attack_type": "Shor",
+          "deprecated_or_disallowed": false,
+          "oid": "1.3.101.112"
+        },
+        "explainability": {
+          "method": "deterministic",
+          "detection_method": "deterministic",
+          "ai_used": false,
+          "summary": "Ed25519 was identified through an explicit deterministic cryptographic API pattern.",
+          "decision_reason": "The deterministic extraction rule successfully identified the algorithm and key parameters without requiring AI assistance.",
+          "field_evidence": [
+            {
+              "field": "algorithm",
+              "value": "Ed25519",
+              "source": "source_code",
+              "snippet": "Signature.getInstance('Ed25519')",
+              "evidence_type": "explicit",
+              "explanation": "The Ed25519 algorithm is explicitly referenced in the source code."
+            },
+            {
+              "field": "parameters.key_size",
+              "value": 256,
+              "source": "source_code",
+              "snippet": "key_size=256",
+              "evidence_type": "pattern_match",
+              "explanation": "The key size of 256 bits was inferred from the standard algorithm specification."
+            },
+            {
+              "field": "parameters.curve",
+              "value": "Ed25519",
+              "source": "source_code",
+              "snippet": "Signature.getInstance('Ed25519')",
+              "evidence_type": "explicit",
+              "explanation": "The elliptic curve Ed25519 is explicitly referenced in the source code."
+            }
+          ],
+          "confidence_reason": "High confidence because explicit cryptographic evidence and standard API patterns were found in the source code."
+        }
+      },
+      {
+        "asset_id": "DISC-009",
+        "asset_type": "algorithm",
+        "algorithm": "AES-128-GCM",
+        "family": "symmetric",
+        "parameters": {
+          "key_size": 128,
+          "mode": "GCM",
+          "curve": null,
+          "padding": null,
+          "hash": null
+        },
+        "protocol": null,
+        "crypto_library": null,
+        "purpose": "encryption",
+        "implementation": "Cipher.getInstance('AES/GCM/NoPadding')",
+        "location": {
+          "file": "src/backup/BackupEncryptionService.java",
+          "line": 63
+        },
+        "evidence": "Cipher.getInstance('AES/GCM/NoPadding')",
+        "confidence": 0.99,
+        "validation_status": "confirmed",
+        "crypto_properties": {
+          "primitive": "symmetric",
+          "crypto_role": "encryption",
+          "crypto_functions": [
+            "encrypt",
+            "decrypt"
+          ],
+          "classical_security_bits": 128,
+          "nist_quantum_level": 1,
+          "quantum_vulnerable": false,
+          "quantum_attack_type": "Grover",
+          "deprecated_or_disallowed": false,
+          "oid": "2.16.840.1.101.3.4.1.2"
+        },
+        "explainability": {
+          "method": "deterministic",
+          "detection_method": "deterministic",
+          "ai_used": false,
+          "summary": "AES-128 was identified through an explicit deterministic cryptographic API pattern.",
+          "decision_reason": "The deterministic extraction rule successfully identified the algorithm and key parameters without requiring AI assistance.",
+          "field_evidence": [
+            {
+              "field": "algorithm",
+              "value": "AES-128",
+              "source": "source_code",
+              "snippet": "Cipher.getInstance('AES/GCM/NoPadding')",
+              "evidence_type": "explicit",
+              "explanation": "The AES-128 algorithm is explicitly referenced in the source code."
+            },
+            {
+              "field": "parameters.key_size",
+              "value": 128,
+              "source": "source_code",
+              "snippet": "key_size=128",
+              "evidence_type": "pattern_match",
+              "explanation": "The key size of 128 bits was inferred from the standard algorithm specification."
+            },
+            {
+              "field": "parameters.mode",
+              "value": "GCM",
+              "source": "source_code",
+              "snippet": "Cipher.getInstance('AES/GCM/NoPadding')",
+              "evidence_type": "explicit",
+              "explanation": "The GCM mode is explicitly referenced in the source code."
+            }
+          ],
+          "confidence_reason": "High confidence because explicit cryptographic evidence and standard API patterns were found in the source code."
+        }
+      },
+      {
+        "asset_id": "DISC-010",
+        "asset_type": "algorithm",
+        "algorithm": "X25519+ML-KEM-768",
+        "family": "asymmetric",
+        "parameters": {
+          "key_size": 1024,
+          "mode": "hybrid",
+          "curve": "X25519",
+          "padding": null,
+          "hash": null,
+          "classical": "X25519",
+          "pqc": "ML-KEM-768",
+          "standard": "NIST FIPS 203"
+        },
+        "protocol": null,
+        "crypto_library": null,
+        "purpose": "key_establishment",
+        "implementation": "HybridKeyExchange.of(X25519, MLKEM768)",
+        "location": {
+          "file": "src/tls/HybridKeyExchange.java",
+          "line": 91
+        },
+        "evidence": "HybridKeyExchange.of(X25519, MLKEM768)",
+        "confidence": 0.97,
+        "validation_status": "confirmed",
+        "crypto_properties": {
+          "primitive": "key_establishment",
+          "crypto_role": "key_establishment",
+          "crypto_functions": [
+            "key-agreement",
+            "key-encapsulate"
+          ],
+          "classical_security_bits": 192,
+          "nist_quantum_level": 3,
+          "quantum_vulnerable": false,
+          "quantum_attack_type": "None known",
+          "deprecated_or_disallowed": false,
+          "oid": "1.3.6.1.4.1.6222.1.1"
+        },
+        "explainability": {
+          "method": "deterministic",
+          "detection_method": "deterministic",
+          "ai_used": false,
+          "summary": "X25519+ML-KEM-768 was identified through an explicit deterministic cryptographic API pattern.",
+          "decision_reason": "The deterministic extraction rule successfully identified the algorithm and key parameters without requiring AI assistance.",
+          "field_evidence": [
+            {
+              "field": "algorithm",
+              "value": "X25519+ML-KEM-768",
+              "source": "source_code",
+              "snippet": "HybridKeyExchange.of(X25519, MLKEM768)",
+              "evidence_type": "pattern_match",
+              "explanation": "The X25519+ML-KEM-768 cryptographic API is associated with X25519+ML-KEM-768 in matched deterministic rules."
+            },
+            {
+              "field": "parameters.key_size",
+              "value": 1024,
+              "source": "source_code",
+              "snippet": "key_size=1024",
+              "evidence_type": "pattern_match",
+              "explanation": "The key size of 1024 bits was inferred from the standard algorithm specification."
+            },
+            {
+              "field": "parameters.mode",
+              "value": "HYBRID",
+              "source": "source_code",
+              "snippet": "HybridKeyExchange.of(X25519, MLKEM768)",
+              "evidence_type": "explicit",
+              "explanation": "The HYBRID mode is explicitly referenced in the source code."
+            },
+            {
+              "field": "parameters.curve",
+              "value": "X25519",
+              "source": "source_code",
+              "snippet": "HybridKeyExchange.of(X25519, MLKEM768)",
+              "evidence_type": "explicit",
+              "explanation": "The elliptic curve X25519 is explicitly referenced in the source code."
+            }
+          ],
+          "confidence_reason": "High confidence because explicit cryptographic evidence and standard API patterns were found in the source code."
+        }
+      }
+    ],
+    "cyclonedx_bom": {
+      "bomFormat": "CycloneDX",
+      "specVersion": "1.6",
+      "serialNumber": "urn:uuid:1caba292-5a97-48e2-9e11-c6301e089dd9",
+      "version": 1,
+      "metadata": {
+        "timestamp": "2026-09-28T06:26:28Z",
+        "tools": {
+          "components": [
+            {
+              "type": "application",
+              "name": "ECDAT-Discovery-CBOM-Agent",
+              "version": "1.1.0"
+            }
+          ]
+        },
+        "component": {
+          "type": "application",
+          "name": "enterprise-banking-core"
+        }
+      },
+      "components": [
+        {
+          "type": "cryptographic-asset",
+          "bom-ref": "crypto-asset-DISC-001-rsa-2048",
+          "name": "RSA-2048",
+          "description": "key_establishment",
+          "evidence": {
+            "occurrences": [
+              {
+                "location": "src/security/TlsKeyManager.java",
+                "line": 42,
+                "additionalContext": "Cipher.getInstance('RSA/ECB/OAEPWithSHA-256AndMGF1Padding')",
+                "symbol": "Cipher.getInstance('RSA/ECB/OAEPWithSHA-256AndMGF1Padding')"
+              }
+            ]
+          },
+          "cryptoProperties": {
+            "assetType": "algorithm",
+            "algorithmProperties": {
+              "primitive": "asymmetric",
+              "parameterSetIdentifier": "2048",
+              "curve": null,
+              "executionEnvironment": "software-plain",
+              "implementationPlatform": "Cipher.getInstance('RSA/ECB/OAEPWithSHA-256AndMGF1Padding')",
+              "certificationLevel": "none",
+              "mode": "ECB",
+              "padding": null,
+              "cryptoFunctions": [
+                "sign",
+                "verify",
+                "encrypt",
+                "decrypt",
+                "key-encapsulate"
+              ],
+              "classicalSecurityLevel": 112,
+              "nistQuantumSecurityLevel": 0
+            },
+            "protocolProperties": null,
+            "oid": "1.2.840.113549.1.1.1"
+          },
+          "properties": [
+            {
+              "name": "ecdat:validation_status",
+              "value": "needs_review"
+            },
+            {
+              "name": "ecdat:detection_method",
+              "value": "deterministic"
+            },
+            {
+              "name": "ecdat:confidence",
+              "value": "0.98"
+            },
+            {
+              "name": "ecdat:quantum_vulnerable",
+              "value": "true"
+            },
+            {
+              "name": "ecdat:quantum_attack_type",
+              "value": "Shor"
+            },
+            {
+              "name": "ecdat:deprecated_or_disallowed",
+              "value": "false"
+            }
+          ]
+        },
+        {
+          "type": "cryptographic-asset",
+          "bom-ref": "crypto-asset-DISC-002-ecdsa",
+          "name": "ECDSA",
+          "description": "signing",
+          "evidence": {
+            "occurrences": [
+              {
+                "location": "src/auth/JwtTokenSigner.java",
+                "line": 105,
+                "additionalContext": "Signature.getInstance('SHA256withECDSA')",
+                "symbol": "Signature.getInstance('SHA256withECDSA')"
+              }
+            ]
+          },
+          "cryptoProperties": {
+            "assetType": "algorithm",
+            "algorithmProperties": {
+              "primitive": "signature",
+              "parameterSetIdentifier": "256",
+              "curve": "P-256",
+              "executionEnvironment": "software-plain",
+              "implementationPlatform": "Signature.getInstance('SHA256withECDSA')",
+              "certificationLevel": "none",
+              "mode": null,
+              "padding": null,
+              "cryptoFunctions": [
+                "sign",
+                "verify"
+              ],
+              "classicalSecurityLevel": 128,
+              "nistQuantumSecurityLevel": 0
+            },
+            "protocolProperties": null,
+            "oid": "1.2.840.10045.3.1.7"
+          },
+          "properties": [
+            {
+              "name": "ecdat:validation_status",
+              "value": "confirmed"
+            },
+            {
+              "name": "ecdat:detection_method",
+              "value": "deterministic"
+            },
+            {
+              "name": "ecdat:confidence",
+              "value": "0.95"
+            },
+            {
+              "name": "ecdat:quantum_vulnerable",
+              "value": "true"
+            },
+            {
+              "name": "ecdat:quantum_attack_type",
+              "value": "Shor"
+            },
+            {
+              "name": "ecdat:deprecated_or_disallowed",
+              "value": "false"
+            }
+          ]
+        },
+        {
+          "type": "cryptographic-asset",
+          "bom-ref": "crypto-asset-DISC-003-aes-256-gcm",
+          "name": "AES-256-GCM",
+          "description": "encryption",
+          "evidence": {
+            "occurrences": [
+              {
+                "location": "src/db/CustomerVaultStorage.java",
+                "line": 88,
+                "additionalContext": "Cipher.getInstance('AES/GCM/NoPadding')",
+                "symbol": "Cipher.getInstance('AES/GCM/NoPadding')"
+              }
+            ]
+          },
+          "cryptoProperties": {
+            "assetType": "algorithm",
+            "algorithmProperties": {
+              "primitive": "symmetric",
+              "parameterSetIdentifier": "256",
+              "curve": null,
+              "executionEnvironment": "software-plain",
+              "implementationPlatform": "Cipher.getInstance('AES/GCM/NoPadding')",
+              "certificationLevel": "none",
+              "mode": "GCM",
+              "padding": null,
+              "cryptoFunctions": [
+                "encrypt",
+                "decrypt"
+              ],
+              "classicalSecurityLevel": 256,
+              "nistQuantumSecurityLevel": 5
+            },
+            "protocolProperties": null,
+            "oid": "2.16.840.1.101.3.4.1.42"
+          },
+          "properties": [
+            {
+              "name": "ecdat:validation_status",
+              "value": "confirmed"
+            },
+            {
+              "name": "ecdat:detection_method",
+              "value": "deterministic"
+            },
+            {
+              "name": "ecdat:confidence",
+              "value": "0.99"
+            },
+            {
+              "name": "ecdat:quantum_vulnerable",
+              "value": "false"
+            },
+            {
+              "name": "ecdat:quantum_attack_type",
+              "value": "Grover"
+            },
+            {
+              "name": "ecdat:deprecated_or_disallowed",
+              "value": "false"
+            }
+          ]
+        },
+        {
+          "type": "cryptographic-asset",
+          "bom-ref": "crypto-asset-DISC-004-3des-cbc",
+          "name": "3DES-CBC",
+          "description": "encryption",
+          "evidence": {
+            "occurrences": [
+              {
+                "location": "src/legacy/LegacyCardStorage.java",
+                "line": 12,
+                "additionalContext": "Cipher.getInstance('DESede/CBC/PKCS5Padding')",
+                "symbol": "Cipher.getInstance('DESede/CBC/PKCS5Padding')"
+              }
+            ]
+          },
+          "cryptoProperties": {
+            "assetType": "algorithm",
+            "algorithmProperties": {
+              "primitive": "symmetric",
+              "parameterSetIdentifier": "168",
+              "curve": null,
+              "executionEnvironment": "software-plain",
+              "implementationPlatform": "Cipher.getInstance('DESede/CBC/PKCS5Padding')",
+              "certificationLevel": "none",
+              "mode": "CBC",
+              "padding": null,
+              "cryptoFunctions": [
+                "encrypt",
+                "decrypt"
+              ],
+              "classicalSecurityLevel": 168,
+              "nistQuantumSecurityLevel": 1
+            },
+            "protocolProperties": null,
+            "oid": null
+          },
+          "properties": [
+            {
+              "name": "ecdat:validation_status",
+              "value": "confirmed"
+            },
+            {
+              "name": "ecdat:detection_method",
+              "value": "deterministic"
+            },
+            {
+              "name": "ecdat:confidence",
+              "value": "0.92"
+            },
+            {
+              "name": "ecdat:quantum_vulnerable",
+              "value": "false"
+            },
+            {
+              "name": "ecdat:quantum_attack_type",
+              "value": "Grover"
+            },
+            {
+              "name": "ecdat:deprecated_or_disallowed",
+              "value": "false"
+            }
+          ]
+        },
+        {
+          "type": "cryptographic-asset",
+          "bom-ref": "crypto-asset-DISC-005-ml-kem-768",
+          "name": "ML-KEM-768",
+          "description": "key_establishment",
+          "evidence": {
+            "occurrences": [
+              {
+                "location": "src/pqc/QuantumSafeChannel.java",
+                "line": 34,
+                "additionalContext": "MLKEMGenerator.generateSecretKey(768)",
+                "symbol": "MLKEMGenerator.generateSecretKey(768)"
+              }
+            ]
+          },
+          "cryptoProperties": {
+            "assetType": "algorithm",
+            "algorithmProperties": {
+              "primitive": "key_establishment",
+              "parameterSetIdentifier": "768",
+              "curve": null,
+              "executionEnvironment": "software-plain",
+              "implementationPlatform": "MLKEMGenerator.generateSecretKey(768)",
+              "certificationLevel": "none",
+              "mode": null,
+              "padding": null,
+              "cryptoFunctions": [
+                "key-encapsulate"
+              ],
+              "classicalSecurityLevel": 192,
+              "nistQuantumSecurityLevel": 3
+            },
+            "protocolProperties": null,
+            "oid": "2.16.840.1.101.3.4.4.2"
+          },
+          "properties": [
+            {
+              "name": "ecdat:validation_status",
+              "value": "confirmed"
+            },
+            {
+              "name": "ecdat:detection_method",
+              "value": "deterministic"
+            },
+            {
+              "name": "ecdat:confidence",
+              "value": "0.99"
+            },
+            {
+              "name": "ecdat:quantum_vulnerable",
+              "value": "false"
+            },
+            {
+              "name": "ecdat:quantum_attack_type",
+              "value": "None known"
+            },
+            {
+              "name": "ecdat:deprecated_or_disallowed",
+              "value": "false"
+            }
+          ]
+        },
+        {
+          "type": "cryptographic-asset",
+          "bom-ref": "crypto-asset-DISC-006-rsa-3072",
+          "name": "RSA-3072",
+          "description": "authentication",
+          "evidence": {
+            "occurrences": [
+              {
+                "location": "src/ssh/SshHostKeyManager.java",
+                "line": 57,
+                "additionalContext": "KeyPairGenerator.getInstance('RSA')",
+                "symbol": "KeyPairGenerator.getInstance('RSA')"
+              }
+            ]
+          },
+          "cryptoProperties": {
+            "assetType": "algorithm",
+            "algorithmProperties": {
+              "primitive": "asymmetric",
+              "parameterSetIdentifier": "3072",
+              "curve": null,
+              "executionEnvironment": "software-plain",
+              "implementationPlatform": "KeyPairGenerator.getInstance('RSA')",
+              "certificationLevel": "none",
+              "mode": null,
+              "padding": null,
+              "cryptoFunctions": [
+                "sign",
+                "verify",
+                "encrypt",
+                "decrypt",
+                "key-encapsulate"
+              ],
+              "classicalSecurityLevel": 128,
+              "nistQuantumSecurityLevel": 0
+            },
+            "protocolProperties": null,
+            "oid": "1.2.840.113549.1.1.1"
+          },
+          "properties": [
+            {
+              "name": "ecdat:validation_status",
+              "value": "confirmed"
+            },
+            {
+              "name": "ecdat:detection_method",
+              "value": "deterministic"
+            },
+            {
+              "name": "ecdat:confidence",
+              "value": "0.97"
+            },
+            {
+              "name": "ecdat:quantum_vulnerable",
+              "value": "true"
+            },
+            {
+              "name": "ecdat:quantum_attack_type",
+              "value": "Shor"
+            },
+            {
+              "name": "ecdat:deprecated_or_disallowed",
+              "value": "false"
+            }
+          ]
+        },
+        {
+          "type": "cryptographic-asset",
+          "bom-ref": "crypto-asset-DISC-007-rsa-4096",
+          "name": "RSA-4096",
+          "description": "signing",
+          "evidence": {
+            "occurrences": [
+              {
+                "location": "src/firmware/FirmwareSigner.java",
+                "line": 76,
+                "additionalContext": "Signature.getInstance('SHA512withRSA')",
+                "symbol": "Signature.getInstance('SHA512withRSA')"
+              }
+            ]
+          },
+          "cryptoProperties": {
+            "assetType": "algorithm",
+            "algorithmProperties": {
+              "primitive": "asymmetric",
+              "parameterSetIdentifier": "4096",
+              "curve": null,
+              "executionEnvironment": "software-plain",
+              "implementationPlatform": "Signature.getInstance('SHA512withRSA')",
+              "certificationLevel": "none",
+              "mode": null,
+              "padding": null,
+              "cryptoFunctions": [
+                "sign",
+                "verify",
+                "encrypt",
+                "decrypt",
+                "key-encapsulate"
+              ],
+              "classicalSecurityLevel": 152,
+              "nistQuantumSecurityLevel": 0
+            },
+            "protocolProperties": null,
+            "oid": "1.2.840.113549.1.1.1"
+          },
+          "properties": [
+            {
+              "name": "ecdat:validation_status",
+              "value": "confirmed"
+            },
+            {
+              "name": "ecdat:detection_method",
+              "value": "deterministic"
+            },
+            {
+              "name": "ecdat:confidence",
+              "value": "0.96"
+            },
+            {
+              "name": "ecdat:quantum_vulnerable",
+              "value": "true"
+            },
+            {
+              "name": "ecdat:quantum_attack_type",
+              "value": "Shor"
+            },
+            {
+              "name": "ecdat:deprecated_or_disallowed",
+              "value": "false"
+            }
+          ]
+        },
+        {
+          "type": "cryptographic-asset",
+          "bom-ref": "crypto-asset-DISC-008-ed25519",
+          "name": "Ed25519",
+          "description": "signing",
+          "evidence": {
+            "occurrences": [
+              {
+                "location": "src/mobile/DeviceAuthenticator.java",
+                "line": 119,
+                "additionalContext": "Signature.getInstance('Ed25519')",
+                "symbol": "Signature.getInstance('Ed25519')"
+              }
+            ]
+          },
+          "cryptoProperties": {
+            "assetType": "algorithm",
+            "algorithmProperties": {
+              "primitive": "signature",
+              "parameterSetIdentifier": "256",
+              "curve": "Ed25519",
+              "executionEnvironment": "software-plain",
+              "implementationPlatform": "Signature.getInstance('Ed25519')",
+              "certificationLevel": "none",
+              "mode": null,
+              "padding": null,
+              "cryptoFunctions": [
+                "sign",
+                "verify"
+              ],
+              "classicalSecurityLevel": 128,
+              "nistQuantumSecurityLevel": 0
+            },
+            "protocolProperties": null,
+            "oid": "1.3.101.112"
+          },
+          "properties": [
+            {
+              "name": "ecdat:validation_status",
+              "value": "confirmed"
+            },
+            {
+              "name": "ecdat:detection_method",
+              "value": "deterministic"
+            },
+            {
+              "name": "ecdat:confidence",
+              "value": "0.98"
+            },
+            {
+              "name": "ecdat:quantum_vulnerable",
+              "value": "true"
+            },
+            {
+              "name": "ecdat:quantum_attack_type",
+              "value": "Shor"
+            },
+            {
+              "name": "ecdat:deprecated_or_disallowed",
+              "value": "false"
+            }
+          ]
+        },
+        {
+          "type": "cryptographic-asset",
+          "bom-ref": "crypto-asset-DISC-009-aes-128-gcm",
+          "name": "AES-128-GCM",
+          "description": "encryption",
+          "evidence": {
+            "occurrences": [
+              {
+                "location": "src/backup/BackupEncryptionService.java",
+                "line": 63,
+                "additionalContext": "Cipher.getInstance('AES/GCM/NoPadding')",
+                "symbol": "Cipher.getInstance('AES/GCM/NoPadding')"
+              }
+            ]
+          },
+          "cryptoProperties": {
+            "assetType": "algorithm",
+            "algorithmProperties": {
+              "primitive": "symmetric",
+              "parameterSetIdentifier": "128",
+              "curve": null,
+              "executionEnvironment": "software-plain",
+              "implementationPlatform": "Cipher.getInstance('AES/GCM/NoPadding')",
+              "certificationLevel": "none",
+              "mode": "GCM",
+              "padding": null,
+              "cryptoFunctions": [
+                "encrypt",
+                "decrypt"
+              ],
+              "classicalSecurityLevel": 128,
+              "nistQuantumSecurityLevel": 1
+            },
+            "protocolProperties": null,
+            "oid": "2.16.840.1.101.3.4.1.2"
+          },
+          "properties": [
+            {
+              "name": "ecdat:validation_status",
+              "value": "confirmed"
+            },
+            {
+              "name": "ecdat:detection_method",
+              "value": "deterministic"
+            },
+            {
+              "name": "ecdat:confidence",
+              "value": "0.99"
+            },
+            {
+              "name": "ecdat:quantum_vulnerable",
+              "value": "false"
+            },
+            {
+              "name": "ecdat:quantum_attack_type",
+              "value": "Grover"
+            },
+            {
+              "name": "ecdat:deprecated_or_disallowed",
+              "value": "false"
+            }
+          ]
+        },
+        {
+          "type": "cryptographic-asset",
+          "bom-ref": "crypto-asset-DISC-010-x25519+ml-kem-768",
+          "name": "X25519+ML-KEM-768",
+          "description": "key_establishment",
+          "evidence": {
+            "occurrences": [
+              {
+                "location": "src/tls/HybridKeyExchange.java",
+                "line": 91,
+                "additionalContext": "HybridKeyExchange.of(X25519, MLKEM768)",
+                "symbol": "HybridKeyExchange.of(X25519, MLKEM768)"
+              }
+            ]
+          },
+          "cryptoProperties": {
+            "assetType": "algorithm",
+            "algorithmProperties": {
+              "primitive": "key_establishment",
+              "parameterSetIdentifier": "1024",
+              "curve": "X25519",
+              "executionEnvironment": "software-plain",
+              "implementationPlatform": "HybridKeyExchange.of(X25519, MLKEM768)",
+              "certificationLevel": "none",
+              "mode": "hybrid",
+              "padding": null,
+              "cryptoFunctions": [
+                "key-agreement",
+                "key-encapsulate"
+              ],
+              "classicalSecurityLevel": 192,
+              "nistQuantumSecurityLevel": 3
+            },
+            "protocolProperties": null,
+            "oid": "1.3.6.1.4.1.6222.1.1"
+          },
+          "properties": [
+            {
+              "name": "ecdat:validation_status",
+              "value": "confirmed"
+            },
+            {
+              "name": "ecdat:detection_method",
+              "value": "deterministic"
+            },
+            {
+              "name": "ecdat:confidence",
+              "value": "0.97"
+            },
+            {
+              "name": "ecdat:quantum_vulnerable",
+              "value": "false"
+            },
+            {
+              "name": "ecdat:quantum_attack_type",
+              "value": "None known"
+            },
+            {
+              "name": "ecdat:deprecated_or_disallowed",
+              "value": "false"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "intermediate_stages": {
+    "hndl_assessments": {
+      "DISC-001": {
+        "asset_id": "DISC-001",
+        "algorithm": "RSA-2048",
+        "hndl": {
+          "applicable": true,
+          "hndl_exposure_score": 0.03,
+          "urgency_tier": "MEDIUM",
+          "harvestability": "MEDIUM",
+          "quantum_vulnerable": true,
+          "future_decryption_risk": "MEDIUM",
+          "data_lifetime_years": 8.0,
+          "timeline": {
+            "assessment_year": 2026,
+            "data_lifetime_years": 8.0,
+            "data_expiry_year": 2034.0,
+            "projected_crqc_year": 2033,
+            "exposure_window_years": 1.0,
+            "compromised_while_sensitive": true,
+            "timeline_factor": 0.125
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 1.0,
+            "harvestability_score": 0.3,
+            "impact_multiplier": 0.8,
+            "pfs_status": "UNKNOWN"
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "Algorithm RSA-2048 is susceptible to quantum cryptanalysis (susceptibility: 1.00). Protected data has a confidentiality requirement of 8.0 years (expiring in 2034). Under the configured 2033 quantum-horizon scenario (source: USER_OVERRIDE), an exposure window of 1.0 years exists where harvested ciphertext can be decrypted while still confidential. Interception score is 0.30 (PFS status could not be verified from code evidence.), yielding a composite HNDL exposure score of 0.0300.",
+          "mitigation_priority": "P2 - Plan migration to post-quantum algorithm; ensure perfect forward secrecy (PFS) is enforced in the interim."
+        }
+      },
+      "DISC-002": {
+        "asset_id": "DISC-002",
+        "algorithm": "ECDSA",
+        "hndl": {
+          "applicable": true,
+          "hndl_exposure_score": 0.009,
+          "urgency_tier": "LOW",
+          "harvestability": "MEDIUM",
+          "quantum_vulnerable": true,
+          "future_decryption_risk": "LOW",
+          "data_lifetime_years": 8.0,
+          "timeline": {
+            "assessment_year": 2026,
+            "data_lifetime_years": 8.0,
+            "data_expiry_year": 2034.0,
+            "projected_crqc_year": 2033,
+            "exposure_window_years": 1.0,
+            "compromised_while_sensitive": true,
+            "timeline_factor": 0.125
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 0.3,
+            "harvestability_score": 0.3,
+            "impact_multiplier": 0.8,
+            "pfs_status": "UNKNOWN"
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "Algorithm ECDSA is susceptible to quantum cryptanalysis (susceptibility: 0.30). Protected data has a confidentiality requirement of 8.0 years (expiring in 2034). Under the configured 2033 quantum-horizon scenario (source: USER_OVERRIDE), an exposure window of 1.0 years exists where harvested ciphertext can be decrypted while still confidential. Interception score is 0.30 (PFS status could not be verified from code evidence.), yielding a composite HNDL exposure score of 0.0090.",
+          "mitigation_priority": "P3 - Monitor quantum threat timeline; replace legacy ciphers with AES-256 or PQC standard during regular upgrade."
+        }
+      },
+      "DISC-003": {
+        "asset_id": "DISC-003",
+        "algorithm": "AES-256-GCM",
+        "hndl": {
+          "applicable": true,
+          "hndl_exposure_score": 0.0015,
+          "urgency_tier": "LOW",
+          "harvestability": "MEDIUM",
+          "quantum_vulnerable": false,
+          "future_decryption_risk": "LOW",
+          "data_lifetime_years": 8.0,
+          "timeline": {
+            "assessment_year": 2026,
+            "data_lifetime_years": 8.0,
+            "data_expiry_year": 2034.0,
+            "projected_crqc_year": 2033,
+            "exposure_window_years": 1.0,
+            "compromised_while_sensitive": true,
+            "timeline_factor": 0.125
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 0.05,
+            "harvestability_score": 0.3,
+            "impact_multiplier": 0.8,
+            "pfs_status": "UNKNOWN"
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "Algorithm AES-256-GCM is susceptible to quantum cryptanalysis (susceptibility: 0.05). Protected data has a confidentiality requirement of 8.0 years (expiring in 2034). Under the configured 2033 quantum-horizon scenario (source: USER_OVERRIDE), an exposure window of 1.0 years exists where harvested ciphertext can be decrypted while still confidential. Interception score is 0.30 (PFS status could not be verified from code evidence.), yielding a composite HNDL exposure score of 0.0015.",
+          "mitigation_priority": "P3 - Monitor quantum threat timeline; replace legacy ciphers with AES-256 or PQC standard during regular upgrade."
+        }
+      },
+      "DISC-004": {
+        "asset_id": "DISC-004",
+        "algorithm": "3DES-CBC",
+        "hndl": {
+          "applicable": true,
+          "hndl_exposure_score": 0.024,
+          "urgency_tier": "MEDIUM",
+          "harvestability": "MEDIUM",
+          "quantum_vulnerable": true,
+          "future_decryption_risk": "MEDIUM",
+          "data_lifetime_years": 8.0,
+          "timeline": {
+            "assessment_year": 2026,
+            "data_lifetime_years": 8.0,
+            "data_expiry_year": 2034.0,
+            "projected_crqc_year": 2033,
+            "exposure_window_years": 1.0,
+            "compromised_while_sensitive": true,
+            "timeline_factor": 0.125
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 0.8,
+            "harvestability_score": 0.3,
+            "impact_multiplier": 0.8,
+            "pfs_status": "UNKNOWN"
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "Algorithm 3DES-CBC is susceptible to quantum cryptanalysis (susceptibility: 0.80). Protected data has a confidentiality requirement of 8.0 years (expiring in 2034). Under the configured 2033 quantum-horizon scenario (source: USER_OVERRIDE), an exposure window of 1.0 years exists where harvested ciphertext can be decrypted while still confidential. Interception score is 0.30 (PFS status could not be verified from code evidence.), yielding a composite HNDL exposure score of 0.0240.",
+          "mitigation_priority": "P2 - Plan migration to post-quantum algorithm; ensure perfect forward secrecy (PFS) is enforced in the interim."
+        }
+      },
+      "DISC-005": {
+        "asset_id": "DISC-005",
+        "algorithm": "ML-KEM-768",
+        "hndl": {
+          "applicable": false,
+          "hndl_exposure_score": 0.0,
+          "urgency_tier": "NEGLIGIBLE",
+          "harvestability": "MEDIUM",
+          "quantum_vulnerable": false,
+          "future_decryption_risk": "NEGLIGIBLE",
+          "data_lifetime_years": 8.0,
+          "timeline": {
+            "assessment_year": 2026,
+            "data_lifetime_years": 8.0,
+            "data_expiry_year": 2034.0,
+            "projected_crqc_year": 2033,
+            "exposure_window_years": 1.0,
+            "compromised_while_sensitive": true,
+            "timeline_factor": 0.125
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 0.0,
+            "harvestability_score": 0.3,
+            "impact_multiplier": 0.8,
+            "pfs_status": "UNKNOWN"
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "Algorithm ML-KEM-768 is post-quantum secure or non-confidentiality-bearing (cryptographic susceptibility: 0.0). No retrospective decryption threat exists.",
+          "mitigation_priority": "P4 - No immediate HNDL mitigation required under current timeline scenario."
+        }
+      },
+      "DISC-006": {
+        "asset_id": "DISC-006",
+        "algorithm": "RSA-3072",
+        "hndl": {
+          "applicable": true,
+          "hndl_exposure_score": 0.03,
+          "urgency_tier": "MEDIUM",
+          "harvestability": "MEDIUM",
+          "quantum_vulnerable": true,
+          "future_decryption_risk": "MEDIUM",
+          "data_lifetime_years": 8.0,
+          "timeline": {
+            "assessment_year": 2026,
+            "data_lifetime_years": 8.0,
+            "data_expiry_year": 2034.0,
+            "projected_crqc_year": 2033,
+            "exposure_window_years": 1.0,
+            "compromised_while_sensitive": true,
+            "timeline_factor": 0.125
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 1.0,
+            "harvestability_score": 0.3,
+            "impact_multiplier": 0.8,
+            "pfs_status": "UNKNOWN"
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "Algorithm RSA-3072 is susceptible to quantum cryptanalysis (susceptibility: 1.00). Protected data has a confidentiality requirement of 8.0 years (expiring in 2034). Under the configured 2033 quantum-horizon scenario (source: USER_OVERRIDE), an exposure window of 1.0 years exists where harvested ciphertext can be decrypted while still confidential. Interception score is 0.30 (PFS status could not be verified from code evidence.), yielding a composite HNDL exposure score of 0.0300.",
+          "mitigation_priority": "P2 - Plan migration to post-quantum algorithm; ensure perfect forward secrecy (PFS) is enforced in the interim."
+        }
+      },
+      "DISC-007": {
+        "asset_id": "DISC-007",
+        "algorithm": "RSA-4096",
+        "hndl": {
+          "applicable": true,
+          "hndl_exposure_score": 0.03,
+          "urgency_tier": "MEDIUM",
+          "harvestability": "MEDIUM",
+          "quantum_vulnerable": true,
+          "future_decryption_risk": "MEDIUM",
+          "data_lifetime_years": 8.0,
+          "timeline": {
+            "assessment_year": 2026,
+            "data_lifetime_years": 8.0,
+            "data_expiry_year": 2034.0,
+            "projected_crqc_year": 2033,
+            "exposure_window_years": 1.0,
+            "compromised_while_sensitive": true,
+            "timeline_factor": 0.125
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 1.0,
+            "harvestability_score": 0.3,
+            "impact_multiplier": 0.8,
+            "pfs_status": "UNKNOWN"
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "Algorithm RSA-4096 is susceptible to quantum cryptanalysis (susceptibility: 1.00). Protected data has a confidentiality requirement of 8.0 years (expiring in 2034). Under the configured 2033 quantum-horizon scenario (source: USER_OVERRIDE), an exposure window of 1.0 years exists where harvested ciphertext can be decrypted while still confidential. Interception score is 0.30 (PFS status could not be verified from code evidence.), yielding a composite HNDL exposure score of 0.0300.",
+          "mitigation_priority": "P2 - Plan migration to post-quantum algorithm; ensure perfect forward secrecy (PFS) is enforced in the interim."
+        }
+      },
+      "DISC-008": {
+        "asset_id": "DISC-008",
+        "algorithm": "Ed25519",
+        "hndl": {
+          "applicable": true,
+          "hndl_exposure_score": 0.009,
+          "urgency_tier": "LOW",
+          "harvestability": "MEDIUM",
+          "quantum_vulnerable": true,
+          "future_decryption_risk": "LOW",
+          "data_lifetime_years": 8.0,
+          "timeline": {
+            "assessment_year": 2026,
+            "data_lifetime_years": 8.0,
+            "data_expiry_year": 2034.0,
+            "projected_crqc_year": 2033,
+            "exposure_window_years": 1.0,
+            "compromised_while_sensitive": true,
+            "timeline_factor": 0.125
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 0.3,
+            "harvestability_score": 0.3,
+            "impact_multiplier": 0.8,
+            "pfs_status": "UNKNOWN"
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "Algorithm Ed25519 is susceptible to quantum cryptanalysis (susceptibility: 0.30). Protected data has a confidentiality requirement of 8.0 years (expiring in 2034). Under the configured 2033 quantum-horizon scenario (source: USER_OVERRIDE), an exposure window of 1.0 years exists where harvested ciphertext can be decrypted while still confidential. Interception score is 0.30 (PFS status could not be verified from code evidence.), yielding a composite HNDL exposure score of 0.0090.",
+          "mitigation_priority": "P3 - Monitor quantum threat timeline; replace legacy ciphers with AES-256 or PQC standard during regular upgrade."
+        }
+      },
+      "DISC-009": {
+        "asset_id": "DISC-009",
+        "algorithm": "AES-128-GCM",
+        "hndl": {
+          "applicable": true,
+          "hndl_exposure_score": 0.0105,
+          "urgency_tier": "MEDIUM",
+          "harvestability": "MEDIUM",
+          "quantum_vulnerable": false,
+          "future_decryption_risk": "MEDIUM",
+          "data_lifetime_years": 8.0,
+          "timeline": {
+            "assessment_year": 2026,
+            "data_lifetime_years": 8.0,
+            "data_expiry_year": 2034.0,
+            "projected_crqc_year": 2033,
+            "exposure_window_years": 1.0,
+            "compromised_while_sensitive": true,
+            "timeline_factor": 0.125
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 0.35,
+            "harvestability_score": 0.3,
+            "impact_multiplier": 0.8,
+            "pfs_status": "UNKNOWN"
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "Algorithm AES-128-GCM is susceptible to quantum cryptanalysis (susceptibility: 0.35). Protected data has a confidentiality requirement of 8.0 years (expiring in 2034). Under the configured 2033 quantum-horizon scenario (source: USER_OVERRIDE), an exposure window of 1.0 years exists where harvested ciphertext can be decrypted while still confidential. Interception score is 0.30 (PFS status could not be verified from code evidence.), yielding a composite HNDL exposure score of 0.0105.",
+          "mitigation_priority": "P2 - Plan migration to post-quantum algorithm; ensure perfect forward secrecy (PFS) is enforced in the interim."
+        }
+      },
+      "DISC-010": {
+        "asset_id": "DISC-010",
+        "algorithm": "X25519+ML-KEM-768",
+        "hndl": {
+          "applicable": false,
+          "hndl_exposure_score": 0.0,
+          "urgency_tier": "NEGLIGIBLE",
+          "harvestability": "MEDIUM",
+          "quantum_vulnerable": false,
+          "future_decryption_risk": "NEGLIGIBLE",
+          "data_lifetime_years": 8.0,
+          "timeline": {
+            "assessment_year": 2026,
+            "data_lifetime_years": 8.0,
+            "data_expiry_year": 2034.0,
+            "projected_crqc_year": 2033,
+            "exposure_window_years": 1.0,
+            "compromised_while_sensitive": true,
+            "timeline_factor": 0.125
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 0.0,
+            "harvestability_score": 0.3,
+            "impact_multiplier": 0.8,
+            "pfs_status": "UNKNOWN"
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "Algorithm X25519+ML-KEM-768 is post-quantum secure or non-confidentiality-bearing (cryptographic susceptibility: 0.0). No retrospective decryption threat exists.",
+          "mitigation_priority": "P4 - No immediate HNDL mitigation required under current timeline scenario."
+        }
+      }
+    },
+    "mosca_assessments": {
+      "DISC-001": {
+        "asset_id": "DISC-001",
+        "algorithm": "RSA-2048",
+        "mosca": {
+          "inequality_satisfied": false,
+          "mosca_risk_index": 0.0,
+          "urgency_tier": "NEGLIGIBLE",
+          "migration_posture": "SAFE_BUFFER",
+          "quantum_vulnerable": true,
+          "algorithm_category": "PUBLIC_KEY",
+          "migration_priority": "HIGH",
+          "overall_risk": "HIGH",
+          "variables": {
+            "X_migration_time_years": 3.2,
+            "Y_data_lifetime_years": 1.0,
+            "Z_time_to_crqc_years": 7.0,
+            "X_plus_Y": 4.2
+          },
+          "timeline": {
+            "assessment_year": 2026,
+            "projected_crqc_year": 2033,
+            "migration_completion_year": 2029.2,
+            "data_expiry_year": 2027.0,
+            "mosca_deficit_years": -2.8,
+            "must_start_by_year": 2029.8,
+            "is_overdue_to_start": false,
+            "is_applicable": true
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 1.0,
+            "impact_multiplier": 0.8,
+            "crypto_agility_score": 2,
+            "migration_complexity_score": 3
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "SAFE BUFFER: For RSA-2048 (X=3.2 yrs, Y=1.0 yrs, Z=7.0 yrs), combined timeline X + Y (4.2 yrs) is within the 7.0-year quantum horizon. A safety buffer of 2.8 years exists before quantum threat arrival under the 2033 scenario (source: USER_OVERRIDE). Migration must begin by 2030.",
+          "migration_guidance": "P3 - SAFE BUFFER: Current migration buffer is sufficient under 2033 scenario. Review timeline periodically."
+        },
+        "mosca_assessment": {
+          "inequality_satisfied": false,
+          "mosca_risk_index": 0.0,
+          "urgency_tier": "NEGLIGIBLE",
+          "migration_posture": "SAFE_BUFFER",
+          "quantum_vulnerable": true,
+          "algorithm_category": "PUBLIC_KEY",
+          "migration_priority": "HIGH",
+          "overall_risk": "HIGH",
+          "variables": {
+            "X_migration_time_years": 3.2,
+            "Y_data_lifetime_years": 1.0,
+            "Z_time_to_crqc_years": 7.0,
+            "X_plus_Y": 4.2
+          },
+          "timeline": {
+            "assessment_year": 2026,
+            "projected_crqc_year": 2033,
+            "migration_completion_year": 2029.2,
+            "data_expiry_year": 2027.0,
+            "mosca_deficit_years": -2.8,
+            "must_start_by_year": 2029.8,
+            "is_overdue_to_start": false,
+            "is_applicable": true
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 1.0,
+            "impact_multiplier": 0.8,
+            "crypto_agility_score": 2,
+            "migration_complexity_score": 3
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "SAFE BUFFER: For RSA-2048 (X=3.2 yrs, Y=1.0 yrs, Z=7.0 yrs), combined timeline X + Y (4.2 yrs) is within the 7.0-year quantum horizon. A safety buffer of 2.8 years exists before quantum threat arrival under the 2033 scenario (source: USER_OVERRIDE). Migration must begin by 2030.",
+          "migration_guidance": "P3 - SAFE BUFFER: Current migration buffer is sufficient under 2033 scenario. Review timeline periodically."
+        }
+      },
+      "DISC-002": {
+        "asset_id": "DISC-002",
+        "algorithm": "ECDSA",
+        "mosca": {
+          "inequality_satisfied": true,
+          "mosca_risk_index": 0.21,
+          "urgency_tier": "HIGH",
+          "migration_posture": "MIGRATION_DEFICIT",
+          "quantum_vulnerable": true,
+          "algorithm_category": "PUBLIC_KEY",
+          "migration_priority": "HIGH",
+          "overall_risk": "HIGH",
+          "variables": {
+            "X_migration_time_years": 3.2,
+            "Y_data_lifetime_years": 8.0,
+            "Z_time_to_crqc_years": 7.0,
+            "X_plus_Y": 11.2
+          },
+          "timeline": {
+            "assessment_year": 2026,
+            "projected_crqc_year": 2033,
+            "migration_completion_year": 2029.2,
+            "data_expiry_year": 2034.0,
+            "mosca_deficit_years": 4.2,
+            "must_start_by_year": 2029.8,
+            "is_overdue_to_start": false,
+            "is_applicable": true
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 0.7,
+            "impact_multiplier": 0.8,
+            "crypto_agility_score": 2,
+            "migration_complexity_score": 3
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "MOSCA DEFICIT: For ECDSA (migration time X=3.2 yrs, data shelf-life Y=8.0 yrs, time to CRQC Z=7.0 yrs), the combined timeline X + Y (11.2 yrs) exceeds time to CRQC (7.0 yrs). This results in a 4.2-year Mosca deficit where sensitive data remains vulnerable to quantum decryption after projected 2033 CRQC arrival (source: USER_OVERRIDE), yielding a Mosca risk index of 0.2100.",
+          "migration_guidance": "P1 - HIGH PRIORITY: Allocate engineering resources to migrate ECDSA before 2030 deadline."
+        },
+        "mosca_assessment": {
+          "inequality_satisfied": true,
+          "mosca_risk_index": 0.21,
+          "urgency_tier": "HIGH",
+          "migration_posture": "MIGRATION_DEFICIT",
+          "quantum_vulnerable": true,
+          "algorithm_category": "PUBLIC_KEY",
+          "migration_priority": "HIGH",
+          "overall_risk": "HIGH",
+          "variables": {
+            "X_migration_time_years": 3.2,
+            "Y_data_lifetime_years": 8.0,
+            "Z_time_to_crqc_years": 7.0,
+            "X_plus_Y": 11.2
+          },
+          "timeline": {
+            "assessment_year": 2026,
+            "projected_crqc_year": 2033,
+            "migration_completion_year": 2029.2,
+            "data_expiry_year": 2034.0,
+            "mosca_deficit_years": 4.2,
+            "must_start_by_year": 2029.8,
+            "is_overdue_to_start": false,
+            "is_applicable": true
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 0.7,
+            "impact_multiplier": 0.8,
+            "crypto_agility_score": 2,
+            "migration_complexity_score": 3
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "MOSCA DEFICIT: For ECDSA (migration time X=3.2 yrs, data shelf-life Y=8.0 yrs, time to CRQC Z=7.0 yrs), the combined timeline X + Y (11.2 yrs) exceeds time to CRQC (7.0 yrs). This results in a 4.2-year Mosca deficit where sensitive data remains vulnerable to quantum decryption after projected 2033 CRQC arrival (source: USER_OVERRIDE), yielding a Mosca risk index of 0.2100.",
+          "migration_guidance": "P1 - HIGH PRIORITY: Allocate engineering resources to migrate ECDSA before 2030 deadline."
+        }
+      },
+      "DISC-003": {
+        "asset_id": "DISC-003",
+        "algorithm": "AES-256-GCM",
+        "mosca": {
+          "inequality_satisfied": false,
+          "mosca_risk_index": 0.0,
+          "urgency_tier": "NEGLIGIBLE",
+          "migration_posture": "QUANTUM_RESILIENT",
+          "quantum_vulnerable": false,
+          "algorithm_category": "SYMMETRIC",
+          "migration_priority": "LOW",
+          "overall_risk": "LOW",
+          "variables": {
+            "X_migration_time_years": 3.2,
+            "Y_data_lifetime_years": 8.0,
+            "Z_time_to_crqc_years": 7.0,
+            "X_plus_Y": 11.2
+          },
+          "timeline": {
+            "assessment_year": 2026,
+            "projected_crqc_year": 2033,
+            "migration_completion_year": 2029.2,
+            "data_expiry_year": 2034.0,
+            "mosca_deficit_years": 0.0,
+            "must_start_by_year": null,
+            "is_overdue_to_start": false,
+            "is_applicable": false
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 0.0,
+            "impact_multiplier": 0.8,
+            "crypto_agility_score": 2,
+            "migration_complexity_score": 3
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "Algorithm AES-256-GCM is post-quantum secure or quantum-resilient (cryptographic susceptibility: 0.00). Mosca inequality X + Y > Z is not applicable.",
+          "migration_guidance": "P4 - SAFE: AES-256-GCM is post-quantum secure. No migration required under current standards."
+        },
+        "mosca_assessment": {
+          "inequality_satisfied": false,
+          "mosca_risk_index": 0.0,
+          "urgency_tier": "NEGLIGIBLE",
+          "migration_posture": "QUANTUM_RESILIENT",
+          "quantum_vulnerable": false,
+          "algorithm_category": "SYMMETRIC",
+          "migration_priority": "LOW",
+          "overall_risk": "LOW",
+          "variables": {
+            "X_migration_time_years": 3.2,
+            "Y_data_lifetime_years": 8.0,
+            "Z_time_to_crqc_years": 7.0,
+            "X_plus_Y": 11.2
+          },
+          "timeline": {
+            "assessment_year": 2026,
+            "projected_crqc_year": 2033,
+            "migration_completion_year": 2029.2,
+            "data_expiry_year": 2034.0,
+            "mosca_deficit_years": 0.0,
+            "must_start_by_year": null,
+            "is_overdue_to_start": false,
+            "is_applicable": false
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 0.0,
+            "impact_multiplier": 0.8,
+            "crypto_agility_score": 2,
+            "migration_complexity_score": 3
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "Algorithm AES-256-GCM is post-quantum secure or quantum-resilient (cryptographic susceptibility: 0.00). Mosca inequality X + Y > Z is not applicable.",
+          "migration_guidance": "P4 - SAFE: AES-256-GCM is post-quantum secure. No migration required under current standards."
+        }
+      },
+      "DISC-004": {
+        "asset_id": "DISC-004",
+        "algorithm": "3DES-CBC",
+        "mosca": {
+          "inequality_satisfied": true,
+          "mosca_risk_index": 0.24,
+          "urgency_tier": "HIGH",
+          "migration_posture": "MIGRATION_DEFICIT",
+          "quantum_vulnerable": true,
+          "algorithm_category": "SYMMETRIC",
+          "migration_priority": "HIGH",
+          "overall_risk": "HIGH",
+          "variables": {
+            "X_migration_time_years": 3.2,
+            "Y_data_lifetime_years": 8.0,
+            "Z_time_to_crqc_years": 7.0,
+            "X_plus_Y": 11.2
+          },
+          "timeline": {
+            "assessment_year": 2026,
+            "projected_crqc_year": 2033,
+            "migration_completion_year": 2029.2,
+            "data_expiry_year": 2034.0,
+            "mosca_deficit_years": 4.2,
+            "must_start_by_year": 2029.8,
+            "is_overdue_to_start": false,
+            "is_applicable": true
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 0.8,
+            "impact_multiplier": 0.8,
+            "crypto_agility_score": 2,
+            "migration_complexity_score": 3
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "MOSCA DEFICIT: For 3DES-CBC (migration time X=3.2 yrs, data shelf-life Y=8.0 yrs, time to CRQC Z=7.0 yrs), the combined timeline X + Y (11.2 yrs) exceeds time to CRQC (7.0 yrs). This results in a 4.2-year Mosca deficit where sensitive data remains vulnerable to quantum decryption after projected 2033 CRQC arrival (source: USER_OVERRIDE), yielding a Mosca risk index of 0.2400.",
+          "migration_guidance": "P1 - HIGH PRIORITY: Allocate engineering resources to migrate 3DES-CBC before 2030 deadline."
+        },
+        "mosca_assessment": {
+          "inequality_satisfied": true,
+          "mosca_risk_index": 0.24,
+          "urgency_tier": "HIGH",
+          "migration_posture": "MIGRATION_DEFICIT",
+          "quantum_vulnerable": true,
+          "algorithm_category": "SYMMETRIC",
+          "migration_priority": "HIGH",
+          "overall_risk": "HIGH",
+          "variables": {
+            "X_migration_time_years": 3.2,
+            "Y_data_lifetime_years": 8.0,
+            "Z_time_to_crqc_years": 7.0,
+            "X_plus_Y": 11.2
+          },
+          "timeline": {
+            "assessment_year": 2026,
+            "projected_crqc_year": 2033,
+            "migration_completion_year": 2029.2,
+            "data_expiry_year": 2034.0,
+            "mosca_deficit_years": 4.2,
+            "must_start_by_year": 2029.8,
+            "is_overdue_to_start": false,
+            "is_applicable": true
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 0.8,
+            "impact_multiplier": 0.8,
+            "crypto_agility_score": 2,
+            "migration_complexity_score": 3
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "MOSCA DEFICIT: For 3DES-CBC (migration time X=3.2 yrs, data shelf-life Y=8.0 yrs, time to CRQC Z=7.0 yrs), the combined timeline X + Y (11.2 yrs) exceeds time to CRQC (7.0 yrs). This results in a 4.2-year Mosca deficit where sensitive data remains vulnerable to quantum decryption after projected 2033 CRQC arrival (source: USER_OVERRIDE), yielding a Mosca risk index of 0.2400.",
+          "migration_guidance": "P1 - HIGH PRIORITY: Allocate engineering resources to migrate 3DES-CBC before 2030 deadline."
+        }
+      },
+      "DISC-005": {
+        "asset_id": "DISC-005",
+        "algorithm": "ML-KEM-768",
+        "mosca": {
+          "inequality_satisfied": false,
+          "mosca_risk_index": 0.0,
+          "urgency_tier": "NEGLIGIBLE",
+          "migration_posture": "QUANTUM_RESILIENT",
+          "quantum_vulnerable": false,
+          "algorithm_category": "PQC",
+          "migration_priority": "NEGLIGIBLE",
+          "overall_risk": "NEGLIGIBLE",
+          "variables": {
+            "X_migration_time_years": 3.2,
+            "Y_data_lifetime_years": 1.0,
+            "Z_time_to_crqc_years": 7.0,
+            "X_plus_Y": 4.2
+          },
+          "timeline": {
+            "assessment_year": 2026,
+            "projected_crqc_year": 2033,
+            "migration_completion_year": 2029.2,
+            "data_expiry_year": 2027.0,
+            "mosca_deficit_years": 0.0,
+            "must_start_by_year": null,
+            "is_overdue_to_start": false,
+            "is_applicable": false
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 0.0,
+            "impact_multiplier": 0.8,
+            "crypto_agility_score": 2,
+            "migration_complexity_score": 3
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "Algorithm ML-KEM-768 is post-quantum secure or quantum-resilient (cryptographic susceptibility: 0.00). Mosca inequality X + Y > Z is not applicable.",
+          "migration_guidance": "P4 - SAFE: ML-KEM-768 is post-quantum secure. No migration required under current standards."
+        },
+        "mosca_assessment": {
+          "inequality_satisfied": false,
+          "mosca_risk_index": 0.0,
+          "urgency_tier": "NEGLIGIBLE",
+          "migration_posture": "QUANTUM_RESILIENT",
+          "quantum_vulnerable": false,
+          "algorithm_category": "PQC",
+          "migration_priority": "NEGLIGIBLE",
+          "overall_risk": "NEGLIGIBLE",
+          "variables": {
+            "X_migration_time_years": 3.2,
+            "Y_data_lifetime_years": 1.0,
+            "Z_time_to_crqc_years": 7.0,
+            "X_plus_Y": 4.2
+          },
+          "timeline": {
+            "assessment_year": 2026,
+            "projected_crqc_year": 2033,
+            "migration_completion_year": 2029.2,
+            "data_expiry_year": 2027.0,
+            "mosca_deficit_years": 0.0,
+            "must_start_by_year": null,
+            "is_overdue_to_start": false,
+            "is_applicable": false
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 0.0,
+            "impact_multiplier": 0.8,
+            "crypto_agility_score": 2,
+            "migration_complexity_score": 3
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "Algorithm ML-KEM-768 is post-quantum secure or quantum-resilient (cryptographic susceptibility: 0.00). Mosca inequality X + Y > Z is not applicable.",
+          "migration_guidance": "P4 - SAFE: ML-KEM-768 is post-quantum secure. No migration required under current standards."
+        }
+      },
+      "DISC-006": {
+        "asset_id": "DISC-006",
+        "algorithm": "RSA-3072",
+        "mosca": {
+          "inequality_satisfied": true,
+          "mosca_risk_index": 0.1171,
+          "urgency_tier": "MEDIUM",
+          "migration_posture": "MIGRATION_DEFICIT",
+          "quantum_vulnerable": true,
+          "algorithm_category": "PUBLIC_KEY",
+          "migration_priority": "HIGH",
+          "overall_risk": "HIGH",
+          "variables": {
+            "X_migration_time_years": 3.2,
+            "Y_data_lifetime_years": 5.0,
+            "Z_time_to_crqc_years": 7.0,
+            "X_plus_Y": 8.2
+          },
+          "timeline": {
+            "assessment_year": 2026,
+            "projected_crqc_year": 2033,
+            "migration_completion_year": 2029.2,
+            "data_expiry_year": 2031.0,
+            "mosca_deficit_years": 1.2,
+            "must_start_by_year": 2029.8,
+            "is_overdue_to_start": false,
+            "is_applicable": true
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 1.0,
+            "impact_multiplier": 0.8,
+            "crypto_agility_score": 2,
+            "migration_complexity_score": 3
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "MOSCA DEFICIT: For RSA-3072 (migration time X=3.2 yrs, data shelf-life Y=5.0 yrs, time to CRQC Z=7.0 yrs), the combined timeline X + Y (8.2 yrs) exceeds time to CRQC (7.0 yrs). This results in a 1.2-year Mosca deficit where sensitive data remains vulnerable to quantum decryption after projected 2033 CRQC arrival (source: USER_OVERRIDE), yielding a Mosca risk index of 0.1171.",
+          "migration_guidance": "P2 - MODERATE: Plan cryptographic migration in upcoming roadmap; start transition before 2030."
+        },
+        "mosca_assessment": {
+          "inequality_satisfied": true,
+          "mosca_risk_index": 0.1171,
+          "urgency_tier": "MEDIUM",
+          "migration_posture": "MIGRATION_DEFICIT",
+          "quantum_vulnerable": true,
+          "algorithm_category": "PUBLIC_KEY",
+          "migration_priority": "HIGH",
+          "overall_risk": "HIGH",
+          "variables": {
+            "X_migration_time_years": 3.2,
+            "Y_data_lifetime_years": 5.0,
+            "Z_time_to_crqc_years": 7.0,
+            "X_plus_Y": 8.2
+          },
+          "timeline": {
+            "assessment_year": 2026,
+            "projected_crqc_year": 2033,
+            "migration_completion_year": 2029.2,
+            "data_expiry_year": 2031.0,
+            "mosca_deficit_years": 1.2,
+            "must_start_by_year": 2029.8,
+            "is_overdue_to_start": false,
+            "is_applicable": true
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 1.0,
+            "impact_multiplier": 0.8,
+            "crypto_agility_score": 2,
+            "migration_complexity_score": 3
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "MOSCA DEFICIT: For RSA-3072 (migration time X=3.2 yrs, data shelf-life Y=5.0 yrs, time to CRQC Z=7.0 yrs), the combined timeline X + Y (8.2 yrs) exceeds time to CRQC (7.0 yrs). This results in a 1.2-year Mosca deficit where sensitive data remains vulnerable to quantum decryption after projected 2033 CRQC arrival (source: USER_OVERRIDE), yielding a Mosca risk index of 0.1171.",
+          "migration_guidance": "P2 - MODERATE: Plan cryptographic migration in upcoming roadmap; start transition before 2030."
+        }
+      },
+      "DISC-007": {
+        "asset_id": "DISC-007",
+        "algorithm": "RSA-4096",
+        "mosca": {
+          "inequality_satisfied": true,
+          "mosca_risk_index": 0.3,
+          "urgency_tier": "HIGH",
+          "migration_posture": "MIGRATION_DEFICIT",
+          "quantum_vulnerable": true,
+          "algorithm_category": "PUBLIC_KEY",
+          "migration_priority": "HIGH",
+          "overall_risk": "HIGH",
+          "variables": {
+            "X_migration_time_years": 3.2,
+            "Y_data_lifetime_years": 8.0,
+            "Z_time_to_crqc_years": 7.0,
+            "X_plus_Y": 11.2
+          },
+          "timeline": {
+            "assessment_year": 2026,
+            "projected_crqc_year": 2033,
+            "migration_completion_year": 2029.2,
+            "data_expiry_year": 2034.0,
+            "mosca_deficit_years": 4.2,
+            "must_start_by_year": 2029.8,
+            "is_overdue_to_start": false,
+            "is_applicable": true
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 1.0,
+            "impact_multiplier": 0.8,
+            "crypto_agility_score": 2,
+            "migration_complexity_score": 3
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "MOSCA DEFICIT: For RSA-4096 (migration time X=3.2 yrs, data shelf-life Y=8.0 yrs, time to CRQC Z=7.0 yrs), the combined timeline X + Y (11.2 yrs) exceeds time to CRQC (7.0 yrs). This results in a 4.2-year Mosca deficit where sensitive data remains vulnerable to quantum decryption after projected 2033 CRQC arrival (source: USER_OVERRIDE), yielding a Mosca risk index of 0.3000.",
+          "migration_guidance": "P1 - HIGH PRIORITY: Allocate engineering resources to migrate RSA-4096 before 2030 deadline."
+        },
+        "mosca_assessment": {
+          "inequality_satisfied": true,
+          "mosca_risk_index": 0.3,
+          "urgency_tier": "HIGH",
+          "migration_posture": "MIGRATION_DEFICIT",
+          "quantum_vulnerable": true,
+          "algorithm_category": "PUBLIC_KEY",
+          "migration_priority": "HIGH",
+          "overall_risk": "HIGH",
+          "variables": {
+            "X_migration_time_years": 3.2,
+            "Y_data_lifetime_years": 8.0,
+            "Z_time_to_crqc_years": 7.0,
+            "X_plus_Y": 11.2
+          },
+          "timeline": {
+            "assessment_year": 2026,
+            "projected_crqc_year": 2033,
+            "migration_completion_year": 2029.2,
+            "data_expiry_year": 2034.0,
+            "mosca_deficit_years": 4.2,
+            "must_start_by_year": 2029.8,
+            "is_overdue_to_start": false,
+            "is_applicable": true
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 1.0,
+            "impact_multiplier": 0.8,
+            "crypto_agility_score": 2,
+            "migration_complexity_score": 3
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "MOSCA DEFICIT: For RSA-4096 (migration time X=3.2 yrs, data shelf-life Y=8.0 yrs, time to CRQC Z=7.0 yrs), the combined timeline X + Y (11.2 yrs) exceeds time to CRQC (7.0 yrs). This results in a 4.2-year Mosca deficit where sensitive data remains vulnerable to quantum decryption after projected 2033 CRQC arrival (source: USER_OVERRIDE), yielding a Mosca risk index of 0.3000.",
+          "migration_guidance": "P1 - HIGH PRIORITY: Allocate engineering resources to migrate RSA-4096 before 2030 deadline."
+        }
+      },
+      "DISC-008": {
+        "asset_id": "DISC-008",
+        "algorithm": "Ed25519",
+        "mosca": {
+          "inequality_satisfied": true,
+          "mosca_risk_index": 0.21,
+          "urgency_tier": "HIGH",
+          "migration_posture": "MIGRATION_DEFICIT",
+          "quantum_vulnerable": true,
+          "algorithm_category": "PUBLIC_KEY",
+          "migration_priority": "HIGH",
+          "overall_risk": "HIGH",
+          "variables": {
+            "X_migration_time_years": 3.2,
+            "Y_data_lifetime_years": 8.0,
+            "Z_time_to_crqc_years": 7.0,
+            "X_plus_Y": 11.2
+          },
+          "timeline": {
+            "assessment_year": 2026,
+            "projected_crqc_year": 2033,
+            "migration_completion_year": 2029.2,
+            "data_expiry_year": 2034.0,
+            "mosca_deficit_years": 4.2,
+            "must_start_by_year": 2029.8,
+            "is_overdue_to_start": false,
+            "is_applicable": true
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 0.7,
+            "impact_multiplier": 0.8,
+            "crypto_agility_score": 2,
+            "migration_complexity_score": 3
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "MOSCA DEFICIT: For Ed25519 (migration time X=3.2 yrs, data shelf-life Y=8.0 yrs, time to CRQC Z=7.0 yrs), the combined timeline X + Y (11.2 yrs) exceeds time to CRQC (7.0 yrs). This results in a 4.2-year Mosca deficit where sensitive data remains vulnerable to quantum decryption after projected 2033 CRQC arrival (source: USER_OVERRIDE), yielding a Mosca risk index of 0.2100.",
+          "migration_guidance": "P1 - HIGH PRIORITY: Allocate engineering resources to migrate Ed25519 before 2030 deadline."
+        },
+        "mosca_assessment": {
+          "inequality_satisfied": true,
+          "mosca_risk_index": 0.21,
+          "urgency_tier": "HIGH",
+          "migration_posture": "MIGRATION_DEFICIT",
+          "quantum_vulnerable": true,
+          "algorithm_category": "PUBLIC_KEY",
+          "migration_priority": "HIGH",
+          "overall_risk": "HIGH",
+          "variables": {
+            "X_migration_time_years": 3.2,
+            "Y_data_lifetime_years": 8.0,
+            "Z_time_to_crqc_years": 7.0,
+            "X_plus_Y": 11.2
+          },
+          "timeline": {
+            "assessment_year": 2026,
+            "projected_crqc_year": 2033,
+            "migration_completion_year": 2029.2,
+            "data_expiry_year": 2034.0,
+            "mosca_deficit_years": 4.2,
+            "must_start_by_year": 2029.8,
+            "is_overdue_to_start": false,
+            "is_applicable": true
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 0.7,
+            "impact_multiplier": 0.8,
+            "crypto_agility_score": 2,
+            "migration_complexity_score": 3
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "MOSCA DEFICIT: For Ed25519 (migration time X=3.2 yrs, data shelf-life Y=8.0 yrs, time to CRQC Z=7.0 yrs), the combined timeline X + Y (11.2 yrs) exceeds time to CRQC (7.0 yrs). This results in a 4.2-year Mosca deficit where sensitive data remains vulnerable to quantum decryption after projected 2033 CRQC arrival (source: USER_OVERRIDE), yielding a Mosca risk index of 0.2100.",
+          "migration_guidance": "P1 - HIGH PRIORITY: Allocate engineering resources to migrate Ed25519 before 2030 deadline."
+        }
+      },
+      "DISC-009": {
+        "asset_id": "DISC-009",
+        "algorithm": "AES-128-GCM",
+        "mosca": {
+          "inequality_satisfied": true,
+          "mosca_risk_index": 0.045,
+          "urgency_tier": "MEDIUM",
+          "migration_posture": "MIGRATION_DEFICIT",
+          "quantum_vulnerable": false,
+          "algorithm_category": "SYMMETRIC",
+          "migration_priority": "MEDIUM",
+          "overall_risk": "MEDIUM",
+          "variables": {
+            "X_migration_time_years": 3.2,
+            "Y_data_lifetime_years": 8.0,
+            "Z_time_to_crqc_years": 7.0,
+            "X_plus_Y": 11.2
+          },
+          "timeline": {
+            "assessment_year": 2026,
+            "projected_crqc_year": 2033,
+            "migration_completion_year": 2029.2,
+            "data_expiry_year": 2034.0,
+            "mosca_deficit_years": 4.2,
+            "must_start_by_year": 2029.8,
+            "is_overdue_to_start": false,
+            "is_applicable": true
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 0.15,
+            "impact_multiplier": 0.8,
+            "crypto_agility_score": 2,
+            "migration_complexity_score": 3
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "MOSCA DEFICIT: For AES-128-GCM (migration time X=3.2 yrs, data shelf-life Y=8.0 yrs, time to CRQC Z=7.0 yrs), the combined timeline X + Y (11.2 yrs) exceeds time to CRQC (7.0 yrs). This results in a 4.2-year Mosca deficit where sensitive data remains vulnerable to quantum decryption after projected 2033 CRQC arrival (source: USER_OVERRIDE), yielding a Mosca risk index of 0.0450.",
+          "migration_guidance": "P2 - MODERATE: Plan cryptographic migration in upcoming roadmap; start transition before 2030."
+        },
+        "mosca_assessment": {
+          "inequality_satisfied": true,
+          "mosca_risk_index": 0.045,
+          "urgency_tier": "MEDIUM",
+          "migration_posture": "MIGRATION_DEFICIT",
+          "quantum_vulnerable": false,
+          "algorithm_category": "SYMMETRIC",
+          "migration_priority": "MEDIUM",
+          "overall_risk": "MEDIUM",
+          "variables": {
+            "X_migration_time_years": 3.2,
+            "Y_data_lifetime_years": 8.0,
+            "Z_time_to_crqc_years": 7.0,
+            "X_plus_Y": 11.2
+          },
+          "timeline": {
+            "assessment_year": 2026,
+            "projected_crqc_year": 2033,
+            "migration_completion_year": 2029.2,
+            "data_expiry_year": 2034.0,
+            "mosca_deficit_years": 4.2,
+            "must_start_by_year": 2029.8,
+            "is_overdue_to_start": false,
+            "is_applicable": true
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 0.15,
+            "impact_multiplier": 0.8,
+            "crypto_agility_score": 2,
+            "migration_complexity_score": 3
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "MOSCA DEFICIT: For AES-128-GCM (migration time X=3.2 yrs, data shelf-life Y=8.0 yrs, time to CRQC Z=7.0 yrs), the combined timeline X + Y (11.2 yrs) exceeds time to CRQC (7.0 yrs). This results in a 4.2-year Mosca deficit where sensitive data remains vulnerable to quantum decryption after projected 2033 CRQC arrival (source: USER_OVERRIDE), yielding a Mosca risk index of 0.0450.",
+          "migration_guidance": "P2 - MODERATE: Plan cryptographic migration in upcoming roadmap; start transition before 2030."
+        }
+      },
+      "DISC-010": {
+        "asset_id": "DISC-010",
+        "algorithm": "X25519+ML-KEM-768",
+        "mosca": {
+          "inequality_satisfied": false,
+          "mosca_risk_index": 0.0,
+          "urgency_tier": "NEGLIGIBLE",
+          "migration_posture": "QUANTUM_RESILIENT",
+          "quantum_vulnerable": false,
+          "algorithm_category": "PUBLIC_KEY",
+          "migration_priority": "HIGH",
+          "overall_risk": "HIGH",
+          "variables": {
+            "X_migration_time_years": 3.2,
+            "Y_data_lifetime_years": 1.0,
+            "Z_time_to_crqc_years": 7.0,
+            "X_plus_Y": 4.2
+          },
+          "timeline": {
+            "assessment_year": 2026,
+            "projected_crqc_year": 2033,
+            "migration_completion_year": 2029.2,
+            "data_expiry_year": 2027.0,
+            "mosca_deficit_years": 0.0,
+            "must_start_by_year": null,
+            "is_overdue_to_start": false,
+            "is_applicable": false
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 0.0,
+            "impact_multiplier": 0.8,
+            "crypto_agility_score": 2,
+            "migration_complexity_score": 3
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "Algorithm X25519+ML-KEM-768 is post-quantum secure or quantum-resilient (cryptographic susceptibility: 0.00). Mosca inequality X + Y > Z is not applicable.",
+          "migration_guidance": "P4 - SAFE: X25519+ML-KEM-768 is post-quantum secure. No migration required under current standards."
+        },
+        "mosca_assessment": {
+          "inequality_satisfied": false,
+          "mosca_risk_index": 0.0,
+          "urgency_tier": "NEGLIGIBLE",
+          "migration_posture": "QUANTUM_RESILIENT",
+          "quantum_vulnerable": false,
+          "algorithm_category": "PUBLIC_KEY",
+          "migration_priority": "HIGH",
+          "overall_risk": "HIGH",
+          "variables": {
+            "X_migration_time_years": 3.2,
+            "Y_data_lifetime_years": 1.0,
+            "Z_time_to_crqc_years": 7.0,
+            "X_plus_Y": 4.2
+          },
+          "timeline": {
+            "assessment_year": 2026,
+            "projected_crqc_year": 2033,
+            "migration_completion_year": 2029.2,
+            "data_expiry_year": 2027.0,
+            "mosca_deficit_years": 0.0,
+            "must_start_by_year": null,
+            "is_overdue_to_start": false,
+            "is_applicable": false
+          },
+          "threat_vectors": {
+            "crypto_susceptibility": 0.0,
+            "impact_multiplier": 0.8,
+            "crypto_agility_score": 2,
+            "migration_complexity_score": 3
+          },
+          "assumptions": {
+            "quantum_horizon_year": 2033,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": "USER_OVERRIDE",
+            "assessment_year": 2026
+          },
+          "reason": "Algorithm X25519+ML-KEM-768 is post-quantum secure or quantum-resilient (cryptographic susceptibility: 0.00). Mosca inequality X + Y > Z is not applicable.",
+          "migration_guidance": "P4 - SAFE: X25519+ML-KEM-768 is post-quantum secure. No migration required under current standards."
+        }
+      }
+    },
+    "ml_risk_assessments": {
+      "DISC-001": {
+        "prediction": "HIGH",
+        "risk_tier": "HIGH",
+        "confidence": 0.8732,
+        "probabilities": {
+          "LOW": 0.0462,
+          "MEDIUM": 0.0797,
+          "HIGH": 0.8732,
+          "CRITICAL": 0.001
+        },
+        "model_version": "1.1.0",
+        "status": "valid",
+        "top_contributing_features": [
+          "quantum_vulnerable",
+          "key_or_hash_size_bits",
+          "crypto_role",
+          "HNDL_exposure"
+        ]
+      },
+      "DISC-002": {
+        "prediction": "HIGH",
+        "risk_tier": "HIGH",
+        "confidence": 0.8407,
+        "probabilities": {
+          "LOW": 0.0575,
+          "MEDIUM": 0.1009,
+          "HIGH": 0.8407,
+          "CRITICAL": 0.0009
+        },
+        "model_version": "1.1.0",
+        "status": "valid",
+        "top_contributing_features": [
+          "quantum_vulnerable",
+          "key_or_hash_size_bits",
+          "crypto_role",
+          "HNDL_exposure"
+        ]
+      },
+      "DISC-003": {
+        "prediction": "LOW",
+        "risk_tier": "LOW",
+        "confidence": 0.9131,
+        "probabilities": {
+          "LOW": 0.9131,
+          "MEDIUM": 0.086,
+          "HIGH": 0.0009,
+          "CRITICAL": 0.0
+        },
+        "model_version": "1.1.0",
+        "status": "valid_with_warnings",
+        "top_contributing_features": [
+          "quantum_vulnerable",
+          "key_or_hash_size_bits",
+          "crypto_role",
+          "HNDL_exposure"
+        ]
+      },
+      "DISC-004": {
+        "prediction": "LOW",
+        "risk_tier": "LOW",
+        "confidence": 0.8152,
+        "probabilities": {
+          "LOW": 0.8152,
+          "MEDIUM": 0.1833,
+          "HIGH": 0.0015,
+          "CRITICAL": 0.0
+        },
+        "model_version": "1.1.0",
+        "status": "valid_with_warnings",
+        "top_contributing_features": [
+          "quantum_vulnerable",
+          "key_or_hash_size_bits",
+          "crypto_role",
+          "HNDL_exposure"
+        ]
+      },
+      "DISC-005": {
+        "prediction": "LOW",
+        "risk_tier": "LOW",
+        "confidence": 0.9953,
+        "probabilities": {
+          "LOW": 0.9953,
+          "MEDIUM": 0.0042,
+          "HIGH": 0.0004,
+          "CRITICAL": 0.0
+        },
+        "model_version": "1.1.0",
+        "status": "valid_with_warnings",
+        "top_contributing_features": [
+          "quantum_vulnerable",
+          "key_or_hash_size_bits",
+          "crypto_role",
+          "HNDL_exposure"
+        ]
+      },
+      "DISC-006": {
+        "prediction": "HIGH",
+        "risk_tier": "HIGH",
+        "confidence": 0.8469,
+        "probabilities": {
+          "LOW": 0.0576,
+          "MEDIUM": 0.0947,
+          "HIGH": 0.8469,
+          "CRITICAL": 0.0008
+        },
+        "model_version": "1.1.0",
+        "status": "valid",
+        "top_contributing_features": [
+          "quantum_vulnerable",
+          "key_or_hash_size_bits",
+          "crypto_role",
+          "HNDL_exposure"
+        ]
+      },
+      "DISC-007": {
+        "prediction": "HIGH",
+        "risk_tier": "HIGH",
+        "confidence": 0.8405,
+        "probabilities": {
+          "LOW": 0.0596,
+          "MEDIUM": 0.0991,
+          "HIGH": 0.8405,
+          "CRITICAL": 0.0008
+        },
+        "model_version": "1.1.0",
+        "status": "valid",
+        "top_contributing_features": [
+          "quantum_vulnerable",
+          "key_or_hash_size_bits",
+          "crypto_role",
+          "HNDL_exposure"
+        ]
+      },
+      "DISC-008": {
+        "prediction": "HIGH",
+        "risk_tier": "HIGH",
+        "confidence": 0.8429,
+        "probabilities": {
+          "LOW": 0.057,
+          "MEDIUM": 0.0992,
+          "HIGH": 0.8429,
+          "CRITICAL": 0.0009
+        },
+        "model_version": "1.1.0",
+        "status": "valid",
+        "top_contributing_features": [
+          "quantum_vulnerable",
+          "key_or_hash_size_bits",
+          "crypto_role",
+          "HNDL_exposure"
+        ]
+      },
+      "DISC-009": {
+        "prediction": "LOW",
+        "risk_tier": "LOW",
+        "confidence": 0.8152,
+        "probabilities": {
+          "LOW": 0.8152,
+          "MEDIUM": 0.1833,
+          "HIGH": 0.0015,
+          "CRITICAL": 0.0
+        },
+        "model_version": "1.1.0",
+        "status": "valid_with_warnings",
+        "top_contributing_features": [
+          "quantum_vulnerable",
+          "key_or_hash_size_bits",
+          "crypto_role",
+          "HNDL_exposure"
+        ]
+      },
+      "DISC-010": {
+        "prediction": "LOW",
+        "risk_tier": "LOW",
+        "confidence": 0.957,
+        "probabilities": {
+          "LOW": 0.957,
+          "MEDIUM": 0.0417,
+          "HIGH": 0.0013,
+          "CRITICAL": 0.0
+        },
+        "model_version": "1.1.0",
+        "status": "valid_with_warnings",
+        "top_contributing_features": [
+          "quantum_vulnerable",
+          "key_or_hash_size_bits",
+          "crypto_role",
+          "HNDL_exposure"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "timestamp": "2026-09-25T03:36:20Z",
+  "summary": {
+    "baseline_rsa_risk": "CRITICAL",
+    "aes_256_risk": "CRITICAL",
+    "low_context_rsa_risk": "MEDIUM",
+    "extreme_rsa_risk": "CRITICAL",
+    "behavioral_consistency": "PASS"
+  },
+  "results_table": [
+    {
+      "test_name": "Baseline RSA-2048",
+      "test_file": "examples/test_rsa_2048.json",
+      "risk_level": "CRITICAL",
+      "probabilities": {
+        "LOW": 0.0,
+        "MEDIUM": 0.0,
+        "HIGH": 0.0007,
+        "CRITICAL": 0.9993
+      },
+      "confidence": 0.9993,
+      "schema_validation": "PASS (0 errors, 0 warnings)"
+    },
+    {
+      "test_name": "AES-256 Counterfactual (Primitive Swapped Only)",
+      "test_file": "examples/test_aes_256_counterfactual.json",
+      "risk_level": "CRITICAL",
+      "probabilities": {
+        "LOW": 0.0056,
+        "MEDIUM": 0.1564,
+        "HIGH": 0.0131,
+        "CRITICAL": 0.8250
+      },
+      "confidence": 0.8250,
+      "schema_validation": "PASS (0 errors, 0 warnings)"
+    },
+    {
+      "test_name": "Low-Context RSA-2048 (Context Reduced Only)",
+      "test_file": "examples/test_rsa_2048_low_context_counterfactual.json",
+      "risk_level": "MEDIUM",
+      "probabilities": {
+        "LOW": 0.0131,
+        "MEDIUM": 0.9866,
+        "HIGH": 0.0003,
+        "CRITICAL": 0.0
+      },
+      "confidence": 0.9866,
+      "schema_validation": "PASS (0 errors, 0 warnings)"
+    },
+    {
+      "test_name": "Extreme RSA-2048 (Context Elevated to Max)",
+      "test_file": "examples/test_rsa_2048_extreme.json",
+      "risk_level": "CRITICAL",
+      "probabilities": {
+        "LOW": 0.0,
+        "MEDIUM": 0.0,
+        "HIGH": 0.0001,
+        "CRITICAL": 0.9999
+      },
+      "confidence": 0.9999,
+      "schema_validation": "PASS (0 errors, 0 warnings)"
+    }
+  ],
+  "behavioral_assessments": {
+    "test_2_aes_vs_rsa": {
+      "expectation": "AES-256 should not be riskier than RSA-2048 under identical context, and should have lower or equal P(CRITICAL).",
+      "status": "PASS",
+      "observation": "Switching primitive from RSA-2048 to AES-256 reduced P(CRITICAL) from 0.9993 to 0.8250 and increased lower-tier probability mass (MEDIUM+LOW) from 0.0000 to 0.1620. Because contextual features remained at peak enterprise risk (sensitivity 5, criticality 5, 15yr lifetime, 0.85 HNDL exposure, internet exposed), the asset retained CRITICAL classification but with clearly shifted probability mass."
+    },
+    "test_3_low_context_rsa": {
+      "expectation": "Reducing business/exposure risk for RSA-2048 should significantly reduce predicted risk level.",
+      "status": "PASS",
+      "observation": "Reducing contextual risk factors (sensitivity 1, criticality 1, 1yr lifetime, internal, 0.0 HNDL) dropped the predicted risk level from CRITICAL to MEDIUM, reducing P(CRITICAL) to 0.0000 and elevating P(MEDIUM) to 0.9866."
+    },
+    "test_4_extreme_rsa": {
+      "expectation": "Elevating risk-related contextual factors should maintain or increase risk relative to Baseline RSA.",
+      "status": "PASS",
+      "observation": "Increasing contextual risk factors (age 12yr, lifetime 30yr, HNDL 1.0, dependencies 120, key reuse 1) resulted in P(CRITICAL) rising to 0.9999 (99.99%)."
+    }
+  },
+  "suspicious_behavior_assessment": "None detected. The model demonstrates smooth, monotonic sensitivity to both cryptographic primitives and operational exposure features."
+}

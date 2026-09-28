@@ -1,0 +1,27 @@
+{
+  "model_name": "catboost",
+  "saved_at": "2026-09-25T03:09:22.290665",
+  "artifact_path": "model.joblib",
+  "validation_metrics": {
+    "accuracy": 0.9449,
+    "macro_precision": 0.9356,
+    "macro_recall": 0.9289,
+    "macro_f1": 0.9321,
+    "weighted_f1": 0.9448,
+    "per_class_f1": {
+      "LOW": 0.9197,
+      "MEDIUM": 0.9489,
+      "HIGH": 0.9664,
+      "CRITICAL": 0.8936
+    }
+  },
+  "training_time_sec": 4.58,
+  "hyperparameters": {
+    "iterations": 350,
+    "learning_rate": 0.08,
+    "depth": 6,
+    "loss_function": "MultiClass",
+    "random_seed": 42,
+    "verbose": false
+  }
+}

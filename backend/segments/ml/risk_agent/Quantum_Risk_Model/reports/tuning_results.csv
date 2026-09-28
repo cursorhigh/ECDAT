@@ -1,0 +1,6 @@
+trial_number,macro_f1,weighted_f1,accuracy,macro_precision,macro_recall,rec_LOW,rec_MEDIUM,rec_HIGH,rec_CRITICAL,f1_LOW,f1_MEDIUM,f1_HIGH,f1_CRITICAL,fit_time_sec,param_iterations,param_depth,param_learning_rate,param_l2_leaf_reg,param_auto_class_weights,param_random_strength,param_loss_function,param_random_seed,param_thread_count,param_verbose
+3,0.932,0.9448,0.9449,0.9355,0.9287,0.9162,0.9469,0.9747,0.877,0.9193,0.949,0.9666,0.8933,5.09,400,6,0.06012,1.9554,,1.8952,MultiClass,42,-1,False
+1,0.9313,0.9445,0.9447,0.9343,0.9284,0.9186,0.9479,0.9723,0.8747,0.9206,0.9497,0.9655,0.8892,16.21,400,8,0.09745,3.9688,,4.3443,MultiClass,42,-1,False
+2,0.9311,0.9444,0.9445,0.9351,0.9274,0.9159,0.9482,0.9738,0.8717,0.9199,0.9494,0.9656,0.8896,10.82,600,7,0.03101,9.3306,,0.9987,MultiClass,42,-1,False
+4,0.9307,0.9433,0.9429,0.9225,0.9399,0.9365,0.9355,0.9568,0.9309,0.9201,0.9479,0.9637,0.891,8.66,500,7,0.04137,3.2676,SqrtBalanced,0.9356,MultiClass,42,-1,False
+5,0.9301,0.9432,0.9429,0.9232,0.9377,0.933,0.9392,0.9569,0.9218,0.9201,0.9485,0.9634,0.8884,11.95,300,8,0.14193,6.4328,SqrtBalanced,2.2567,MultiClass,42,-1,False

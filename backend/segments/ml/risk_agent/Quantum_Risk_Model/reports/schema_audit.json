@@ -1,0 +1,118 @@
+{
+  "audit_timestamp": "2026-09-25T03:32:45Z",
+  "summary": {
+    "training_schema": "PASS",
+    "inference_schema": "PASS",
+    "preprocessing_consistency": "PASS",
+    "quantum_estimate_confidence_type": "CATEGORICAL",
+    "protocol_vocabulary": "PASS",
+    "quantum_attack_scenario_vocabulary": "PASS",
+    "rsa_test_input_validation": "PASS",
+    "retraining_required": "NO"
+  },
+  "dataset_audit": {
+    "dataset_file": "data/ECDAT_Industry_Quantum_Risk_Dataset_100K.xlsx",
+    "sheet_name": "training_data",
+    "total_records": 100000,
+    "total_features": 37,
+    "feature_breakdown": {
+      "numerical_count": 20,
+      "categorical_count": 10,
+      "binary_count": 7
+    },
+    "key_feature_investigations": {
+      "protocol": {
+        "pandas_dtype": "object",
+        "type": "categorical",
+        "null_count": 3127,
+        "required": false,
+        "unique_count": 10,
+        "observed_values": [
+          "Application",
+          "Database",
+          "IPsec",
+          "JWE/JWS",
+          "S/MIME",
+          "SSH",
+          "Storage",
+          "TLS1.2",
+          "TLS1.3",
+          "X.509/PKI"
+        ],
+        "root_cause_of_initial_warning": "Input JSON contained 'TLS' which is not in the training dataset vocabulary. Valid values are specific versioned strings such as 'TLS1.2' and 'TLS1.3'."
+      },
+      "quantum_attack_scenario": {
+        "pandas_dtype": "object",
+        "type": "categorical",
+        "null_count": 0,
+        "required": true,
+        "unique_count": 5,
+        "observed_values": [
+          "aggressive_future",
+          "generic_quantum_effect",
+          "high_end_future",
+          "none_known",
+          "notional_future"
+        ],
+        "root_cause_of_initial_warning": "Input JSON contained 'CRQC capable of breaking RSA' which is not in the training vocabulary. Valid labels are standardized timeline scenarios such as 'notional_future' or 'aggressive_future'."
+      },
+      "quantum_estimate_confidence": {
+        "pandas_dtype": "object",
+        "type": "categorical",
+        "null_count": 0,
+        "required": true,
+        "unique_count": 2,
+        "observed_values": [
+          "not-applicable",
+          "scenario-dependent"
+        ],
+        "root_cause_of_initial_warning": "Input JSON passed '0.7' (or float 0.7). In the actual training dataset, quantum_estimate_confidence is a 2-class categorical string ('not-applicable' vs 'scenario-dependent'), not a continuous float."
+      },
+      "nist_security_category": {
+        "pandas_dtype": "int64",
+        "type": "numeric",
+        "null_count": 0,
+        "required": true,
+        "min": 0.0,
+        "max": 5.0,
+        "observed_values": [0, 1, 2, 3, 5],
+        "root_cause_of_initial_warning": "Input JSON contained string 'Category 1' instead of numeric integer 1."
+      }
+    }
+  },
+  "pipeline_and_model_assessment": {
+    "preprocessing_pipeline": {
+      "numerical_imputation_and_scaling": "SimpleImputer(strategy='median') -> StandardScaler()",
+      "categorical_imputation_and_encoding": "SimpleImputer(strategy='constant', fill_value='missing') -> OneHotEncoder(handle_unknown='ignore', sparse_output=False)",
+      "binary_handling": "SimpleImputer(strategy='most_frequent') -> Passthrough",
+      "output_dimensions": 151
+    },
+    "retraining_decision": {
+      "retraining_required": false,
+      "justification": "The training pipeline (src/preprocess.py) correctly treated quantum_estimate_confidence as categorical matching the raw Excel sheet, and all 37 features were correctly typed during training. Retraining was not required because the model and preprocessor artifacts are mathematically aligned with the true data schema."
+    }
+  },
+  "files_modified": [
+    "src/export_model.py",
+    "models/final/feature_schema.json",
+    "src/predict.py",
+    "examples/test_rsa_2048.json",
+    "tests/test_prediction.py"
+  ],
+  "verification_results": {
+    "rsa_test_input_execution": {
+      "file": "examples/test_rsa_2048.json",
+      "risk_level": "CRITICAL",
+      "model_confidence": 0.9993,
+      "status": "success",
+      "validation_errors_count": 0,
+      "validation_warnings_count": 0
+    },
+    "pytest_suite": {
+      "total_tests": 13,
+      "passed": 13,
+      "failed": 0,
+      "status": "PASS"
+    }
+  }
+}

@@ -1,0 +1,382 @@
+{
+  "Baseline RSA-2048": {
+    "test_file": "examples/test_rsa_2048.json",
+    "predicted_class": "CRITICAL",
+    "model_confidence": 0.9993,
+    "probabilities": {
+      "LOW": 0.0,
+      "MEDIUM": 0.0,
+      "HIGH": 0.0007,
+      "CRITICAL": 0.9993
+    },
+    "top_10_features_contributing_toward_prediction": [
+      {
+        "feature": "num__HNDL_exposure",
+        "shap_value": 5.01446
+      },
+      {
+        "feature": "num__business_criticality",
+        "shap_value": 0.99248
+      },
+      {
+        "feature": "num__data_sensitivity",
+        "shap_value": 0.83029
+      },
+      {
+        "feature": "cat__quantum_attack_scenario_generic_quantum_effect",
+        "shap_value": 0.72571
+      },
+      {
+        "feature": "bin__internet_exposed",
+        "shap_value": 0.61829
+      },
+      {
+        "feature": "num__vendor_support_score",
+        "shap_value": 0.50527
+      },
+      {
+        "feature": "num__data_lifetime_years",
+        "shap_value": 0.4082
+      },
+      {
+        "feature": "cat__quantum_estimate_confidence_not-applicable",
+        "shap_value": 0.30295
+      },
+      {
+        "feature": "bin__quantum_vulnerable",
+        "shap_value": 0.25811
+      },
+      {
+        "feature": "cat__quantum_estimate_confidence_scenario-dependent",
+        "shap_value": 0.22192
+      }
+    ],
+    "top_10_features_contributing_away_from_prediction": [
+      {
+        "feature": "bin__deprecated_or_disallowed",
+        "shap_value": -0.25083
+      },
+      {
+        "feature": "num__nist_security_category",
+        "shap_value": -0.04178
+      },
+      {
+        "feature": "cat__algorithm_RSA-2048",
+        "shap_value": -0.02274
+      },
+      {
+        "feature": "num__key_or_hash_size_bits",
+        "shap_value": -0.01271
+      },
+      {
+        "feature": "cat__protocol_TLS1.2",
+        "shap_value": -0.0104
+      },
+      {
+        "feature": "cat__crypto_library_OpenSSL",
+        "shap_value": -0.00386
+      },
+      {
+        "feature": "cat__quantum_attack_scenario_aggressive_future",
+        "shap_value": -0.00351
+      },
+      {
+        "feature": "cat__crypto_role_signature",
+        "shap_value": -0.00241
+      },
+      {
+        "feature": "bin__key_reuse_detected",
+        "shap_value": -0.00233
+      },
+      {
+        "feature": "bin__data_at_rest",
+        "shap_value": -0.00211
+      }
+    ]
+  },
+  "AES-256 Counterfactual": {
+    "test_file": "examples/test_aes_256_counterfactual.json",
+    "predicted_class": "CRITICAL",
+    "model_confidence": 0.825,
+    "probabilities": {
+      "LOW": 0.0056,
+      "MEDIUM": 0.1564,
+      "HIGH": 0.0131,
+      "CRITICAL": 0.825
+    },
+    "top_10_features_contributing_toward_prediction": [
+      {
+        "feature": "num__HNDL_exposure",
+        "shap_value": 5.15461
+      },
+      {
+        "feature": "num__business_criticality",
+        "shap_value": 0.67957
+      },
+      {
+        "feature": "num__data_sensitivity",
+        "shap_value": 0.59842
+      },
+      {
+        "feature": "bin__internet_exposed",
+        "shap_value": 0.43402
+      },
+      {
+        "feature": "num__vendor_support_score",
+        "shap_value": 0.38889
+      },
+      {
+        "feature": "num__data_lifetime_years",
+        "shap_value": 0.28656
+      },
+      {
+        "feature": "num__migration_time_years",
+        "shap_value": 0.16267
+      },
+      {
+        "feature": "num__compliance_criticality",
+        "shap_value": 0.12588
+      },
+      {
+        "feature": "num__crypto_agility",
+        "shap_value": 0.12007
+      },
+      {
+        "feature": "num__dependency_count",
+        "shap_value": 0.02347
+      }
+    ],
+    "top_10_features_contributing_away_from_prediction": [
+      {
+        "feature": "cat__quantum_attack_scenario_generic_quantum_effect",
+        "shap_value": -0.81007
+      },
+      {
+        "feature": "cat__quantum_estimate_confidence_scenario-dependent",
+        "shap_value": -0.35456
+      },
+      {
+        "feature": "cat__quantum_estimate_confidence_not-applicable",
+        "shap_value": -0.31051
+      },
+      {
+        "feature": "bin__deprecated_or_disallowed",
+        "shap_value": -0.25383
+      },
+      {
+        "feature": "bin__quantum_vulnerable",
+        "shap_value": -0.23186
+      },
+      {
+        "feature": "cat__quantum_attack_type_Grover",
+        "shap_value": -0.14409
+      },
+      {
+        "feature": "cat__algorithm_AES-256",
+        "shap_value": -0.09818
+      },
+      {
+        "feature": "num__classical_security_bits_est",
+        "shap_value": -0.09215
+      },
+      {
+        "feature": "cat__algorithm_family_asymmetric",
+        "shap_value": -0.08754
+      },
+      {
+        "feature": "cat__quantum_attack_type_Shor",
+        "shap_value": -0.06468
+      }
+    ]
+  },
+  "Low-Context RSA-2048": {
+    "test_file": "examples/test_rsa_2048_low_context_counterfactual.json",
+    "predicted_class": "MEDIUM",
+    "model_confidence": 0.9866,
+    "probabilities": {
+      "LOW": 0.0131,
+      "MEDIUM": 0.9866,
+      "HIGH": 0.0003,
+      "CRITICAL": 0.0
+    },
+    "top_10_features_contributing_toward_prediction": [
+      {
+        "feature": "num__HNDL_exposure",
+        "shap_value": 1.06334
+      },
+      {
+        "feature": "num__business_criticality",
+        "shap_value": 0.95579
+      },
+      {
+        "feature": "num__data_sensitivity",
+        "shap_value": 0.7625
+      },
+      {
+        "feature": "bin__internet_exposed",
+        "shap_value": 0.35902
+      },
+      {
+        "feature": "bin__deprecated_or_disallowed",
+        "shap_value": 0.18397
+      },
+      {
+        "feature": "num__vendor_support_score",
+        "shap_value": 0.15942
+      },
+      {
+        "feature": "num__crypto_agility",
+        "shap_value": 0.15871
+      },
+      {
+        "feature": "cat__quantum_attack_scenario_generic_quantum_effect",
+        "shap_value": 0.12998
+      },
+      {
+        "feature": "num__dependency_count",
+        "shap_value": 0.11964
+      },
+      {
+        "feature": "cat__algorithm_family_asymmetric",
+        "shap_value": 0.1101
+      }
+    ],
+    "top_10_features_contributing_away_from_prediction": [
+      {
+        "feature": "num__key_age_days",
+        "shap_value": -0.04042
+      },
+      {
+        "feature": "num__classical_security_bits_est",
+        "shap_value": -0.03967
+      },
+      {
+        "feature": "num__key_or_hash_size_bits",
+        "shap_value": -0.025
+      },
+      {
+        "feature": "num__downstream_system_count",
+        "shap_value": -0.01937
+      },
+      {
+        "feature": "cat__algorithm_RSA-2048",
+        "shap_value": -0.00667
+      },
+      {
+        "feature": "num__nist_security_category",
+        "shap_value": -0.00596
+      },
+      {
+        "feature": "cat__crypto_role_signature",
+        "shap_value": -0.00422
+      },
+      {
+        "feature": "cat__crypto_library_OpenSSL",
+        "shap_value": -0.0015
+      },
+      {
+        "feature": "cat__protocol_TLS1.3",
+        "shap_value": -0.00148
+      },
+      {
+        "feature": "cat__deployment_environment_on_prem",
+        "shap_value": -0.0012
+      }
+    ]
+  },
+  "Extreme RSA-2048": {
+    "test_file": "examples/test_rsa_2048_extreme.json",
+    "predicted_class": "CRITICAL",
+    "model_confidence": 0.9999,
+    "probabilities": {
+      "LOW": 0.0,
+      "MEDIUM": 0.0,
+      "HIGH": 0.0001,
+      "CRITICAL": 0.9999
+    },
+    "top_10_features_contributing_toward_prediction": [
+      {
+        "feature": "num__HNDL_exposure",
+        "shap_value": 4.55816
+      },
+      {
+        "feature": "num__business_criticality",
+        "shap_value": 0.88842
+      },
+      {
+        "feature": "num__data_sensitivity",
+        "shap_value": 0.7779
+      },
+      {
+        "feature": "num__data_lifetime_years",
+        "shap_value": 0.77732
+      },
+      {
+        "feature": "cat__quantum_attack_scenario_generic_quantum_effect",
+        "shap_value": 0.75811
+      },
+      {
+        "feature": "num__vendor_support_score",
+        "shap_value": 0.59277
+      },
+      {
+        "feature": "bin__internet_exposed",
+        "shap_value": 0.54651
+      },
+      {
+        "feature": "num__crypto_agility",
+        "shap_value": 0.46595
+      },
+      {
+        "feature": "cat__quantum_estimate_confidence_not-applicable",
+        "shap_value": 0.30374
+      },
+      {
+        "feature": "num__dependency_count",
+        "shap_value": 0.28988
+      }
+    ],
+    "top_10_features_contributing_away_from_prediction": [
+      {
+        "feature": "bin__deprecated_or_disallowed",
+        "shap_value": -0.23021
+      },
+      {
+        "feature": "num__nist_security_category",
+        "shap_value": -0.04229
+      },
+      {
+        "feature": "num__key_rotation_interval_days",
+        "shap_value": -0.03386
+      },
+      {
+        "feature": "cat__algorithm_RSA-2048",
+        "shap_value": -0.01879
+      },
+      {
+        "feature": "num__key_or_hash_size_bits",
+        "shap_value": -0.01285
+      },
+      {
+        "feature": "num__estimated_attack_time_log10_hours",
+        "shap_value": -0.01057
+      },
+      {
+        "feature": "bin__hardware_dependency",
+        "shap_value": -0.00837
+      },
+      {
+        "feature": "cat__crypto_library_OpenSSL",
+        "shap_value": -0.00294
+      },
+      {
+        "feature": "num__implementation_age_years",
+        "shap_value": -0.00279
+      },
+      {
+        "feature": "bin__data_at_rest",
+        "shap_value": -0.00211
+      }
+    ]
+  }
+}

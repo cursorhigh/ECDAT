@@ -1,0 +1,25 @@
+{
+  "trained_at": "2026-09-25T03:09:05.752396",
+  "random_seed": 42,
+  "evaluation_split": "validation_set (15,000 samples)",
+  "baselines": {
+    "dummy_stratified": {
+      "accuracy": 0.3097,
+      "macro_f1": 0.255,
+      "weighted_f1": 0.3092,
+      "training_time_sec": 0.0
+    },
+    "logistic_regression": {
+      "accuracy": 0.9441,
+      "macro_f1": 0.9315,
+      "weighted_f1": 0.9439,
+      "training_time_sec": 1.56
+    },
+    "decision_tree": {
+      "accuracy": 0.9224,
+      "macro_f1": 0.9025,
+      "weighted_f1": 0.9221,
+      "training_time_sec": 1.13
+    }
+  }
+}

@@ -196,14 +196,14 @@ class GeminiHNDLProvider(HNDLLLMProvider):
     """
 
     DEFAULT_MODELS = [
-        "gemini-3.6-flash",
+        "gemini-3.5-flash-lite",
         "gemini-3.1-flash-lite",
-        "gemini-2.5-flash",
+        "gemini-3.6-flash",
     ]
 
     def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         self.api_key = api_key or os.getenv("GEMINI_API_KEY_HNDL") or os.getenv("GEMINI_API_KEY")
-        user_model = model or os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
+        user_model = model or os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
 
         candidate_list = [user_model] + [m for m in self.DEFAULT_MODELS if m != user_model]
         self.candidate_models = []

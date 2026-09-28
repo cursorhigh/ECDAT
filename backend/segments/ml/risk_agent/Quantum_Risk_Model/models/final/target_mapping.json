@@ -1,0 +1,14 @@
+{
+  "target_mapping": {
+    "LOW": 0,
+    "MEDIUM": 1,
+    "HIGH": 2,
+    "CRITICAL": 3
+  },
+  "reverse_target_mapping": {
+    "0": "LOW",
+    "1": "MEDIUM",
+    "2": "HIGH",
+    "3": "CRITICAL"
+  }
+}

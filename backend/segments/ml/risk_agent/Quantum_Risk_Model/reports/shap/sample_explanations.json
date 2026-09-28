@@ -1,0 +1,436 @@
+{
+  "metadata": {
+    "generated_at": "2026-09-25T03:10:33.535994",
+    "explainer_type": "TreeSHAP",
+    "model_evaluated": "model.joblib",
+    "disclaimer": "SHAP values quantify statistical feature contributions to the mathematical model prediction, not proven empirical causality."
+  },
+  "global_shap_importance_top20": [
+    {
+      "feature_raw": "num__HNDL_exposure",
+      "feature_display": "Hndl Exposure",
+      "mean_abs_shap": 1.3184339857161174,
+      "importance_pct": 21.665222529743303
+    },
+    {
+      "feature_raw": "cat__quantum_attack_scenario_generic_quantum_effect",
+      "feature_display": "Quantum: attack_scenario_generic_quantum_effect",
+      "mean_abs_shap": 0.7403684924228594,
+      "importance_pct": 12.166136732010466
+    },
+    {
+      "feature_raw": "num__business_criticality",
+      "feature_display": "Business Criticality",
+      "mean_abs_shap": 0.3869840801820402,
+      "importance_pct": 6.3591323520517715
+    },
+    {
+      "feature_raw": "bin__internet_exposed",
+      "feature_display": "Internet Exposed (Flag)",
+      "mean_abs_shap": 0.36048412341435626,
+      "importance_pct": 5.923670685695677
+    },
+    {
+      "feature_raw": "num__data_sensitivity",
+      "feature_display": "Data Sensitivity",
+      "mean_abs_shap": 0.3532372391299635,
+      "importance_pct": 5.8045859515567955
+    },
+    {
+      "feature_raw": "bin__deprecated_or_disallowed",
+      "feature_display": "Deprecated Or Disallowed (Flag)",
+      "mean_abs_shap": 0.3500761841523983,
+      "importance_pct": 5.752641781230737
+    },
+    {
+      "feature_raw": "cat__quantum_estimate_confidence_scenario-dependent",
+      "feature_display": "Quantum: estimate_confidence_scenario-dependent",
+      "mean_abs_shap": 0.3094012963313202,
+      "importance_pct": 5.084249957625434
+    },
+    {
+      "feature_raw": "cat__quantum_estimate_confidence_not-applicable",
+      "feature_display": "Quantum: estimate_confidence_not-applicable",
+      "mean_abs_shap": 0.30225360973700566,
+      "importance_pct": 4.966795293746623
+    },
+    {
+      "feature_raw": "bin__quantum_vulnerable",
+      "feature_display": "Quantum Vulnerable (Flag)",
+      "mean_abs_shap": 0.22910624514283667,
+      "importance_pct": 3.76479811484641
+    },
+    {
+      "feature_raw": "num__vendor_support_score",
+      "feature_display": "Vendor Support Score",
+      "mean_abs_shap": 0.19825707822849106,
+      "importance_pct": 3.257867867828035
+    },
+    {
+      "feature_raw": "num__data_lifetime_years",
+      "feature_display": "Data Lifetime Years",
+      "mean_abs_shap": 0.19242378930623644,
+      "importance_pct": 3.162012099583188
+    },
+    {
+      "feature_raw": "cat__algorithm_family_asymmetric",
+      "feature_display": "Algorithm: family_asymmetric",
+      "mean_abs_shap": 0.19077936031158585,
+      "importance_pct": 3.134989950207908
+    },
+    {
+      "feature_raw": "num__crypto_agility",
+      "feature_display": "Crypto Agility",
+      "mean_abs_shap": 0.161252837808576,
+      "importance_pct": 2.6497941137172973
+    },
+    {
+      "feature_raw": "cat__quantum_attack_type_Grover",
+      "feature_display": "Quantum: attack_type_Grover",
+      "mean_abs_shap": 0.1146654835912535,
+      "importance_pct": 1.8842454346592068
+    },
+    {
+      "feature_raw": "cat__quantum_attack_type_Shor",
+      "feature_display": "Quantum: attack_type_Shor",
+      "mean_abs_shap": 0.10652143470390714,
+      "importance_pct": 1.7504180050350906
+    },
+    {
+      "feature_raw": "num__dependency_count",
+      "feature_display": "Dependency Count",
+      "mean_abs_shap": 0.08364507125894985,
+      "importance_pct": 1.3745011900289266
+    },
+    {
+      "feature_raw": "num__inventory_confidence",
+      "feature_display": "Inventory Confidence",
+      "mean_abs_shap": 0.07342475979284259,
+      "importance_pct": 1.2065554872971878
+    },
+    {
+      "feature_raw": "num__compliance_criticality",
+      "feature_display": "Compliance Criticality",
+      "mean_abs_shap": 0.06879495912118294,
+      "importance_pct": 1.1304760909022447
+    },
+    {
+      "feature_raw": "num__migration_time_years",
+      "feature_display": "Migration Time Years",
+      "mean_abs_shap": 0.060740119606088286,
+      "importance_pct": 0.9981145980808129
+    },
+    {
+      "feature_raw": "num__classical_security_bits_est",
+      "feature_display": "Classical Security Bits Est",
+      "mean_abs_shap": 0.04467844938913289,
+      "importance_pct": 0.7341805193027381
+    }
+  ],
+  "representative_sample_explanations": [
+    {
+      "sample_index": 6677,
+      "predicted_class": "LOW",
+      "true_class": "LOW",
+      "confidence": 0.9999,
+      "class_probabilities": {
+        "LOW": 0.9999,
+        "MEDIUM": 0.0001,
+        "HIGH": 0.0,
+        "CRITICAL": 0.0
+      },
+      "cryptographic_profile": {
+        "algorithm": "SHA3-512",
+        "algorithm_family": "hash",
+        "protocol": "SSH",
+        "deployment_environment": "on_prem",
+        "HNDL_exposure": 0.0,
+        "quantum_vulnerable": 0,
+        "data_sensitivity": 2,
+        "business_criticality": 1
+      },
+      "strongest_features_increasing_risk": [
+        {
+          "feature": "Hndl Exposure",
+          "raw_feature": "num__HNDL_exposure",
+          "shap_contribution": 1.302
+        },
+        {
+          "feature": "Business Criticality",
+          "raw_feature": "num__business_criticality",
+          "shap_contribution": 1.1602
+        },
+        {
+          "feature": "Data Sensitivity",
+          "raw_feature": "num__data_sensitivity",
+          "shap_contribution": 0.9155
+        },
+        {
+          "feature": "Quantum: attack_scenario_generic_quantum_effect",
+          "raw_feature": "cat__quantum_attack_scenario_generic_quantum_effect",
+          "shap_contribution": 0.8046
+        },
+        {
+          "feature": "Internet Exposed (Flag)",
+          "raw_feature": "bin__internet_exposed",
+          "shap_contribution": 0.5693
+        }
+      ],
+      "strongest_features_decreasing_risk": [
+        {
+          "feature": "Algorithm: family_pqc",
+          "raw_feature": "cat__algorithm_family_pqc",
+          "shap_contribution": -0.0198
+        },
+        {
+          "feature": "External Facing (Flag)",
+          "raw_feature": "bin__external_facing",
+          "shap_contribution": -0.0176
+        },
+        {
+          "feature": "Quantum: attack_type_None known",
+          "raw_feature": "cat__quantum_attack_type_None known",
+          "shap_contribution": -0.0123
+        },
+        {
+          "feature": "Environment: context_enterprise_internal",
+          "raw_feature": "cat__environment_context_enterprise_internal",
+          "shap_contribution": -0.0122
+        },
+        {
+          "feature": "Algorithm: AES-256",
+          "raw_feature": "cat__algorithm_AES-256",
+          "shap_contribution": -0.007
+        }
+      ]
+    },
+    {
+      "sample_index": 4920,
+      "predicted_class": "MEDIUM",
+      "true_class": "MEDIUM",
+      "confidence": 0.9999,
+      "class_probabilities": {
+        "LOW": 0.0001,
+        "MEDIUM": 0.9999,
+        "HIGH": 0.0,
+        "CRITICAL": 0.0
+      },
+      "cryptographic_profile": {
+        "algorithm": "AES-128",
+        "algorithm_family": "symmetric",
+        "protocol": "Application",
+        "deployment_environment": "hybrid",
+        "HNDL_exposure": 0.0,
+        "quantum_vulnerable": 0,
+        "data_sensitivity": 5,
+        "business_criticality": 5
+      },
+      "strongest_features_increasing_risk": [
+        {
+          "feature": "Quantum: attack_scenario_generic_quantum_effect",
+          "raw_feature": "cat__quantum_attack_scenario_generic_quantum_effect",
+          "shap_contribution": 1.6345
+        },
+        {
+          "feature": "Hndl Exposure",
+          "raw_feature": "num__HNDL_exposure",
+          "shap_contribution": 1.4219
+        },
+        {
+          "feature": "Data Sensitivity",
+          "raw_feature": "num__data_sensitivity",
+          "shap_contribution": 0.3798
+        },
+        {
+          "feature": "Quantum: estimate_confidence_scenario-dependent",
+          "raw_feature": "cat__quantum_estimate_confidence_scenario-dependent",
+          "shap_contribution": 0.3229
+        },
+        {
+          "feature": "Quantum: estimate_confidence_not-applicable",
+          "raw_feature": "cat__quantum_estimate_confidence_not-applicable",
+          "shap_contribution": 0.3208
+        }
+      ],
+      "strongest_features_decreasing_risk": [
+        {
+          "feature": "Dependency Count",
+          "raw_feature": "num__dependency_count",
+          "shap_contribution": -0.0251
+        },
+        {
+          "feature": "Key Rotation Interval Days",
+          "raw_feature": "num__key_rotation_interval_days",
+          "shap_contribution": -0.0166
+        },
+        {
+          "feature": "Crypto: library_RustCrypto",
+          "raw_feature": "cat__crypto_library_RustCrypto",
+          "shap_contribution": -0.0166
+        },
+        {
+          "feature": "Estimated Attack Time Log10 Hours",
+          "raw_feature": "num__estimated_attack_time_log10_hours",
+          "shap_contribution": -0.0083
+        },
+        {
+          "feature": "Crypto: role_MAC",
+          "raw_feature": "cat__crypto_role_MAC",
+          "shap_contribution": -0.0024
+        }
+      ]
+    },
+    {
+      "sample_index": 12469,
+      "predicted_class": "HIGH",
+      "true_class": "HIGH",
+      "confidence": 0.9998,
+      "class_probabilities": {
+        "LOW": 0.0,
+        "MEDIUM": 0.0001,
+        "HIGH": 0.9998,
+        "CRITICAL": 0.0001
+      },
+      "cryptographic_profile": {
+        "algorithm": "ECDSA-P521",
+        "algorithm_family": "asymmetric",
+        "protocol": "SSH",
+        "deployment_environment": "cloud",
+        "HNDL_exposure": 0.4639797685779045,
+        "quantum_vulnerable": 1,
+        "data_sensitivity": 3,
+        "business_criticality": 3
+      },
+      "strongest_features_increasing_risk": [
+        {
+          "feature": "Hndl Exposure",
+          "raw_feature": "num__HNDL_exposure",
+          "shap_contribution": 2.1186
+        },
+        {
+          "feature": "Quantum: attack_scenario_generic_quantum_effect",
+          "raw_feature": "cat__quantum_attack_scenario_generic_quantum_effect",
+          "shap_contribution": 1.2555
+        },
+        {
+          "feature": "Quantum: estimate_confidence_scenario-dependent",
+          "raw_feature": "cat__quantum_estimate_confidence_scenario-dependent",
+          "shap_contribution": 0.5863
+        },
+        {
+          "feature": "Quantum: estimate_confidence_not-applicable",
+          "raw_feature": "cat__quantum_estimate_confidence_not-applicable",
+          "shap_contribution": 0.4968
+        },
+        {
+          "feature": "Algorithm: family_asymmetric",
+          "raw_feature": "cat__algorithm_family_asymmetric",
+          "shap_contribution": 0.3899
+        }
+      ],
+      "strongest_features_decreasing_risk": [
+        {
+          "feature": "Deprecated Or Disallowed (Flag)",
+          "raw_feature": "bin__deprecated_or_disallowed",
+          "shap_contribution": -0.0341
+        },
+        {
+          "feature": "Classical Security Bits Est",
+          "raw_feature": "num__classical_security_bits_est",
+          "shap_contribution": -0.0215
+        },
+        {
+          "feature": "Vendor Support Score",
+          "raw_feature": "num__vendor_support_score",
+          "shap_contribution": -0.0092
+        },
+        {
+          "feature": "Environment: context_data_platform",
+          "raw_feature": "cat__environment_context_data_platform",
+          "shap_contribution": -0.0075
+        },
+        {
+          "feature": "Protocol: SSH",
+          "raw_feature": "cat__protocol_SSH",
+          "shap_contribution": -0.0067
+        }
+      ]
+    },
+    {
+      "sample_index": 9502,
+      "predicted_class": "CRITICAL",
+      "true_class": "CRITICAL",
+      "confidence": 0.9999,
+      "class_probabilities": {
+        "LOW": 0.0,
+        "MEDIUM": 0.0,
+        "HIGH": 0.0,
+        "CRITICAL": 0.9999
+      },
+      "cryptographic_profile": {
+        "algorithm": "RSA-1024",
+        "algorithm_family": "asymmetric",
+        "protocol": "Database",
+        "deployment_environment": "hybrid",
+        "HNDL_exposure": 0.710251327423548,
+        "quantum_vulnerable": 1,
+        "data_sensitivity": 5,
+        "business_criticality": 5
+      },
+      "strongest_features_increasing_risk": [
+        {
+          "feature": "Hndl Exposure",
+          "raw_feature": "num__HNDL_exposure",
+          "shap_contribution": 4.2017
+        },
+        {
+          "feature": "Deprecated Or Disallowed (Flag)",
+          "raw_feature": "bin__deprecated_or_disallowed",
+          "shap_contribution": 1.2365
+        },
+        {
+          "feature": "Business Criticality",
+          "raw_feature": "num__business_criticality",
+          "shap_contribution": 0.9159
+        },
+        {
+          "feature": "Data Sensitivity",
+          "raw_feature": "num__data_sensitivity",
+          "shap_contribution": 0.8158
+        },
+        {
+          "feature": "Quantum: attack_scenario_generic_quantum_effect",
+          "raw_feature": "cat__quantum_attack_scenario_generic_quantum_effect",
+          "shap_contribution": 0.7398
+        }
+      ],
+      "strongest_features_decreasing_risk": [
+        {
+          "feature": "Key Age Days",
+          "raw_feature": "num__key_age_days",
+          "shap_contribution": -0.0068
+        },
+        {
+          "feature": "Quantum: attack_scenario_aggressive_future",
+          "raw_feature": "cat__quantum_attack_scenario_aggressive_future",
+          "shap_contribution": -0.004
+        },
+        {
+          "feature": "Crypto: library_OpenSSL",
+          "raw_feature": "cat__crypto_library_OpenSSL",
+          "shap_contribution": -0.0039
+        },
+        {
+          "feature": "Data At Rest (Flag)",
+          "raw_feature": "bin__data_at_rest",
+          "shap_contribution": -0.0021
+        },
+        {
+          "feature": "Key Or Hash Size Bits",
+          "raw_feature": "num__key_or_hash_size_bits",
+          "shap_contribution": -0.0021
+        }
+      ]
+    }
+  ]
+}

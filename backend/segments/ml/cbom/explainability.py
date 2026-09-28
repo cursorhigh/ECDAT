@@ -1,8 +1,8 @@
 """
-CBOM Explainability Builder Component
+CBOM Explainability Builder Component (explainability.py)
 
-Builds unified evidence-based explainability metadata for both deterministic
-and AI-assisted cryptographic asset extractions.
+Builds unified evidence-based explainability metadata and CycloneDX 1.6 evidence occurrences
+for both deterministic and AI-assisted cryptographic asset extractions.
 """
 
 from typing import Dict, Any, List, Optional
@@ -10,7 +10,7 @@ from typing import Dict, Any, List, Optional
 
 class CBOMExplainabilityBuilder:
     """
-    Constructs unified explainability metadata for cryptographic assets.
+    Constructs unified explainability metadata and CycloneDX evidence for cryptographic assets.
     """
 
     ALLOWED_EVIDENCE_TYPES = {
@@ -25,6 +25,7 @@ class CBOMExplainabilityBuilder:
         "provided_source_code",
         "finding",
         "deterministic_result",
+        "llm",
     }
 
     def build_deterministic_explanation(
@@ -42,22 +43,29 @@ class CBOMExplainabilityBuilder:
         key_size = deterministic_result.get("key_size")
         mode = deterministic_result.get("mode")
         curve = deterministic_result.get("curve")
+        padding = deterministic_result.get("padding")
         hash_alg = deterministic_result.get("hash")
-        family = deterministic_result.get("family") or "unknown"
+        protocol = deterministic_result.get("protocol")
+        crypto_library = deterministic_result.get("crypto_library")
 
         # Build field-level evidence list
         field_evidence: List[Dict[str, Any]] = []
 
         # Algorithm evidence
         if algo and algo.lower() != "unknown":
-            snippet = self._find_snippet_in_code(code_text, "algorithms.AES") or self._find_snippet_in_code(code_text, "hashlib.sha256") or self._find_snippet_in_code(code_text, "rsa.generate_private_key") or self._find_snippet_in_code(code_text, algo) or self._find_snippet_in_code(code_text, detected) or code_text or algo
+            snippet = self._find_snippet_in_code(code_text, "algorithms.AES") or \
+                      self._find_snippet_in_code(code_text, "hashlib.sha256") or \
+                      self._find_snippet_in_code(code_text, "rsa.generate_private_key") or \
+                      self._find_snippet_in_code(code_text, algo) or \
+                      self._find_snippet_in_code(code_text, detected) or code_text or algo
+            is_explicit = (algo.lower() in code_text.lower() or detected.lower() in code_text.lower() or "aes" in code_text.lower() or "sha" in code_text.lower() or "rsa" in code_text.lower())
             field_evidence.append({
                 "field": "algorithm",
                 "value": algo,
                 "source": "source_code",
                 "snippet": snippet,
-                "evidence_type": "explicit" if (algo in code_text or detected in code_text or "AES" in code_text or "sha256" in code_text) else "pattern_match",
-                "explanation": f"The {algo} algorithm is explicitly referenced in the source code." if (algo in code_text or "AES" in code_text or "sha256" in code_text) else f"The {detected} cryptographic API is associated with {algo} in matched deterministic rules.",
+                "evidence_type": "explicit" if is_explicit else "pattern_match",
+                "explanation": f"The {algo} algorithm is explicitly referenced in the source code." if is_explicit else f"The {detected} cryptographic API is associated with {algo} in matched deterministic rules.",
             })
 
         # Key Size evidence
@@ -68,8 +76,8 @@ class CBOMExplainabilityBuilder:
                 "value": key_size,
                 "source": "source_code",
                 "snippet": snippet,
-                "evidence_type": "explicit",
-                "explanation": f"The key size is explicitly specified as {key_size}.",
+                "evidence_type": "explicit" if str(key_size) in code_text else "pattern_match",
+                "explanation": f"The key size is explicitly specified as {key_size}." if str(key_size) in code_text else f"The key size of {key_size} bits was inferred from the standard algorithm specification.",
             })
 
         # Mode evidence
@@ -80,7 +88,7 @@ class CBOMExplainabilityBuilder:
                 "value": mode,
                 "source": "source_code",
                 "snippet": snippet,
-                "evidence_type": "explicit" if mode in code_text else "explicit",
+                "evidence_type": "explicit" if mode.lower() in code_text.lower() else "pattern_match",
                 "explanation": f"The {mode} mode is explicitly referenced in the source code.",
             })
 
@@ -92,8 +100,20 @@ class CBOMExplainabilityBuilder:
                 "value": curve,
                 "source": "source_code",
                 "snippet": snippet,
-                "evidence_type": "explicit",
+                "evidence_type": "explicit" if curve.lower() in code_text.lower() else "pattern_match",
                 "explanation": f"The elliptic curve {curve} is explicitly referenced in the source code.",
+            })
+
+        # Padding evidence
+        if padding:
+            snippet = self._find_snippet_in_code(code_text, padding) or padding
+            field_evidence.append({
+                "field": "parameters.padding",
+                "value": padding,
+                "source": "source_code",
+                "snippet": snippet,
+                "evidence_type": "explicit" if padding.lower() in code_text.lower() else "pattern_match",
+                "explanation": f"The padding scheme {padding} is referenced in the source code.",
             })
 
         # Hash evidence
@@ -104,30 +124,41 @@ class CBOMExplainabilityBuilder:
                 "value": hash_alg,
                 "source": "source_code",
                 "snippet": snippet,
-                "evidence_type": "explicit",
-                "explanation": f"The digest hash algorithm {hash_alg} is explicitly referenced.",
+                "evidence_type": "explicit" if hash_alg.lower() in code_text.lower() else "pattern_match",
+                "explanation": f"The {hash_alg} digest is referenced in the source code.",
             })
 
-        # Custom summaries & decision reasons for T001, T002, T003
-        if "generate_private_key" in code_text and "RSA" in algo.upper():
-            summary = "RSA was identified through an explicit deterministic cryptographic API pattern."
-            decision_reason = "The deterministic extraction rule successfully identified the algorithm and key size without requiring AI assistance."
-            confidence_reason = "High confidence because the algorithm was identified through a known cryptographic API pattern and the key size is explicitly present."
-        elif "AES" in algo.upper() or "AES" in code_text.upper():
-            summary = "AES encryption using GCM mode was identified through explicit cryptography library API patterns." if (mode and "GCM" in mode.upper()) else f"{algo} encryption was identified through explicit cryptography library API patterns."
-            decision_reason = "The deterministic extraction rule successfully identified the symmetric algorithm and mode without requiring AI assistance."
-            confidence_reason = "High confidence because both the algorithm and mode are explicitly visible in the source code." if mode else "High confidence because the algorithm is explicitly visible in the source code."
-        elif "SHA" in algo.upper() or "sha" in code_text.lower():
-            summary = f"SHA-256 was identified through an explicit hashlib SHA-256 function call." if "sha256" in code_text.lower() else f"{algo} was identified through an explicit hash function call."
-            decision_reason = "The deterministic extraction rule successfully identified the hash algorithm without requiring AI assistance."
-            confidence_reason = f"High confidence because the {algo} algorithm is explicitly named in the source code."
-        else:
-            summary = f"{algo} was identified through deterministic pattern matching."
-            decision_reason = "The deterministic extraction rule successfully identified cryptographic properties from code evidence."
-            confidence_reason = "High confidence based on explicit code evidence and rule pattern matching."
+        # Protocol evidence
+        if protocol:
+            snippet = self._find_snippet_in_code(code_text, protocol) or protocol
+            field_evidence.append({
+                "field": "protocol",
+                "value": protocol,
+                "source": "source_code",
+                "snippet": snippet,
+                "evidence_type": "explicit" if protocol.lower() in code_text.lower() else "pattern_match",
+                "explanation": f"The protocol {protocol} was detected in the communication context.",
+            })
+
+        # Library evidence
+        if crypto_library:
+            field_evidence.append({
+                "field": "crypto_library",
+                "value": crypto_library,
+                "source": "source_code",
+                "snippet": self._find_snippet_in_code(code_text, crypto_library) or code_text[:80],
+                "evidence_type": "pattern_match",
+                "explanation": f"The cryptographic library {crypto_library} was identified from imports/symbols.",
+            })
+
+        has_code = bool(code_text and code_text.strip())
+        summary = f"{algo} was identified through an explicit deterministic cryptographic API pattern." if has_code else f"{algo} was matched via deterministic discovery finding metadata."
+        decision_reason = "The deterministic extraction rule successfully identified the algorithm and key parameters without requiring AI assistance."
+        confidence_reason = "High confidence because explicit cryptographic evidence and standard API patterns were found in the source code." if has_code else "Moderate confidence based on artifact metadata without full code context."
 
         return {
             "method": "deterministic",
+            "detection_method": "deterministic",
             "ai_used": False,
             "summary": summary,
             "decision_reason": decision_reason,
@@ -142,62 +173,80 @@ class CBOMExplainabilityBuilder:
         ai_result: Dict[str, Any],
     ) -> Dict[str, Any]:
         """
-        Constructs unified explainability dictionary for AI-assisted extractions.
+        Constructs explainability dictionary when AI fallback assistance was used.
         """
         code_text = str(finding.get("code") or finding.get("evidence") or "")
+        algo = ai_result.get("algorithm") or deterministic_result.get("algorithm") or "unknown"
+        key_size = ai_result.get("key_size") or deterministic_result.get("key_size")
 
-        ai_exp = ai_result.get("explainability", {}) if isinstance(ai_result.get("explainability"), dict) else {}
-        det_exp = deterministic_result.get("explainability", {}) if isinstance(deterministic_result.get("explainability"), dict) else {}
+        field_evidence: List[Dict[str, Any]] = []
 
-        raw_field_evidence = ai_exp.get("field_evidence") or det_exp.get("field_evidence") or det_exp.get("evidence") or []
+        if algo:
+            field_evidence.append({
+                "field": "algorithm",
+                "value": algo,
+                "source": "llm",
+                "snippet": self._find_snippet_in_code(code_text, algo) or code_text or algo,
+                "evidence_type": "inferred_from_provided_evidence",
+                "explanation": f"AI model analyzed the source code snippet and determined the algorithm to be {algo}.",
+            })
 
-        fused_evidence: List[Dict[str, Any]] = []
-        if isinstance(raw_field_evidence, list):
-            for item in raw_field_evidence:
-                if not isinstance(item, dict):
-                    continue
-                f_name = str(item.get("field") or "").strip()
-                if not f_name:
-                    continue
-                snippet = str(item.get("snippet") or "").strip()
-                src = str(item.get("source") or "provided_source_code").strip()
-                
-                if src in ("source_code", "provided_source_code") and code_text:
-                    if snippet and snippet not in code_text:
-                        val_str = str(item.get("value") or "")
-                        snippet = self._find_snippet_in_code(code_text, val_str) or code_text
-
-                etype = str(item.get("evidence_type") or "explicit").strip()
-                if etype not in self.ALLOWED_EVIDENCE_TYPES:
-                    etype = "inferred_from_provided_evidence"
-
-                fused_evidence.append({
-                    "field": f_name,
-                    "value": item.get("value"),
-                    "source": src,
-                    "snippet": snippet,
-                    "evidence_type": etype,
-                    "explanation": str(item.get("explanation") or "").strip(),
-                })
-
-        summary = ai_exp.get("summary") or "AI-assisted cryptographic analysis was performed to resolve ambiguous finding evidence."
-        conf_reason = ai_exp.get("confidence_reason") or "Confidence assigned based on AI extraction from provided source code evidence."
+        if key_size is not None:
+            field_evidence.append({
+                "field": "parameters.key_size",
+                "value": key_size,
+                "source": "llm",
+                "snippet": self._find_snippet_in_code(code_text, str(key_size)) or str(key_size),
+                "evidence_type": "inferred_from_provided_evidence",
+                "explanation": f"AI model deduced key_size {key_size} from code parameters.",
+            })
 
         return {
-            "method": "ai_assisted",
+            "method": "llm",
+            "detection_method": "llm",
             "ai_used": True,
-            "summary": summary,
-            "decision_reason": "Deterministic extraction was insufficient, so AI-assisted analysis was used.",
-            "field_evidence": fused_evidence,
-            "confidence_reason": conf_reason,
+            "summary": f"AI analysis was utilized to disambiguate the cryptographic configuration for {algo}.",
+            "decision_reason": "Deterministic rules lacked full parameter context; AI reasoning extracted missing metadata.",
+            "field_evidence": field_evidence,
+            "confidence_reason": f"AI-assisted extraction based on provided code evidence (confidence: {ai_result.get('confidence', 0.85)}).",
         }
+
+    def build_cyclonedx_evidence(
+        self,
+        finding: Dict[str, Any],
+        extracted: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """
+        Constructs CycloneDX 1.6 compliant evidence occurrences structure.
+        """
+        file_path = finding.get("file")
+        if not file_path and isinstance(finding.get("location"), dict):
+            file_path = finding.get("location", {}).get("file")
+
+        line_num = finding.get("line")
+        if line_num is None and isinstance(finding.get("location"), dict):
+            line_num = finding.get("location", {}).get("line")
+
+        code_snippet = finding.get("code") or finding.get("evidence")
+
+        occurrences = []
+        if file_path:
+            occurrences.append({
+                "location": file_path,
+                "line": int(line_num) if line_num is not None else None,
+                "additionalContext": code_snippet,
+                "symbol": extracted.get("implementation"),
+            })
+
+        return {"occurrences": occurrences}
 
     def _find_snippet_in_code(self, code_text: str, target: str) -> Optional[str]:
         if not code_text or not target:
             return None
-        if target in code_text:
+        if target.lower() in code_text.lower():
+            lines = code_text.splitlines()
+            for line in lines:
+                if target.lower() in line.lower():
+                    return line.strip()
             return target
-        idx = code_text.lower().find(target.lower())
-        if idx != -1:
-            return code_text[idx : idx + len(target)]
         return None
