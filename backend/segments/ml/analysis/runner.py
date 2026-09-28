@@ -17,6 +17,7 @@ from django.utils import timezone
 from huey.contrib.djhuey import db_task
 
 from segments.ml.cbom import CBOMAgent
+from segments.ml.cbom.ai_provider import FallbackLLMProvider
 from core.models import log_action
 from core.modes import db_alias_for_mode
 from segments.scraping.discovery.models import NormalizedFinding, ScanJob
@@ -331,7 +332,7 @@ def _run_pipeline(run, db, mode):
         scan_job = ScanJob.objects.using(db).get(pk=run.scan_job_id)
         payload = build_analysis_payload(scan_job)
 
-    cbom = CBOMAgent().process(payload)
+    cbom = CBOMAgent(llm_provider=FallbackLLMProvider()).process(payload)
     run.cbom_document = cbom
     run.progress = 35
     run.save(using=db, update_fields=["cbom_document", "progress"])
@@ -357,7 +358,7 @@ def _run_pipeline(run, db, mode):
         if not isinstance(asset, dict):
             continue
         h_res = hndl.analyze(cbom_asset=asset, risk_context=risk_ctx)
-        m_res = mosca.analyze(asset)
+        m_res = mosca.analyze(asset, operational_context=run.raw_system_context)
 
         asset_obj = None
         pk = parse_finding_id(asset.get("asset_id"))
@@ -411,7 +412,12 @@ def _run_pipeline(run, db, mode):
         _mark_cancelled(run, db)
         return run
 
+    # Aggregate distinct algorithm categories
+    cats = list({str(r.get("algorithm_category")).upper() for r in rows if r.get("algorithm_category") and r.get("algorithm_category") != "UNKNOWN"})
+    primary_category = " / ".join(sorted(cats)) if cats else "PUBLIC_KEY"
+
     run.executive_summary = {
+        "algorithm_category": primary_category,
         "rows": rows,
         "stats": {
             "assets": len(assets),

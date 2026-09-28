@@ -31,6 +31,7 @@ urlpatterns = [
     path("run-demo-scan/", views.run_demo_scan, name="run-demo-scan"),
     path("start-scan/", views.start_scan, name="start-scan"),
     path("scans/<int:scan_id>/cancel/", views.cancel_scan, name="scan-cancel"),
+    path("scans/<int:scan_id>/delete/", views.cancel_scan, name="scan-cancel-alt"),
     path("scan-batches/<int:batch_id>/", views.scan_batch, name="scan-batch"),
     path("scan-batches/<int:batch_id>/cancel/", views.cancel_scan_batch, name="scan-batch-cancel"),
     path("scan-data/", views.scan_data, name="scan-data"),

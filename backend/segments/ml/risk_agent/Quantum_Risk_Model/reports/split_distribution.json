@@ -1,0 +1,144 @@
+{
+  "metadata": {
+    "timestamp": "2026-09-25T03:09:01.383334",
+    "random_seed": 42,
+    "target_column": "risk_level",
+    "classes": [
+      "LOW",
+      "MEDIUM",
+      "HIGH",
+      "CRITICAL"
+    ],
+    "target_mapping": {
+      "LOW": 0,
+      "MEDIUM": 1,
+      "HIGH": 2,
+      "CRITICAL": 3
+    }
+  },
+  "splits": {
+    "total_samples": 100000,
+    "train": {
+      "count": 70000,
+      "percentage": 70.0,
+      "distribution": {
+        "counts": {
+          "LOW": 13369,
+          "MEDIUM": 25237,
+          "HIGH": 25250,
+          "CRITICAL": 6144
+        },
+        "percentages": {
+          "LOW": 19.1,
+          "MEDIUM": 36.05,
+          "HIGH": 36.07,
+          "CRITICAL": 8.78
+        }
+      }
+    },
+    "validation": {
+      "count": 15000,
+      "percentage": 15.0,
+      "distribution": {
+        "counts": {
+          "LOW": 2864,
+          "MEDIUM": 5408,
+          "HIGH": 5411,
+          "CRITICAL": 1317
+        },
+        "percentages": {
+          "LOW": 19.09,
+          "MEDIUM": 36.05,
+          "HIGH": 36.07,
+          "CRITICAL": 8.78
+        }
+      }
+    },
+    "test": {
+      "count": 15000,
+      "percentage": 15.0,
+      "distribution": {
+        "counts": {
+          "LOW": 2865,
+          "MEDIUM": 5408,
+          "HIGH": 5411,
+          "CRITICAL": 1316
+        },
+        "percentages": {
+          "LOW": 19.1,
+          "MEDIUM": 36.05,
+          "HIGH": 36.07,
+          "CRITICAL": 8.77
+        }
+      }
+    },
+    "full_dataset": {
+      "count": 100000,
+      "percentage": 100.0,
+      "distribution": {
+        "counts": {
+          "LOW": 19098,
+          "MEDIUM": 36053,
+          "HIGH": 36072,
+          "CRITICAL": 8777
+        },
+        "percentages": {
+          "LOW": 19.1,
+          "MEDIUM": 36.05,
+          "HIGH": 36.07,
+          "CRITICAL": 8.78
+        }
+      }
+    }
+  },
+  "features": {
+    "input_raw_features_count": 37,
+    "numerical_features_count": 20,
+    "categorical_features_count": 10,
+    "binary_features_count": 7,
+    "output_transformed_features_count": 151,
+    "numerical_features": [
+      "key_or_hash_size_bits",
+      "classical_security_bits_est",
+      "nist_security_category",
+      "implementation_age_years",
+      "key_age_days",
+      "key_rotation_interval_days",
+      "certificate_remaining_days",
+      "data_sensitivity",
+      "business_criticality",
+      "data_lifetime_years",
+      "migration_time_years",
+      "migration_complexity",
+      "crypto_agility",
+      "dependency_count",
+      "downstream_system_count",
+      "HNDL_exposure",
+      "vendor_support_score",
+      "inventory_confidence",
+      "compliance_criticality",
+      "estimated_attack_time_log10_hours"
+    ],
+    "categorical_features": [
+      "algorithm",
+      "algorithm_family",
+      "crypto_role",
+      "quantum_attack_type",
+      "protocol",
+      "crypto_library",
+      "deployment_environment",
+      "environment_context",
+      "quantum_attack_scenario",
+      "quantum_estimate_confidence"
+    ],
+    "binary_features": [
+      "quantum_vulnerable",
+      "deprecated_or_disallowed",
+      "internet_exposed",
+      "external_facing",
+      "data_at_rest",
+      "key_reuse_detected",
+      "hardware_dependency"
+    ]
+  }
+}

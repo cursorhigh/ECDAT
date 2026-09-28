@@ -1,0 +1,95 @@
+{
+  "evaluation_type": "Synthetic dataset evaluation",
+  "evaluation_timestamp": "2026-09-25T03:10:25.144031",
+  "evaluation_split": "test_set (15,000 samples, 100% untouched during training/tuning)",
+  "model_artifact": "D:\\Quantum_Risk_Model\\models\\tuned\\model.joblib",
+  "overall_metrics": {
+    "accuracy": 0.9419,
+    "macro_precision": 0.9327,
+    "macro_recall": 0.9276,
+    "macro_f1": 0.9301,
+    "weighted_f1": 0.9417,
+    "macro_roc_auc": 0.996,
+    "macro_pr_auc": 0.9839
+  },
+  "per_class_metrics": {
+    "LOW": {
+      "precision": 0.9219,
+      "recall": 0.9103,
+      "f1_score": 0.9161,
+      "support": 2865
+    },
+    "MEDIUM": {
+      "precision": 0.9447,
+      "recall": 0.944,
+      "f1_score": 0.9443,
+      "support": 5408
+    },
+    "HIGH": {
+      "precision": 0.9577,
+      "recall": 0.9701,
+      "f1_score": 0.9638,
+      "support": 5411
+    },
+    "CRITICAL": {
+      "precision": 0.9067,
+      "recall": 0.886,
+      "f1_score": 0.8962,
+      "support": 1316
+    }
+  },
+  "per_class_roc_auc": {
+    "LOW": 0.9951,
+    "MEDIUM": 0.9948,
+    "HIGH": 0.9976,
+    "CRITICAL": 0.9966
+  },
+  "per_class_pr_auc": {
+    "LOW": 0.9808,
+    "MEDIUM": 0.9909,
+    "HIGH": 0.9957,
+    "CRITICAL": 0.9681
+  },
+  "confusion_matrix": [
+    [
+      2608,
+      257,
+      0,
+      0
+    ],
+    [
+      221,
+      5105,
+      82,
+      0
+    ],
+    [
+      0,
+      42,
+      5249,
+      120
+    ],
+    [
+      0,
+      0,
+      150,
+      1166
+    ]
+  ],
+  "boundary_confusion_analysis": {
+    "low_medium_boundary": {
+      "actual_LOW_predicted_MEDIUM": 257,
+      "actual_LOW_predicted_MEDIUM_pct": 8.97,
+      "actual_MEDIUM_predicted_LOW": 221,
+      "actual_MEDIUM_predicted_LOW_pct": 4.09,
+      "total_low_medium_cross_confusion": 478
+    },
+    "high_critical_boundary": {
+      "actual_CRITICAL_predicted_HIGH": 150,
+      "actual_CRITICAL_predicted_HIGH_pct": 11.4,
+      "actual_HIGH_predicted_CRITICAL": 120,
+      "actual_HIGH_predicted_CRITICAL_pct": 2.22,
+      "total_high_critical_cross_confusion": 270
+    }
+  }
+}

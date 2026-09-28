@@ -1,0 +1,961 @@
+{
+  "metadata": {
+    "dataset_path": "D:\\Quantum_Risk_Model\\data\\ECDAT_Industry_Quantum_Risk_Dataset_100K.xlsx",
+    "file_size_mb": 22.25,
+    "audit_timestamp": "2026-09-25T03:08:23.799310",
+    "workbook_sheets": [
+      "training_data",
+      "crypto_catalogue",
+      "feature_dictionary",
+      "sources",
+      "methodology",
+      "summary"
+    ],
+    "audited_sheet": "training_data"
+  },
+  "overview": {
+    "total_rows": 100000,
+    "total_columns": 41,
+    "duplicate_rows": 0,
+    "columns_with_missing_values": 2,
+    "mandatory_columns_check": {
+      "asset_id": true,
+      "risk_score": true,
+      "risk_level": true,
+      "recommended_action": true
+    }
+  },
+  "target_variable": {
+    "column_name": "risk_level",
+    "exists": true,
+    "class_distribution": {
+      "HIGH": 36072,
+      "MEDIUM": 36053,
+      "LOW": 19098,
+      "CRITICAL": 8777
+    }
+  },
+  "leakage_and_exclusions": {
+    "leakage_candidates": [
+      "risk_score",
+      "recommended_action"
+    ],
+    "all_exclusions": {
+      "asset_id": {
+        "category": "Identifier / Metadata",
+        "reason": "Unique asset identifier with no predictive cryptographic generalization value."
+      },
+      "risk_score": {
+        "category": "Target / Direct Leakage",
+        "reason": "Continuous risk assessment score directly tied to the risk calculation formula. If predicting risk_level (classification), including risk_score constitutes direct target leakage."
+      },
+      "recommended_action": {
+        "category": "Post-Assessment Action / Target Leakage",
+        "reason": "Prescriptive remediation policy outcome derived downstream from risk_level / risk_score. Including this as an input feature would leak the target outcome."
+      },
+      "risk_level": {
+        "category": "Target Variable",
+        "reason": "Primary supervised classification target for the ECDAT model."
+      }
+    },
+    "recommended_target": "risk_level",
+    "alternative_regression_target": "risk_score"
+  },
+  "columns_audit": {
+    "asset_id": {
+      "dtype": "object",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 100000,
+      "sample_values": [
+        "CRYPTO-0000001",
+        "CRYPTO-0000002",
+        "CRYPTO-0000003",
+        "CRYPTO-0000004",
+        "CRYPTO-0000005"
+      ],
+      "is_numeric": false
+    },
+    "algorithm": {
+      "dtype": "object",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 60,
+      "sample_values": [
+        "Blowfish-128",
+        "AES-256",
+        "RSA-3072",
+        "SHAKE128",
+        "3DES-112"
+      ],
+      "is_numeric": false
+    },
+    "algorithm_family": {
+      "dtype": "object",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 4,
+      "sample_values": [
+        "symmetric",
+        "asymmetric",
+        "hash",
+        "pqc"
+      ],
+      "is_numeric": false,
+      "value_counts": {
+        "asymmetric": 36710,
+        "symmetric": 34803,
+        "hash": 25711,
+        "pqc": 2776
+      }
+    },
+    "crypto_role": {
+      "dtype": "object",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 8,
+      "sample_values": [
+        "encryption",
+        "signature",
+        "XOF",
+        "hash",
+        "MAC"
+      ],
+      "is_numeric": false,
+      "value_counts": {
+        "encryption": 30494,
+        "signature": 24509,
+        "hash": 16673,
+        "key_establishment": 14977,
+        "MAC": 5808,
+        "XOF": 3600,
+        "AEAD": 2131,
+        "KDF": 1808
+      }
+    },
+    "key_or_hash_size_bits": {
+      "dtype": "int64",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 20,
+      "sample_values": [
+        128,
+        256,
+        3072,
+        168,
+        2048
+      ],
+      "is_numeric": true,
+      "stats": {
+        "min": 0.0,
+        "mean": 612.2098,
+        "std": 882.4397,
+        "25%": 168.0,
+        "50% (median)": 256.0,
+        "75%": 512.0,
+        "max": 4096.0
+      }
+    },
+    "quantum_attack_type": {
+      "dtype": "object",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 6,
+      "sample_values": [
+        "Grover",
+        "Shor",
+        "Generic quantum",
+        "None known",
+        "Generic"
+      ],
+      "is_numeric": false,
+      "value_counts": {
+        "Grover": 42669,
+        "Shor": 36710,
+        "Generic quantum": 13553,
+        "None known": 2776,
+        "Legacy/weak": 2194,
+        "Generic": 2098
+      }
+    },
+    "quantum_vulnerable": {
+      "dtype": "int64",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 2,
+      "sample_values": [
+        0,
+        1
+      ],
+      "is_numeric": true,
+      "stats": {
+        "min": 0.0,
+        "mean": 0.4694,
+        "std": 0.4991,
+        "25%": 0.0,
+        "50% (median)": 0.0,
+        "75%": 1.0,
+        "max": 1.0
+      }
+    },
+    "classical_security_bits_est": {
+      "dtype": "int64",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 9,
+      "sample_values": [
+        128,
+        256,
+        112,
+        192,
+        80
+      ],
+      "is_numeric": true,
+      "stats": {
+        "min": 0.0,
+        "mean": 158.8947,
+        "std": 69.1428,
+        "25%": 128.0,
+        "50% (median)": 128.0,
+        "75%": 224.0,
+        "max": 256.0
+      }
+    },
+    "nist_security_category": {
+      "dtype": "int64",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 5,
+      "sample_values": [
+        1,
+        5,
+        0,
+        3,
+        2
+      ],
+      "is_numeric": true,
+      "stats": {
+        "min": 0.0,
+        "mean": 1.4995,
+        "std": 1.9784,
+        "25%": 0.0,
+        "50% (median)": 1.0,
+        "75%": 3.0,
+        "max": 5.0
+      }
+    },
+    "deprecated_or_disallowed": {
+      "dtype": "int64",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 2,
+      "sample_values": [
+        0,
+        1
+      ],
+      "is_numeric": true,
+      "stats": {
+        "min": 0.0,
+        "mean": 0.1713,
+        "std": 0.3768,
+        "25%": 0.0,
+        "50% (median)": 0.0,
+        "75%": 0.0,
+        "max": 1.0
+      }
+    },
+    "protocol": {
+      "dtype": "object",
+      "null_count": 3127,
+      "null_percentage": 3.127,
+      "unique_count": 10,
+      "sample_values": [
+        "Database",
+        "Storage",
+        "TLS1.3",
+        "SSH",
+        "X.509/PKI"
+      ],
+      "is_numeric": false,
+      "value_counts": {
+        "TLS1.3": 27931,
+        "X.509/PKI": 11961,
+        "TLS1.2": 10086,
+        "Application": 8066,
+        "Database": 7982,
+        "Storage": 7942,
+        "SSH": 7914,
+        "IPsec": 5937,
+        "S/MIME": 4987,
+        "JWE/JWS": 4067,
+        "nan": 3127
+      }
+    },
+    "crypto_library": {
+      "dtype": "object",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 14,
+      "sample_values": [
+        "OpenSSL",
+        "BoringSSL",
+        "Go crypto",
+        "Botan",
+        "Windows CNG"
+      ],
+      "is_numeric": false,
+      "value_counts": {
+        "OpenSSL": 15975,
+        "Unknown": 14938,
+        "Java JCA/JCE": 8109,
+        "BoringSSL": 7987,
+        "Windows CNG": 7908,
+        "libsodium": 7219,
+        "Go crypto": 6933,
+        "WebCrypto": 5088,
+        "wolfSSL": 4984,
+        "mbedTLS": 4968,
+        "HSM/provider": 4853,
+        "RustCrypto": 4072,
+        "Botan": 3999,
+        "LibreSSL": 2967
+      }
+    },
+    "deployment_environment": {
+      "dtype": "object",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 6,
+      "sample_values": [
+        "container",
+        "edge",
+        "cloud",
+        "on_prem",
+        "hybrid"
+      ],
+      "is_numeric": false,
+      "value_counts": {
+        "cloud": 32017,
+        "hybrid": 21989,
+        "on_prem": 19858,
+        "container": 14060,
+        "saas": 7114,
+        "edge": 4962
+      }
+    },
+    "environment_context": {
+      "dtype": "object",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 8,
+      "sample_values": [
+        "financial",
+        "enterprise_internal",
+        "healthcare",
+        "critical_infrastructure",
+        "data_platform"
+      ],
+      "is_numeric": false,
+      "value_counts": {
+        "enterprise_internal": 28009,
+        "internet_service": 18047,
+        "financial": 11902,
+        "developer_ci": 10102,
+        "data_platform": 9169,
+        "critical_infrastructure": 8022,
+        "healthcare": 7899,
+        "government": 6850
+      }
+    },
+    "implementation_age_years": {
+      "dtype": "float64",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 98465,
+      "sample_values": [
+        3.425396863413527,
+        8.47895111926471,
+        4.276559970010968,
+        4.923671337073118,
+        4.752818634213785
+      ],
+      "is_numeric": true,
+      "stats": {
+        "min": 0.1080312959208138,
+        "mean": 4.2718,
+        "std": 3.5555,
+        "25%": 1.8502,
+        "50% (median)": 3.1711,
+        "75%": 5.4485,
+        "max": 18.0
+      }
+    },
+    "key_age_days": {
+      "dtype": "int64",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 3412,
+      "sample_values": [
+        158,
+        724,
+        365,
+        312,
+        445
+      ],
+      "is_numeric": true,
+      "stats": {
+        "min": 5.0,
+        "mean": 662.9093,
+        "std": 705.5165,
+        "25%": 213.0,
+        "50% (median)": 421.0,
+        "75%": 826.0,
+        "max": 3650.0
+      }
+    },
+    "key_rotation_interval_days": {
+      "dtype": "int64",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 1655,
+      "sample_values": [
+        79,
+        436,
+        75,
+        350,
+        106
+      ],
+      "is_numeric": true,
+      "stats": {
+        "min": 7.0,
+        "mean": 256.0003,
+        "std": 248.2186,
+        "25%": 101.0,
+        "50% (median)": 179.0,
+        "75%": 317.0,
+        "max": 1825.0
+      }
+    },
+    "certificate_remaining_days": {
+      "dtype": "int64",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 824,
+      "sample_values": [
+        245,
+        323,
+        289,
+        465,
+        681
+      ],
+      "is_numeric": true,
+      "stats": {
+        "min": 1.0,
+        "mean": 304.5067,
+        "std": 179.8226,
+        "25%": 172.0,
+        "50% (median)": 300.0,
+        "75%": 429.0,
+        "max": 825.0
+      }
+    },
+    "data_sensitivity": {
+      "dtype": "int64",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 5,
+      "sample_values": [
+        5,
+        3,
+        4,
+        2,
+        1
+      ],
+      "is_numeric": true,
+      "stats": {
+        "min": 1.0,
+        "mean": 3.5038,
+        "std": 1.1277,
+        "25%": 3.0,
+        "50% (median)": 4.0,
+        "75%": 4.0,
+        "max": 5.0
+      }
+    },
+    "business_criticality": {
+      "dtype": "int64",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 5,
+      "sample_values": [
+        4,
+        3,
+        5,
+        2,
+        1
+      ],
+      "is_numeric": true,
+      "stats": {
+        "min": 1.0,
+        "mean": 3.673,
+        "std": 1.0919,
+        "25%": 3.0,
+        "50% (median)": 4.0,
+        "75%": 5.0,
+        "max": 5.0
+      }
+    },
+    "data_lifetime_years": {
+      "dtype": "float64",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 99749,
+      "sample_values": [
+        10.66274102687124,
+        1.867622728937925,
+        2.696492519804228,
+        8.446047648394083,
+        4.721175834414523
+      ],
+      "is_numeric": true,
+      "stats": {
+        "min": 0.2940602870247002,
+        "mean": 8.3173,
+        "std": 6.7622,
+        "25%": 3.9077,
+        "50% (median)": 6.3768,
+        "75%": 10.4576,
+        "max": 50.0
+      }
+    },
+    "migration_time_years": {
+      "dtype": "float64",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 99908,
+      "sample_values": [
+        2.647439755496085,
+        2.239236190786323,
+        0.8143892617826307,
+        2.521661736146982,
+        1.446691456219771
+      ],
+      "is_numeric": true,
+      "stats": {
+        "min": 0.1,
+        "mean": 1.7846,
+        "std": 0.5432,
+        "25%": 1.4176,
+        "50% (median)": 1.7853,
+        "75%": 2.1553,
+        "max": 3.949770411700182
+      }
+    },
+    "migration_complexity": {
+      "dtype": "int64",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 5,
+      "sample_values": [
+        5,
+        3,
+        4,
+        1,
+        2
+      ],
+      "is_numeric": true,
+      "stats": {
+        "min": 1.0,
+        "mean": 3.4767,
+        "std": 0.9183,
+        "25%": 3.0,
+        "50% (median)": 3.0,
+        "75%": 4.0,
+        "max": 5.0
+      }
+    },
+    "crypto_agility": {
+      "dtype": "int64",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 5,
+      "sample_values": [
+        3,
+        4,
+        2,
+        1,
+        5
+      ],
+      "is_numeric": true,
+      "stats": {
+        "min": 1.0,
+        "mean": 2.5267,
+        "std": 0.888,
+        "25%": 2.0,
+        "50% (median)": 3.0,
+        "75%": 3.0,
+        "max": 5.0
+      }
+    },
+    "internet_exposed": {
+      "dtype": "int64",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 2,
+      "sample_values": [
+        1,
+        0
+      ],
+      "is_numeric": true,
+      "stats": {
+        "min": 0.0,
+        "mean": 0.4394,
+        "std": 0.4963,
+        "25%": 0.0,
+        "50% (median)": 0.0,
+        "75%": 1.0,
+        "max": 1.0
+      }
+    },
+    "external_facing": {
+      "dtype": "int64",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 2,
+      "sample_values": [
+        1,
+        0
+      ],
+      "is_numeric": true,
+      "stats": {
+        "min": 0.0,
+        "mean": 0.5403,
+        "std": 0.4984,
+        "25%": 0.0,
+        "50% (median)": 1.0,
+        "75%": 1.0,
+        "max": 1.0
+      }
+    },
+    "dependency_count": {
+      "dtype": "int64",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 360,
+      "sample_values": [
+        11,
+        2,
+        40,
+        3,
+        7
+      ],
+      "is_numeric": true,
+      "stats": {
+        "min": 0.0,
+        "mean": 20.8937,
+        "std": 28.4318,
+        "25%": 6.0,
+        "50% (median)": 12.0,
+        "75%": 25.0,
+        "max": 865.0
+      }
+    },
+    "downstream_system_count": {
+      "dtype": "int64",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 169,
+      "sample_values": [
+        5,
+        14,
+        3,
+        2,
+        13
+      ],
+      "is_numeric": true,
+      "stats": {
+        "min": 0.0,
+        "mean": 8.6246,
+        "std": 11.1925,
+        "25%": 3.0,
+        "50% (median)": 5.0,
+        "75%": 11.0,
+        "max": 333.0
+      }
+    },
+    "HNDL_exposure": {
+      "dtype": "float64",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 46842,
+      "sample_values": [
+        0.0,
+        0.5042684326782381,
+        0.1824905825097307,
+        0.3851520364624955,
+        0.4970509992883884
+      ],
+      "is_numeric": true,
+      "stats": {
+        "min": 0.0,
+        "mean": 0.1914,
+        "std": 0.2291,
+        "25%": 0.0,
+        "50% (median)": 0.0,
+        "75%": 0.3887,
+        "max": 1.0
+      }
+    },
+    "data_at_rest": {
+      "dtype": "int64",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 2,
+      "sample_values": [
+        1,
+        0
+      ],
+      "is_numeric": true,
+      "stats": {
+        "min": 0.0,
+        "mean": 0.2187,
+        "std": 0.4133,
+        "25%": 0.0,
+        "50% (median)": 0.0,
+        "75%": 0.0,
+        "max": 1.0
+      }
+    },
+    "key_reuse_detected": {
+      "dtype": "int64",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 2,
+      "sample_values": [
+        0,
+        1
+      ],
+      "is_numeric": true,
+      "stats": {
+        "min": 0.0,
+        "mean": 0.2757,
+        "std": 0.4469,
+        "25%": 0.0,
+        "50% (median)": 0.0,
+        "75%": 1.0,
+        "max": 1.0
+      }
+    },
+    "hardware_dependency": {
+      "dtype": "int64",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 2,
+      "sample_values": [
+        0,
+        1
+      ],
+      "is_numeric": true,
+      "stats": {
+        "min": 0.0,
+        "mean": 0.2187,
+        "std": 0.4134,
+        "25%": 0.0,
+        "50% (median)": 0.0,
+        "75%": 0.0,
+        "max": 1.0
+      }
+    },
+    "vendor_support_score": {
+      "dtype": "int64",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 5,
+      "sample_values": [
+        5,
+        3,
+        2,
+        4,
+        1
+      ],
+      "is_numeric": true,
+      "stats": {
+        "min": 1.0,
+        "mean": 3.4858,
+        "std": 0.8712,
+        "25%": 3.0,
+        "50% (median)": 4.0,
+        "75%": 4.0,
+        "max": 5.0
+      }
+    },
+    "inventory_confidence": {
+      "dtype": "int64",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 5,
+      "sample_values": [
+        3,
+        4,
+        5,
+        2,
+        1
+      ],
+      "is_numeric": true,
+      "stats": {
+        "min": 1.0,
+        "mean": 3.8914,
+        "std": 0.7884,
+        "25%": 3.0,
+        "50% (median)": 4.0,
+        "75%": 4.0,
+        "max": 5.0
+      }
+    },
+    "compliance_criticality": {
+      "dtype": "int64",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 5,
+      "sample_values": [
+        3,
+        5,
+        4,
+        2,
+        1
+      ],
+      "is_numeric": true,
+      "stats": {
+        "min": 1.0,
+        "mean": 4.0652,
+        "std": 0.804,
+        "25%": 4.0,
+        "50% (median)": 4.0,
+        "75%": 5.0,
+        "max": 5.0
+      }
+    },
+    "quantum_attack_scenario": {
+      "dtype": "object",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 5,
+      "sample_values": [
+        "generic_quantum_effect",
+        "notional_future",
+        "aggressive_future",
+        "high_end_future",
+        "none_known"
+      ],
+      "is_numeric": false,
+      "value_counts": {
+        "generic_quantum_effect": 50285,
+        "notional_future": 25858,
+        "aggressive_future": 13973,
+        "high_end_future": 7108,
+        "none_known": 2776
+      }
+    },
+    "estimated_attack_time_log10_hours": {
+      "dtype": "float64",
+      "null_count": 53061,
+      "null_percentage": 53.061,
+      "unique_count": 999,
+      "sample_values": [
+        6.45,
+        4.09,
+        6.2,
+        7.0,
+        6.39
+      ],
+      "is_numeric": true,
+      "stats": {
+        "min": 0.12,
+        "mean": 5.8659,
+        "std": 1.8116,
+        "25%": 4.61,
+        "50% (median)": 6.13,
+        "75%": 7.06,
+        "max": 10.73
+      }
+    },
+    "quantum_estimate_confidence": {
+      "dtype": "object",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 2,
+      "sample_values": [
+        "not-applicable",
+        "scenario-dependent"
+      ],
+      "is_numeric": false,
+      "value_counts": {
+        "not-applicable": 53061,
+        "scenario-dependent": 46939
+      }
+    },
+    "risk_score": {
+      "dtype": "float64",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 99664,
+      "sample_values": [
+        33.65365692742039,
+        24.52653640847592,
+        67.70439244716684,
+        31.55112143363605,
+        59.03314487771182
+      ],
+      "is_numeric": true,
+      "stats": {
+        "min": 0.0,
+        "mean": 45.4302,
+        "std": 21.4544,
+        "25%": 27.3657,
+        "50% (median)": 37.5182,
+        "75%": 65.9459,
+        "max": 100.0
+      }
+    },
+    "risk_level": {
+      "dtype": "object",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 4,
+      "sample_values": [
+        "MEDIUM",
+        "LOW",
+        "HIGH",
+        "CRITICAL"
+      ],
+      "is_numeric": false,
+      "value_counts": {
+        "HIGH": 36072,
+        "MEDIUM": 36053,
+        "LOW": 19098,
+        "CRITICAL": 8777
+      }
+    },
+    "recommended_action": {
+      "dtype": "object",
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 5,
+      "sample_values": [
+        "plan_and_assess",
+        "monitor",
+        "prioritize_migration",
+        "migrate_immediately",
+        "maintain_and_monitor"
+      ],
+      "is_numeric": false,
+      "value_counts": {
+        "prioritize_migration": 36072,
+        "plan_and_assess": 36049,
+        "monitor": 16326,
+        "migrate_immediately": 8777,
+        "maintain_and_monitor": 2776
+      }
+    }
+  }
+}

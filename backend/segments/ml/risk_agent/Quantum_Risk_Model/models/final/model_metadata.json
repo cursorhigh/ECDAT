@@ -1,0 +1,128 @@
+{
+  "model_name": "ECDAT Quantum Risk Classifier",
+  "model_version": "1.1.0",
+  "model_architecture": "CatBoostClassifier (Multi-Class)",
+  "exported_at": "2026-09-25T12:13:13.883985",
+  "license": "Proprietary / Enterprise Cryptographic Discovery & Analysis Tool",
+  "target_specification": {
+    "target_column": "risk_level",
+    "class_ordering": [
+      "LOW",
+      "MEDIUM",
+      "HIGH",
+      "CRITICAL"
+    ],
+    "class_mapping": {
+      "LOW": 0,
+      "MEDIUM": 1,
+      "HIGH": 2,
+      "CRITICAL": 3
+    },
+    "reverse_class_mapping": {
+      "0": "LOW",
+      "1": "MEDIUM",
+      "2": "HIGH",
+      "3": "CRITICAL"
+    }
+  },
+  "dataset_lineage": {
+    "dataset_filename": "ECDAT_Industry_Quantum_Risk_Dataset_100K.xlsx",
+    "dataset_sha256": "6f28feb813f11089aa6349cd4f4a1e31d3561a8f3ccff408518e378a57041dcd",
+    "total_records": 100000,
+    "train_records": 70000,
+    "validation_records": 15000,
+    "test_records": 15000,
+    "split_ratio": "70/15/15 Stratified",
+    "random_seed": 42
+  },
+  "feature_engineering": {
+    "raw_input_features_count": 37,
+    "transformed_features_count": 151,
+    "excluded_columns": [
+      "asset_id",
+      "risk_level",
+      "risk_score",
+      "recommended_action"
+    ],
+    "feature_categories": {
+      "numerical": [
+        "key_or_hash_size_bits",
+        "classical_security_bits_est",
+        "nist_security_category",
+        "implementation_age_years",
+        "key_age_days",
+        "key_rotation_interval_days",
+        "certificate_remaining_days",
+        "data_sensitivity",
+        "business_criticality",
+        "data_lifetime_years",
+        "migration_time_years",
+        "migration_complexity",
+        "crypto_agility",
+        "dependency_count",
+        "downstream_system_count",
+        "HNDL_exposure",
+        "vendor_support_score",
+        "inventory_confidence",
+        "compliance_criticality",
+        "estimated_attack_time_log10_hours"
+      ],
+      "categorical": [
+        "algorithm",
+        "algorithm_family",
+        "crypto_role",
+        "quantum_attack_type",
+        "protocol",
+        "crypto_library",
+        "deployment_environment",
+        "environment_context",
+        "quantum_attack_scenario",
+        "quantum_estimate_confidence"
+      ],
+      "binary": [
+        "quantum_vulnerable",
+        "deprecated_or_disallowed",
+        "internet_exposed",
+        "external_facing",
+        "data_at_rest",
+        "key_reuse_detected",
+        "hardware_dependency"
+      ]
+    }
+  },
+  "performance_benchmarks": {
+    "evaluation_label": "Synthetic dataset evaluation",
+    "validation_metrics": {
+      "macro_f1": 0.932,
+      "accuracy": 0.9449,
+      "weighted_f1": 0.9448,
+      "macro_precision": 0.9355,
+      "macro_recall": 0.9287
+    },
+    "final_synthetic_test_metrics": {
+      "macro_f1": 0.9301,
+      "accuracy": 0.9419,
+      "weighted_f1": 0.9417,
+      "macro_precision": 0.9327,
+      "macro_recall": 0.9276,
+      "macro_roc_auc": 0.996,
+      "macro_pr_auc": 0.9839
+    }
+  },
+  "artifacts": {
+    "model_binary": "model.joblib",
+    "preprocessor_binary": "preprocessor.joblib",
+    "feature_schema": "feature_schema.json",
+    "target_mapping": "target_mapping.json"
+  },
+  "runtime_environment": {
+    "python_version": "3.11.9",
+    "core_dependencies": [
+      "catboost>=1.2.0",
+      "scikit-learn>=1.3.0",
+      "joblib>=1.3.0",
+      "numpy>=1.24.0",
+      "pandas>=2.0.0"
+    ]
+  }
+}

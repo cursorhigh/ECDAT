@@ -1,0 +1,66 @@
+{
+  "model_name": "CatBoost",
+  "model_key": "catboost",
+  "tuned_at": "2026-09-25T03:10:22.488239",
+  "random_seed": 42,
+  "best_trial_number": 3,
+  "best_parameters": {
+    "iterations": 400,
+    "depth": 6,
+    "learning_rate": 0.06012,
+    "l2_leaf_reg": 1.9554,
+    "auto_class_weights": null,
+    "random_strength": 1.8952,
+    "loss_function": "MultiClass",
+    "random_seed": 42,
+    "thread_count": -1,
+    "verbose": false
+  },
+  "validation_metrics": {
+    "accuracy": 0.9449,
+    "macro_precision": 0.9355,
+    "macro_recall": 0.9287,
+    "macro_f1": 0.932,
+    "weighted_f1": 0.9448,
+    "per_class_recall": {
+      "rec_LOW": 0.9162,
+      "rec_MEDIUM": 0.9469,
+      "rec_HIGH": 0.9747,
+      "rec_CRITICAL": 0.877
+    },
+    "per_class_f1": {
+      "f1_LOW": 0.9193,
+      "f1_MEDIUM": 0.949,
+      "f1_HIGH": 0.9666,
+      "f1_CRITICAL": 0.8933
+    },
+    "confusion_matrix": [
+      [
+        2624,
+        240,
+        0,
+        0
+      ],
+      [
+        221,
+        5121,
+        66,
+        0
+      ],
+      [
+        0,
+        23,
+        5274,
+        114
+      ],
+      [
+        0,
+        0,
+        162,
+        1155
+      ]
+    ]
+  },
+  "training_time_sec": 5.43,
+  "inference_time_sec": 0.011
+}

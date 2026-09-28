@@ -1,0 +1,219 @@
+{
+  "metadata": {
+    "created_at": "2026-09-25T03:09:22.295670",
+    "random_seed": 42,
+    "train_samples": 70000,
+    "val_samples": 15000,
+    "metric_used_for_ranking": "macro_f1",
+    "evaluation_set": "validation_set (test set untouched)"
+  },
+  "ranking": [
+    "CatBoost",
+    "XGBoost",
+    "Random Forest"
+  ],
+  "best_model": "CatBoost",
+  "best_model_key": "catboost",
+  "models": [
+    {
+      "model_key": "catboost",
+      "accuracy": 0.9449,
+      "macro_precision": 0.9356,
+      "macro_recall": 0.9289,
+      "macro_f1": 0.9321,
+      "weighted_f1": 0.9448,
+      "per_class_f1": {
+        "LOW": 0.9197,
+        "MEDIUM": 0.9489,
+        "HIGH": 0.9664,
+        "CRITICAL": 0.8936
+      },
+      "confusion_matrix": [
+        [
+          2628,
+          236,
+          0,
+          0
+        ],
+        [
+          223,
+          5120,
+          65,
+          0
+        ],
+        [
+          0,
+          27,
+          5271,
+          113
+        ],
+        [
+          0,
+          0,
+          162,
+          1155
+        ]
+      ],
+      "training_time_sec": 4.58,
+      "inference_time_sec": 0.012,
+      "hyperparameters": {
+        "iterations": 350,
+        "learning_rate": 0.08,
+        "depth": 6,
+        "loss_function": "MultiClass",
+        "random_seed": 42,
+        "verbose": false
+      },
+      "display_name": "CatBoost"
+    },
+    {
+      "model_key": "xgboost",
+      "accuracy": 0.9444,
+      "macro_precision": 0.9342,
+      "macro_recall": 0.9283,
+      "macro_f1": 0.9312,
+      "weighted_f1": 0.9443,
+      "per_class_f1": {
+        "LOW": 0.9203,
+        "MEDIUM": 0.9492,
+        "HIGH": 0.9652,
+        "CRITICAL": 0.8901
+      },
+      "confusion_matrix": [
+        [
+          2627,
+          237,
+          0,
+          0
+        ],
+        [
+          218,
+          5126,
+          64,
+          0
+        ],
+        [
+          0,
+          30,
+          5259,
+          122
+        ],
+        [
+          0,
+          0,
+          163,
+          1154
+        ]
+      ],
+      "training_time_sec": 6.33,
+      "inference_time_sec": 0.029,
+      "hyperparameters": {
+        "objective": "multi:softprob",
+        "base_score": null,
+        "booster": null,
+        "callbacks": null,
+        "colsample_bylevel": null,
+        "colsample_bynode": null,
+        "colsample_bytree": 0.85,
+        "device": null,
+        "early_stopping_rounds": null,
+        "enable_categorical": false,
+        "eval_metric": "mlogloss",
+        "feature_types": null,
+        "feature_weights": null,
+        "gamma": null,
+        "grow_policy": null,
+        "importance_type": null,
+        "interaction_constraints": null,
+        "learning_rate": 0.08,
+        "max_bin": null,
+        "max_cat_threshold": null,
+        "max_cat_to_onehot": null,
+        "max_delta_step": null,
+        "max_depth": 6,
+        "max_leaves": null,
+        "min_child_weight": null,
+        "missing": NaN,
+        "monotone_constraints": null,
+        "multi_strategy": null,
+        "n_estimators": 250,
+        "n_jobs": -1,
+        "num_parallel_tree": null,
+        "random_state": 42,
+        "reg_alpha": null,
+        "reg_lambda": null,
+        "sampling_method": null,
+        "scale_pos_weight": null,
+        "subsample": 0.85,
+        "tree_method": null,
+        "validate_parameters": null,
+        "verbosity": null
+      },
+      "display_name": "XGBoost"
+    },
+    {
+      "model_key": "random_forest",
+      "accuracy": 0.9281,
+      "macro_precision": 0.919,
+      "macro_recall": 0.9032,
+      "macro_f1": 0.9107,
+      "weighted_f1": 0.9276,
+      "per_class_f1": {
+        "LOW": 0.8969,
+        "MEDIUM": 0.934,
+        "HIGH": 0.9546,
+        "CRITICAL": 0.8571
+      },
+      "confusion_matrix": [
+        [
+          2518,
+          346,
+          0,
+          0
+        ],
+        [
+          233,
+          5063,
+          112,
+          0
+        ],
+        [
+          0,
+          24,
+          5252,
+          135
+        ],
+        [
+          0,
+          0,
+          228,
+          1089
+        ]
+      ],
+      "training_time_sec": 3.58,
+      "inference_time_sec": 0.0926,
+      "hyperparameters": {
+        "bootstrap": true,
+        "ccp_alpha": 0.0,
+        "class_weight": null,
+        "criterion": "gini",
+        "max_depth": 20,
+        "max_features": "sqrt",
+        "max_leaf_nodes": null,
+        "max_samples": null,
+        "min_impurity_decrease": 0.0,
+        "min_samples_leaf": 2,
+        "min_samples_split": 5,
+        "min_weight_fraction_leaf": 0.0,
+        "monotonic_cst": null,
+        "n_estimators": 200,
+        "n_jobs": -1,
+        "oob_score": false,
+        "random_state": 42,
+        "verbose": 0,
+        "warm_start": false
+      },
+      "display_name": "Random Forest"
+    }
+  ]
+}

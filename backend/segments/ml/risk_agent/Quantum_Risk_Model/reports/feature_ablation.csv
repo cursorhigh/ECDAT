@@ -1,0 +1,8 @@
+experiment,ablated_group,num_raw_features_ablated,num_transformed_dims_ablated,macro_f1,accuracy,f1_drop,recall_low,recall_medium,recall_high,recall_critical
+Baseline (All Features),None,0,0,0.932,0.9449,0.0,0.9162,0.9469,0.9747,0.877
+Ablate: A. Cryptographic Primitives,A. Cryptographic Primitives,10,97,0.8935,0.917,0.0385,0.8663,0.9528,0.9483,0.7517
+Ablate: B. Business Context,B. Business Context,4,11,0.7061,0.7873,0.226,0.2193,0.9329,0.9669,0.6872
+Ablate: C. Exposure Features,C. Exposure Features,4,19,0.8547,0.8864,0.0774,0.933,0.8256,0.9874,0.6196
+Ablate: D. Migration & Agility,D. Migration & Agility,4,4,0.9015,0.9235,0.0305,0.8991,0.9231,0.9765,0.7608
+Ablate: E. HNDL & Quantum Timeline,E. HNDL & Quantum Timeline,4,9,0.4518,0.5658,0.4802,0.7273,0.956,0.2242,0.0159
+Ablate: F. Operational & Dependencies,F. Operational & Dependencies,11,11,0.9219,0.9361,0.0101,0.8656,0.9562,0.9636,0.8945

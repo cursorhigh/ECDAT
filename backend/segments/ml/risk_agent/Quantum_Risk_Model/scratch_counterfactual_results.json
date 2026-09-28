@@ -1,0 +1,74 @@
+{
+  "Baseline RSA-2048": {
+    "file": "examples/test_rsa_2048.json",
+    "schema_valid": true,
+    "errors": [],
+    "warnings": [],
+    "prediction": {
+      "risk_level": "CRITICAL",
+      "probabilities": {
+        "LOW": 0.0,
+        "MEDIUM": 0.0,
+        "HIGH": 0.0007,
+        "CRITICAL": 0.9993
+      },
+      "model_version": "1.0.0",
+      "model_confidence": 0.9993,
+      "status": "success"
+    }
+  },
+  "AES-256 Counterfactual": {
+    "file": "examples/test_aes_256_counterfactual.json",
+    "schema_valid": true,
+    "errors": [],
+    "warnings": [],
+    "prediction": {
+      "risk_level": "CRITICAL",
+      "probabilities": {
+        "LOW": 0.0056,
+        "MEDIUM": 0.1564,
+        "HIGH": 0.0131,
+        "CRITICAL": 0.825
+      },
+      "model_version": "1.0.0",
+      "model_confidence": 0.825,
+      "status": "success"
+    }
+  },
+  "Low-Context RSA Counterfactual": {
+    "file": "examples/test_rsa_2048_low_context_counterfactual.json",
+    "schema_valid": true,
+    "errors": [],
+    "warnings": [],
+    "prediction": {
+      "risk_level": "MEDIUM",
+      "probabilities": {
+        "LOW": 0.0131,
+        "MEDIUM": 0.9866,
+        "HIGH": 0.0003,
+        "CRITICAL": 0.0
+      },
+      "model_version": "1.0.0",
+      "model_confidence": 0.9866,
+      "status": "success"
+    }
+  },
+  "Extreme RSA-2048": {
+    "file": "examples/test_rsa_2048_extreme.json",
+    "schema_valid": true,
+    "errors": [],
+    "warnings": [],
+    "prediction": {
+      "risk_level": "CRITICAL",
+      "probabilities": {
+        "LOW": 0.0,
+        "MEDIUM": 0.0,
+        "HIGH": 0.0001,
+        "CRITICAL": 0.9999
+      },
+      "model_version": "1.0.0",
+      "model_confidence": 0.9999,
+      "status": "success"
+    }
+  }
+}

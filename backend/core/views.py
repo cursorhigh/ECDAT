@@ -257,3 +257,89 @@ def session_reset(request):
     else:
         log_action("system", f"Reset findings data for {label}", "worksession", str(sid) or "")
     return JsonResponse({"ok": True, "session_id": sid, "deleted": deleted})
+
+
+@csrf_exempt
+def delete_scan_history_session(request, session_id):
+    """Delete a specific session/scan run and all its cascaded findings & reports."""
+    if request.method not in ("DELETE", "POST"):
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+    db = active_db()
+    session = WorkSession.objects.using(db).filter(pk=session_id).first()
+    if not session:
+        return JsonResponse({"detail": f"Session {session_id} not found."}, status=404)
+
+    name = session.name
+    # Delete all associated data
+    try:
+        from segments.mitigation.mitigation.models import MitigationPlan
+        MitigationPlan.objects.using(db).filter(session_id=session_id).delete()
+    except Exception:
+        pass
+
+    AnalysisRun.objects.using(db).filter(session_id=session_id).delete()
+    AssetAssessment.objects.using(db).filter(session_id=session_id).delete()
+    ScanJob.objects.using(db).filter(session_id=session_id).delete()
+    CryptoAsset.objects.using(db).filter(session_id=session_id).delete()
+    RawFinding.objects.using(db).filter(session_id=session_id).delete()
+    NormalizedFinding.objects.using(db).filter(session_id=session_id).delete()
+    AssetRelation.objects.using(db).filter(session_id=session_id).delete()
+    AuditLog.objects.using(db).filter(session_id=session_id).delete()
+    session.delete()
+
+    active_id = current_id_from_request(request)
+    if active_id == session_id:
+        remaining = WorkSession.objects.using(db).order_by("-created_at").first()
+        new_sid = remaining.pk if remaining else None
+        set_current(request, new_sid)
+        set_thread_session(new_sid)
+
+    return JsonResponse({"ok": True, "deleted_session_id": session_id, "name": name})
+
+
+@csrf_exempt
+def clear_all_scan_history(request):
+    """Clear all scan history and sessions across the workspace."""
+    if request.method not in ("DELETE", "POST"):
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+    db = active_db()
+    try:
+        from segments.mitigation.mitigation.models import MitigationPlan
+        MitigationPlan.objects.using(db).all().delete()
+    except Exception:
+        pass
+
+    AnalysisRun.objects.using(db).all().delete()
+    AssetAssessment.objects.using(db).all().delete()
+    ScanJob.objects.using(db).all().delete()
+    CryptoAsset.objects.using(db).all().delete()
+    RawFinding.objects.using(db).all().delete()
+    NormalizedFinding.objects.using(db).all().delete()
+    AssetRelation.objects.using(db).all().delete()
+    AuditLog.objects.using(db).all().delete()
+    WorkSession.objects.using(db).all().delete()
+
+    set_current(request, None)
+    set_thread_session(None)
+
+    return JsonResponse({"ok": True, "cleared_all": True})
+
+
+@csrf_exempt
+def delete_scan_job(request, scan_id):
+    """Delete a single scan job and its findings."""
+    if request.method not in ("DELETE", "POST"):
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+    db = active_db()
+    job = ScanJob.objects.using(db).filter(pk=scan_id).first()
+    if not job:
+        return JsonResponse({"detail": f"Scan job {scan_id} not found."}, status=404)
+
+    AnalysisRun.objects.using(db).filter(scan_job=job).delete()
+    RawFinding.objects.using(db).filter(scan_job=job).delete()
+    job.delete()
+
+    return JsonResponse({"ok": True, "deleted_scan_id": scan_id})

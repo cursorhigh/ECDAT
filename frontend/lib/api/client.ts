@@ -178,6 +178,21 @@ export const api = {
     request<GraphImpact>(`/graph-index/${nodeId}/impact/`, {}, { question }),
   handoff: (query?: Query) => request<Handoff>("/handoff/", {}, query),
   scanHistory: (limit = 100) => request<ScanHistory>("/session/scan-history/", {}, { limit }),
+  deleteScanHistory: (sessionId: number) =>
+    request<{ ok: boolean; deleted_session_id: number; name: string }>(
+      `/session/scan-history/${sessionId}/delete/`,
+      jsonOptions("POST", {}),
+    ),
+  clearAllScanHistory: () =>
+    request<{ ok: boolean; cleared_all: boolean }>(
+      "/session/scan-history/clear/",
+      jsonOptions("POST", {}),
+    ),
+  deleteScan: (scanId: number) =>
+    request<{ ok: boolean; deleted_scan_id: number }>(
+      `/session/scans/${scanId}/delete/`,
+      jsonOptions("POST", {}),
+    ),
   cancelScanBatch: (id: number) =>
     request<{ id: number; status: string; cancelled: number }>(
       `/scan-batches/${id}/cancel/`,

@@ -1,0 +1,250 @@
+{
+  "kpis": {
+    "total_crypto_assets": 10,
+    "quantum_vulnerable_count": 5,
+    "quantum_vulnerable_pct": 50.0,
+    "hndl_exposed_count": 8,
+    "urgent_wave1_count": 5,
+    "pqc_migration_wave2_count": 1,
+    "hardening_wave3_count": 4,
+    "estimated_quarters": 6,
+    "earliest_deadline_year": 2029.8
+  },
+  "waves": [
+    {
+      "name": "Wave 1 - Stop the bleeding (HNDL & PQC triage)",
+      "timeline": "0-3 months",
+      "focus": "Rotate HNDL-exposed keys, add hybrid handshakes and stage urgent post-quantum replacements for publicly exposed primitives.",
+      "assets": [
+        "DISC-001",
+        "DISC-002",
+        "DISC-006",
+        "DISC-007",
+        "DISC-008"
+      ],
+      "asset_count": 5
+    },
+    {
+      "name": "Wave 2 - Post-quantum migration",
+      "timeline": "3-12 months",
+      "focus": "Systematically move public-key signatures and key exchange to ML-KEM / ML-DSA per CNSA 2.0, covering downstream trust chains.",
+      "assets": [
+        "DISC-004"
+      ],
+      "asset_count": 1
+    },
+    {
+      "name": "Wave 3 - Hardening & governance",
+      "timeline": "12-24 months",
+      "focus": "Consolidate symmetric modes (AES-256), strengthen hashes to SHA-3, retire legacy ciphers and codify crypto policy so new failures cannot ship.",
+      "assets": [
+        "DISC-009",
+        "DISC-003",
+        "DISC-010",
+        "DISC-005"
+      ],
+      "asset_count": 4
+    }
+  ],
+  "risk_distribution": {
+    "critical": 0,
+    "high": 6,
+    "medium": 1,
+    "low": 3
+  },
+  "digital_twin": {
+    "abstractions": [
+      {
+        "type": "algorithm",
+        "label": "RSA-2048",
+        "count": 1,
+        "contexts": [
+          "unknown"
+        ],
+        "roles": [
+          "cryptographic_primitives"
+        ]
+      },
+      {
+        "type": "algorithm",
+        "label": "ECDSA",
+        "count": 1,
+        "contexts": [
+          "unknown"
+        ],
+        "roles": [
+          "digital_signature",
+          "authentication",
+          "certificates"
+        ]
+      },
+      {
+        "type": "algorithm",
+        "label": "AES-256-GCM",
+        "count": 1,
+        "contexts": [
+          "unknown"
+        ],
+        "roles": [
+          "cryptographic_primitives"
+        ]
+      },
+      {
+        "type": "algorithm",
+        "label": "3DES-CBC",
+        "count": 1,
+        "contexts": [
+          "unknown"
+        ],
+        "roles": [
+          "cryptographic_primitives"
+        ]
+      },
+      {
+        "type": "algorithm",
+        "label": "ML-KEM-768",
+        "count": 1,
+        "contexts": [
+          "unknown"
+        ],
+        "roles": [
+          "cryptographic_primitives"
+        ]
+      },
+      {
+        "type": "algorithm",
+        "label": "RSA-3072",
+        "count": 1,
+        "contexts": [
+          "unknown"
+        ],
+        "roles": [
+          "cryptographic_primitives"
+        ]
+      },
+      {
+        "type": "algorithm",
+        "label": "RSA-4096",
+        "count": 1,
+        "contexts": [
+          "unknown"
+        ],
+        "roles": [
+          "cryptographic_primitives"
+        ]
+      },
+      {
+        "type": "algorithm",
+        "label": "ED25519",
+        "count": 1,
+        "contexts": [
+          "unknown"
+        ],
+        "roles": [
+          "digital_signature",
+          "authentication",
+          "certificates"
+        ]
+      },
+      {
+        "type": "algorithm",
+        "label": "AES-128-GCM",
+        "count": 1,
+        "contexts": [
+          "unknown"
+        ],
+        "roles": [
+          "cryptographic_primitives"
+        ]
+      },
+      {
+        "type": "algorithm",
+        "label": "X25519+ML-KEM-768",
+        "count": 1,
+        "contexts": [
+          "unknown"
+        ],
+        "roles": [
+          "cryptographic_primitives"
+        ]
+      }
+    ],
+    "contexts": {
+      "services": [
+        "unknown"
+      ],
+      "applications": [
+        "ECDAT Enterprise Post-Quantum Cryptographic Risk Report"
+      ],
+      "exposure": "internal",
+      "data_types": [],
+      "publicly_accessible": false
+    },
+    "high_value_points": [
+      {
+        "label": "Service 'unknown'",
+        "reason": "concentrates 10 cryptographic asset(s) in one blast zone"
+      }
+    ]
+  },
+  "blast_radius_summary": {
+    "severity": "CRITICAL",
+    "affected_services": 1,
+    "affected_findings": 10,
+    "public_surface": false,
+    "per_algorithm": [
+      {
+        "algorithm": "RSA-2048",
+        "count": 1,
+        "severity": "CRITICAL"
+      },
+      {
+        "algorithm": "ECDSA",
+        "count": 1,
+        "severity": "CRITICAL"
+      },
+      {
+        "algorithm": "RSA-3072",
+        "count": 1,
+        "severity": "CRITICAL"
+      },
+      {
+        "algorithm": "RSA-4096",
+        "count": 1,
+        "severity": "CRITICAL"
+      },
+      {
+        "algorithm": "ED25519",
+        "count": 1,
+        "severity": "CRITICAL"
+      },
+      {
+        "algorithm": "3DES-CBC",
+        "count": 1,
+        "severity": "HIGH"
+      },
+      {
+        "algorithm": "ML-KEM-768",
+        "count": 1,
+        "severity": "MEDIUM"
+      },
+      {
+        "algorithm": "AES-128-GCM",
+        "count": 1,
+        "severity": "MEDIUM"
+      },
+      {
+        "algorithm": "AES-256-GCM",
+        "count": 1,
+        "severity": "LOW"
+      },
+      {
+        "algorithm": "X25519+ML-KEM-768",
+        "count": 1,
+        "severity": "LOW"
+      }
+    ],
+    "poorest_link": "CRITICAL"
+  },
+  "generated_at": "2026-09-28T11:41:08.637496+00:00"
+}

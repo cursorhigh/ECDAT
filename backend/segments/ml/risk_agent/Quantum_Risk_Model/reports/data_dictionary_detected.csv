@@ -1,0 +1,42 @@
+column_name,data_type,role,null_count,null_percentage,unique_values_count,sample_values,audit_notes
+asset_id,object,Identifier (Drop),0,0.0,100000,"CRYPTO-0000001, CRYPTO-0000002, CRYPTO-0000003, ...",Unique asset identifier with no predictive cryptographic generalization value.
+algorithm,object,Categorical Feature,0,0.0,60,"Blowfish-128, AES-256, RSA-3072, ...",Valid input feature for training
+algorithm_family,object,Categorical Feature,0,0.0,4,"symmetric, asymmetric, hash, ...",Valid input feature for training
+crypto_role,object,Categorical Feature,0,0.0,8,"encryption, signature, XOF, ...",Valid input feature for training
+key_or_hash_size_bits,int64,Numerical Feature,0,0.0,20,"128, 256, 3072, ...",Valid input feature for training
+quantum_attack_type,object,Categorical Feature,0,0.0,6,"Grover, Shor, Generic quantum, ...",Valid input feature for training
+quantum_vulnerable,int64,Numerical Feature,0,0.0,2,"0, 1",Valid input feature for training
+classical_security_bits_est,int64,Numerical Feature,0,0.0,9,"128, 256, 112, ...",Valid input feature for training
+nist_security_category,int64,Numerical Feature,0,0.0,5,"1, 5, 0, ...",Valid input feature for training
+deprecated_or_disallowed,int64,Numerical Feature,0,0.0,2,"0, 1",Valid input feature for training
+protocol,object,Categorical Feature,3127,3.127,10,"Database, Storage, TLS1.3, ...",Valid input feature for training
+crypto_library,object,Categorical Feature,0,0.0,14,"OpenSSL, BoringSSL, Go crypto, ...",Valid input feature for training
+deployment_environment,object,Categorical Feature,0,0.0,6,"container, edge, cloud, ...",Valid input feature for training
+environment_context,object,Categorical Feature,0,0.0,8,"financial, enterprise_internal, healthcare, ...",Valid input feature for training
+implementation_age_years,float64,Numerical Feature,0,0.0,98465,"3.425396863413527, 8.47895111926471, 4.276559970010968, ...",Valid input feature for training
+key_age_days,int64,Numerical Feature,0,0.0,3412,"158, 724, 365, ...",Valid input feature for training
+key_rotation_interval_days,int64,Numerical Feature,0,0.0,1655,"79, 436, 75, ...",Valid input feature for training
+certificate_remaining_days,int64,Numerical Feature,0,0.0,824,"245, 323, 289, ...",Valid input feature for training
+data_sensitivity,int64,Numerical Feature,0,0.0,5,"5, 3, 4, ...",Valid input feature for training
+business_criticality,int64,Numerical Feature,0,0.0,5,"4, 3, 5, ...",Valid input feature for training
+data_lifetime_years,float64,Numerical Feature,0,0.0,99749,"10.66274102687124, 1.867622728937925, 2.696492519804228, ...",Valid input feature for training
+migration_time_years,float64,Numerical Feature,0,0.0,99908,"2.647439755496085, 2.239236190786323, 0.8143892617826307, ...",Valid input feature for training
+migration_complexity,int64,Numerical Feature,0,0.0,5,"5, 3, 4, ...",Valid input feature for training
+crypto_agility,int64,Numerical Feature,0,0.0,5,"3, 4, 2, ...",Valid input feature for training
+internet_exposed,int64,Numerical Feature,0,0.0,2,"1, 0",Valid input feature for training
+external_facing,int64,Numerical Feature,0,0.0,2,"1, 0",Valid input feature for training
+dependency_count,int64,Numerical Feature,0,0.0,360,"11, 2, 40, ...",Valid input feature for training
+downstream_system_count,int64,Numerical Feature,0,0.0,169,"5, 14, 3, ...",Valid input feature for training
+HNDL_exposure,float64,Numerical Feature,0,0.0,46842,"0.0, 0.5042684326782381, 0.1824905825097307, ...",Valid input feature for training
+data_at_rest,int64,Numerical Feature,0,0.0,2,"1, 0",Valid input feature for training
+key_reuse_detected,int64,Numerical Feature,0,0.0,2,"0, 1",Valid input feature for training
+hardware_dependency,int64,Numerical Feature,0,0.0,2,"0, 1",Valid input feature for training
+vendor_support_score,int64,Numerical Feature,0,0.0,5,"5, 3, 2, ...",Valid input feature for training
+inventory_confidence,int64,Numerical Feature,0,0.0,5,"3, 4, 5, ...",Valid input feature for training
+compliance_criticality,int64,Numerical Feature,0,0.0,5,"3, 5, 4, ...",Valid input feature for training
+quantum_attack_scenario,object,Categorical Feature,0,0.0,5,"generic_quantum_effect, notional_future, aggressive_future, ...",Valid input feature for training
+estimated_attack_time_log10_hours,float64,Numerical Feature,53061,53.061,999,"6.45, 4.09, 6.2, ...",Valid input feature for training
+quantum_estimate_confidence,object,Categorical Feature,0,0.0,2,"not-applicable, scenario-dependent",Valid input feature for training
+risk_score,float64,Target (Regression) / Leakage for Classification,0,0.0,99664,"33.65365692742039, 24.52653640847592, 67.70439244716684, ...","Continuous risk assessment score directly tied to the risk calculation formula. If predicting risk_level (classification), including risk_score constitutes direct target leakage."
+risk_level,object,Target (Multi-class Classification),0,0.0,4,"MEDIUM, LOW, HIGH, ...",Primary supervised classification target for the ECDAT model.
+recommended_action,object,Target Leakage (Drop),0,0.0,5,"plan_and_assess, monitor, prioritize_migration, ...",Prescriptive remediation policy outcome derived downstream from risk_level / risk_score. Including this as an input feature would leak the target outcome.

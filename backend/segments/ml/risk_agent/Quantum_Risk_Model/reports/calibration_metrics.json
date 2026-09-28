@@ -1,0 +1,16 @@
+{
+  "validation_set": {
+    "log_loss": 0.1314,
+    "brier_score": 0.0789,
+    "expected_calibration_error_ece": 0.0136,
+    "mean_model_confidence": 0.9314,
+    "validation_accuracy": 0.9449
+  },
+  "test_set": {
+    "log_loss": 0.1358,
+    "brier_score": 0.0817,
+    "expected_calibration_error_ece": 0.0147,
+    "mean_model_confidence": 0.9295,
+    "test_accuracy": 0.9419
+  }
+}

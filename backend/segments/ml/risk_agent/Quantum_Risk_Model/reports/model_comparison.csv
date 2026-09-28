@@ -1,0 +1,4 @@
+model,model_key,accuracy,macro_f1,weighted_f1,macro_precision,macro_recall,f1_LOW,f1_MEDIUM,f1_HIGH,f1_CRITICAL,train_time_sec,inference_time_sec
+CatBoost,catboost,0.9449,0.9321,0.9448,0.9356,0.9289,0.9197,0.9489,0.9664,0.8936,4.58,0.012
+XGBoost,xgboost,0.9444,0.9312,0.9443,0.9342,0.9283,0.9203,0.9492,0.9652,0.8901,6.33,0.029
+Random Forest,random_forest,0.9281,0.9107,0.9276,0.919,0.9032,0.8969,0.934,0.9546,0.8571,3.58,0.0926

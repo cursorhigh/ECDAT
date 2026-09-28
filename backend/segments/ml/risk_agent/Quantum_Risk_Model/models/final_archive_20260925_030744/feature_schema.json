@@ -1,0 +1,437 @@
+{
+  "schema_version": "1.0.0",
+  "target_column": "risk_level",
+  "total_features_count": 37,
+  "numerical_features_count": 20,
+  "categorical_features_count": 10,
+  "binary_features_count": 7,
+  "features": [
+    {
+      "name": "algorithm",
+      "data_type": "object",
+      "category": "categorical",
+      "required": true,
+      "allowed_values": null,
+      "imputation_and_encoding": "SimpleImputer(constant='missing') -> OneHotEncoder(handle_unknown='ignore')",
+      "description": "Input feature 'algorithm' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "algorithm_family",
+      "data_type": "object",
+      "category": "categorical",
+      "required": true,
+      "allowed_values": [
+        "asymmetric",
+        "symmetric",
+        "hash",
+        "pqc"
+      ],
+      "imputation_and_encoding": "SimpleImputer(constant='missing') -> OneHotEncoder(handle_unknown='ignore')",
+      "description": "Input feature 'algorithm_family' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "crypto_role",
+      "data_type": "object",
+      "category": "categorical",
+      "required": true,
+      "allowed_values": [
+        "encryption",
+        "signature",
+        "hash",
+        "key_establishment",
+        "MAC",
+        "XOF",
+        "AEAD",
+        "KDF"
+      ],
+      "imputation_and_encoding": "SimpleImputer(constant='missing') -> OneHotEncoder(handle_unknown='ignore')",
+      "description": "Input feature 'crypto_role' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "key_or_hash_size_bits",
+      "data_type": "int64",
+      "category": "numerical",
+      "required": true,
+      "allowed_values": null,
+      "imputation_and_encoding": "SimpleImputer(median) -> StandardScaler",
+      "description": "Input feature 'key_or_hash_size_bits' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "quantum_attack_type",
+      "data_type": "object",
+      "category": "categorical",
+      "required": true,
+      "allowed_values": [
+        "Grover",
+        "Shor",
+        "Generic quantum",
+        "None known",
+        "Legacy/weak",
+        "Generic"
+      ],
+      "imputation_and_encoding": "SimpleImputer(constant='missing') -> OneHotEncoder(handle_unknown='ignore')",
+      "description": "Input feature 'quantum_attack_type' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "quantum_vulnerable",
+      "data_type": "int64",
+      "category": "binary_indicator",
+      "required": true,
+      "allowed_values": [
+        0,
+        1
+      ],
+      "imputation_and_encoding": "SimpleImputer(most_frequent) -> Passthrough",
+      "description": "Flag indicating whether algorithm is vulnerable to polynomial-time Shor's or Grover's attack."
+    },
+    {
+      "name": "classical_security_bits_est",
+      "data_type": "int64",
+      "category": "numerical",
+      "required": true,
+      "allowed_values": null,
+      "imputation_and_encoding": "SimpleImputer(median) -> StandardScaler",
+      "description": "Input feature 'classical_security_bits_est' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "nist_security_category",
+      "data_type": "int64",
+      "category": "numerical",
+      "required": true,
+      "allowed_values": null,
+      "imputation_and_encoding": "SimpleImputer(median) -> StandardScaler",
+      "description": "Input feature 'nist_security_category' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "deprecated_or_disallowed",
+      "data_type": "int64",
+      "category": "binary_indicator",
+      "required": true,
+      "allowed_values": [
+        0,
+        1
+      ],
+      "imputation_and_encoding": "SimpleImputer(most_frequent) -> Passthrough",
+      "description": "Input feature 'deprecated_or_disallowed' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "protocol",
+      "data_type": "object",
+      "category": "categorical",
+      "required": false,
+      "allowed_values": [
+        "TLS1.3",
+        "X.509/PKI",
+        "TLS1.2",
+        "Application",
+        "Database",
+        "Storage",
+        "SSH",
+        "IPsec",
+        "S/MIME",
+        "JWE/JWS",
+        "nan"
+      ],
+      "imputation_and_encoding": "SimpleImputer(constant='missing') -> OneHotEncoder(handle_unknown='ignore')",
+      "description": "Input feature 'protocol' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "crypto_library",
+      "data_type": "object",
+      "category": "categorical",
+      "required": true,
+      "allowed_values": [
+        "OpenSSL",
+        "Unknown",
+        "Java JCA/JCE",
+        "BoringSSL",
+        "Windows CNG",
+        "libsodium",
+        "Go crypto",
+        "WebCrypto",
+        "wolfSSL",
+        "mbedTLS",
+        "HSM/provider",
+        "RustCrypto",
+        "Botan",
+        "LibreSSL"
+      ],
+      "imputation_and_encoding": "SimpleImputer(constant='missing') -> OneHotEncoder(handle_unknown='ignore')",
+      "description": "Input feature 'crypto_library' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "deployment_environment",
+      "data_type": "object",
+      "category": "categorical",
+      "required": true,
+      "allowed_values": [
+        "cloud",
+        "hybrid",
+        "on_prem",
+        "container",
+        "saas",
+        "edge"
+      ],
+      "imputation_and_encoding": "SimpleImputer(constant='missing') -> OneHotEncoder(handle_unknown='ignore')",
+      "description": "Input feature 'deployment_environment' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "environment_context",
+      "data_type": "object",
+      "category": "categorical",
+      "required": true,
+      "allowed_values": [
+        "enterprise_internal",
+        "internet_service",
+        "financial",
+        "developer_ci",
+        "data_platform",
+        "critical_infrastructure",
+        "healthcare",
+        "government"
+      ],
+      "imputation_and_encoding": "SimpleImputer(constant='missing') -> OneHotEncoder(handle_unknown='ignore')",
+      "description": "Input feature 'environment_context' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "implementation_age_years",
+      "data_type": "float64",
+      "category": "numerical",
+      "required": true,
+      "allowed_values": null,
+      "imputation_and_encoding": "SimpleImputer(median) -> StandardScaler",
+      "description": "Input feature 'implementation_age_years' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "key_age_days",
+      "data_type": "int64",
+      "category": "numerical",
+      "required": true,
+      "allowed_values": null,
+      "imputation_and_encoding": "SimpleImputer(median) -> StandardScaler",
+      "description": "Input feature 'key_age_days' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "key_rotation_interval_days",
+      "data_type": "int64",
+      "category": "numerical",
+      "required": true,
+      "allowed_values": null,
+      "imputation_and_encoding": "SimpleImputer(median) -> StandardScaler",
+      "description": "Input feature 'key_rotation_interval_days' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "certificate_remaining_days",
+      "data_type": "int64",
+      "category": "numerical",
+      "required": true,
+      "allowed_values": null,
+      "imputation_and_encoding": "SimpleImputer(median) -> StandardScaler",
+      "description": "Input feature 'certificate_remaining_days' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "data_sensitivity",
+      "data_type": "int64",
+      "category": "numerical",
+      "required": true,
+      "allowed_values": null,
+      "imputation_and_encoding": "SimpleImputer(median) -> StandardScaler",
+      "description": "Data classification sensitivity level (1 = public, 5 = top secret / restricted)."
+    },
+    {
+      "name": "business_criticality",
+      "data_type": "int64",
+      "category": "numerical",
+      "required": true,
+      "allowed_values": null,
+      "imputation_and_encoding": "SimpleImputer(median) -> StandardScaler",
+      "description": "Organizational business criticality tier (1 = lowest, 5 = highest mission critical)."
+    },
+    {
+      "name": "data_lifetime_years",
+      "data_type": "float64",
+      "category": "numerical",
+      "required": true,
+      "allowed_values": null,
+      "imputation_and_encoding": "SimpleImputer(median) -> StandardScaler",
+      "description": "Input feature 'data_lifetime_years' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "migration_time_years",
+      "data_type": "float64",
+      "category": "numerical",
+      "required": true,
+      "allowed_values": null,
+      "imputation_and_encoding": "SimpleImputer(median) -> StandardScaler",
+      "description": "Input feature 'migration_time_years' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "migration_complexity",
+      "data_type": "int64",
+      "category": "numerical",
+      "required": true,
+      "allowed_values": null,
+      "imputation_and_encoding": "SimpleImputer(median) -> StandardScaler",
+      "description": "Input feature 'migration_complexity' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "crypto_agility",
+      "data_type": "int64",
+      "category": "numerical",
+      "required": true,
+      "allowed_values": null,
+      "imputation_and_encoding": "SimpleImputer(median) -> StandardScaler",
+      "description": "Input feature 'crypto_agility' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "internet_exposed",
+      "data_type": "int64",
+      "category": "binary_indicator",
+      "required": true,
+      "allowed_values": [
+        0,
+        1
+      ],
+      "imputation_and_encoding": "SimpleImputer(most_frequent) -> Passthrough",
+      "description": "Input feature 'internet_exposed' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "external_facing",
+      "data_type": "int64",
+      "category": "binary_indicator",
+      "required": true,
+      "allowed_values": [
+        0,
+        1
+      ],
+      "imputation_and_encoding": "SimpleImputer(most_frequent) -> Passthrough",
+      "description": "Input feature 'external_facing' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "dependency_count",
+      "data_type": "int64",
+      "category": "numerical",
+      "required": true,
+      "allowed_values": null,
+      "imputation_and_encoding": "SimpleImputer(median) -> StandardScaler",
+      "description": "Input feature 'dependency_count' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "downstream_system_count",
+      "data_type": "int64",
+      "category": "numerical",
+      "required": true,
+      "allowed_values": null,
+      "imputation_and_encoding": "SimpleImputer(median) -> StandardScaler",
+      "description": "Input feature 'downstream_system_count' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "HNDL_exposure",
+      "data_type": "float64",
+      "category": "numerical",
+      "required": true,
+      "allowed_values": null,
+      "imputation_and_encoding": "SimpleImputer(median) -> StandardScaler",
+      "description": "Harvest Now, Decrypt Later continuous exposure score (0.0 to 1.0)."
+    },
+    {
+      "name": "data_at_rest",
+      "data_type": "int64",
+      "category": "binary_indicator",
+      "required": true,
+      "allowed_values": [
+        0,
+        1
+      ],
+      "imputation_and_encoding": "SimpleImputer(most_frequent) -> Passthrough",
+      "description": "Input feature 'data_at_rest' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "key_reuse_detected",
+      "data_type": "int64",
+      "category": "binary_indicator",
+      "required": true,
+      "allowed_values": [
+        0,
+        1
+      ],
+      "imputation_and_encoding": "SimpleImputer(most_frequent) -> Passthrough",
+      "description": "Input feature 'key_reuse_detected' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "hardware_dependency",
+      "data_type": "int64",
+      "category": "binary_indicator",
+      "required": true,
+      "allowed_values": [
+        0,
+        1
+      ],
+      "imputation_and_encoding": "SimpleImputer(most_frequent) -> Passthrough",
+      "description": "Input feature 'hardware_dependency' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "vendor_support_score",
+      "data_type": "int64",
+      "category": "numerical",
+      "required": true,
+      "allowed_values": null,
+      "imputation_and_encoding": "SimpleImputer(median) -> StandardScaler",
+      "description": "Input feature 'vendor_support_score' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "inventory_confidence",
+      "data_type": "int64",
+      "category": "numerical",
+      "required": true,
+      "allowed_values": null,
+      "imputation_and_encoding": "SimpleImputer(median) -> StandardScaler",
+      "description": "Input feature 'inventory_confidence' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "compliance_criticality",
+      "data_type": "int64",
+      "category": "numerical",
+      "required": true,
+      "allowed_values": null,
+      "imputation_and_encoding": "SimpleImputer(median) -> StandardScaler",
+      "description": "Input feature 'compliance_criticality' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "quantum_attack_scenario",
+      "data_type": "object",
+      "category": "categorical",
+      "required": true,
+      "allowed_values": [
+        "generic_quantum_effect",
+        "notional_future",
+        "aggressive_future",
+        "high_end_future",
+        "none_known"
+      ],
+      "imputation_and_encoding": "SimpleImputer(constant='missing') -> OneHotEncoder(handle_unknown='ignore')",
+      "description": "Input feature 'quantum_attack_scenario' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "estimated_attack_time_log10_hours",
+      "data_type": "float64",
+      "category": "numerical",
+      "required": true,
+      "allowed_values": null,
+      "imputation_and_encoding": "SimpleImputer(median) -> StandardScaler",
+      "description": "Input feature 'estimated_attack_time_log10_hours' for ECDAT quantum risk estimation."
+    },
+    {
+      "name": "quantum_estimate_confidence",
+      "data_type": "object",
+      "category": "categorical",
+      "required": true,
+      "allowed_values": [
+        "not-applicable",
+        "scenario-dependent"
+      ],
+      "imputation_and_encoding": "SimpleImputer(constant='missing') -> OneHotEncoder(handle_unknown='ignore')",
+      "description": "Input feature 'quantum_estimate_confidence' for ECDAT quantum risk estimation."
+    }
+  ]
+}

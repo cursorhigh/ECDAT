@@ -11,4 +11,7 @@ urlpatterns = [
     path("reset/", views.session_reset, name="session-reset"),
     path("audit/", views.audit, name="session-audit"),
     path("scan-history/", views.scan_history, name="scan-history"),
+    path("scan-history/clear/", views.clear_all_scan_history, name="scan-history-clear"),
+    path("scan-history/<int:session_id>/delete/", views.delete_scan_history_session, name="scan-history-delete"),
+    path("scans/<int:scan_id>/delete/", views.delete_scan_job, name="scan-job-delete"),
 ]

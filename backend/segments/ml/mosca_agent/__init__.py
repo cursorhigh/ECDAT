@@ -1,36 +1,40 @@
 """
-MOSCA+ Cryptographic Assessment Agent Package
+MOSCA+ Agent Module
 
-Evaluates classical cryptographic security, quantum vulnerability,
-and post-quantum migration priority using a hybrid deterministic + Gemini AI architecture.
+Implements Michele Mosca's Theorem of Quantum Risk (X + Y > Z) as a deterministic
+mathematical and migration timeline solver for CBOM cryptographic assets.
 """
 
-from .mosca_agent import MOSCAAgent
+from .mosca_agent import MOSCAAgent, format_mosca_terminal_report
+from .solver import MoscaSolver
 from .crypto_rules import CryptoRuleEngine
-from .llm_provider import (
-    MOSCALLMProvider,
-    GeminiMOSCAProvider,
-    FallbackMOSCAProvider,
-    get_mosca_provider,
-)
 from .validator import MOSCAValidator
-from .exceptions import (
-    MOSCAError,
-    MOSCAInputValidationError,
-    MOSCAOutputValidationError,
-    MOSCALLMError,
+from .explainability import MoscaExplainabilityBuilder
+from .llm_provider import FallbackMOSCAProvider, get_mosca_provider
+from .models import (
+    MoscaVariables,
+    MoscaTimelineMetrics,
+    MoscaThreatVectors,
+    MoscaScenarioAssumptions,
+    MoscaAssessment,
+    MoscaAssetReport,
+    MoscaDocumentSummary,
 )
 
 __all__ = [
     "MOSCAAgent",
+    "format_mosca_terminal_report",
+    "MoscaSolver",
     "CryptoRuleEngine",
-    "MOSCALLMProvider",
-    "GeminiMOSCAProvider",
+    "MOSCAValidator",
+    "MoscaExplainabilityBuilder",
     "FallbackMOSCAProvider",
     "get_mosca_provider",
-    "MOSCAValidator",
-    "MOSCAError",
-    "MOSCAInputValidationError",
-    "MOSCAOutputValidationError",
-    "MOSCALLMError",
+    "MoscaVariables",
+    "MoscaTimelineMetrics",
+    "MoscaThreatVectors",
+    "MoscaScenarioAssumptions",
+    "MoscaAssessment",
+    "MoscaAssetReport",
+    "MoscaDocumentSummary",
 ]

@@ -15,6 +15,69 @@ from .llm_provider import get_mitigation_provider
 _PRIORITY_WAVES: Dict[str, int] = {1: "Wave 1", 2: "Wave 2", 3: "Wave 3"}
 
 
+def normalize_bundle(bundle: Dict[str, Any]) -> Dict[str, Any]:
+    """Ensure the bundle contains a standard 'assets' list, adapting final risk reports if needed."""
+    if "assets" in bundle and bundle["assets"]:
+        return bundle
+
+    # Support direct ingestion of ecdat_final_risk_report.json or ML synthesis payloads
+    if "asset_reports" in bundle:
+        adapted_assets = []
+        for rep in bundle.get("asset_reports", []):
+            algo = rep.get("algorithm") or ""
+            cbom_asset = rep.get("cbom_asset") or {}
+
+            algo_upper = algo.upper()
+            if any(k in algo_upper for k in ("RSA", "ECDSA", "ECDH", "DSA", "DH", "ED25519", "EDDSA", "ELGAMAL", "EC")):
+                cat = "PUBLIC_KEY"
+            elif any(k in algo_upper for k in ("AES", "DES", "3DES", "BLOWFISH", "RC4", "CHACHA20", "CAMELLIA")):
+                cat = "SYMMETRIC"
+            elif any(k in algo_upper for k in ("SHA", "MD5", "HMAC", "SHAKE")):
+                cat = "HASH"
+            else:
+                cat = "UNKNOWN"
+
+            qv = rep.get("pqc_status") in ("CLASSICAL_VULNERABLE", "VULNERABLE") or bool(rep.get("quantum_vulnerable"))
+            if not qv and cat == "PUBLIC_KEY":
+                qv = True
+
+            hndl_val = ""
+            for attr in rep.get("attributions", []):
+                if attr.get("pillar") == "HNDL_ENGINE":
+                    hndl_val = str(attr.get("value") or "")
+            if not hndl_val:
+                hndl_val = rep.get("hndl", {}).get("exposure_level", "")
+
+            adapted_assets.append({
+                "id": rep.get("asset_id"),
+                "asset_id": rep.get("asset_id"),
+                "algorithm": algo,
+                "family": rep.get("family") or algo.split("-")[0].split("_")[0],
+                "algorithm_category": rep.get("algorithm_category") or cat,
+                "classical_security": rep.get("classical_security") or "STANDARD",
+                "overall_risk": rep.get("overall_quantum_risk_tier") or rep.get("final_risk_class") or "MEDIUM",
+                "migration_priority": rep.get("urgency_tier") or "MEDIUM",
+                "quantum_vulnerable": qv,
+                "hndl_risk": hndl_val,
+                "service": rep.get("service") or rules.service_for_asset({"cbom_asset": cbom_asset}),
+                "cbom_asset": cbom_asset,
+                "mosca": rep.get("mosca") or {},
+            })
+
+        return {
+            "application": bundle.get("report_title") or "ECDAT Enterprise Scan",
+            "repository": bundle.get("repository") or {},
+            "risk_context": bundle.get("risk_context") or {
+                "network": {
+                    "publicly_accessible": any(str(a.get("hndl_risk") or "").upper() in ("HIGH", "CRITICAL") for a in adapted_assets)
+                }
+            },
+            "assets": adapted_assets,
+            "final_report_stats": bundle.get("portfolio_stats"),
+        }
+    return bundle
+
+
 class MitigationAgent:
     """Turn a completed analysis run bundle into a mitigation document."""
 
@@ -22,6 +85,7 @@ class MitigationAgent:
         self._provider = get_mitigation_provider() if use_llm else None
 
     def generate(self, bundle: Dict[str, Any]) -> Dict[str, Any]:
+        bundle = normalize_bundle(bundle)
         assets = list(bundle.get("assets") or [])
 
         for asset in assets:

@@ -54,3 +54,12 @@ htmlcov/
 .ruff_cache/
 .pytest_cache/
 .import_linter_cache/
+
+# ML / Large Model Artifacts
+*.joblib
+*.pkl
+*.pt
+*.pth
+*.onnx
+backend/segments/ml/risk_agent/Quantum_Risk_Model/models/candidates/random_forest/model.joblib
+

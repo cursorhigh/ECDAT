@@ -1,0 +1,760 @@
+{
+  "algorithm": {
+    "pandas_dtype": "object",
+    "feature_type": "categorical",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 60,
+    "min": null,
+    "max": null,
+    "allowed_values": [
+      "3DES-112",
+      "AES-128",
+      "AES-192",
+      "AES-256",
+      "ARIA-128",
+      "ARIA-256",
+      "Blowfish-128",
+      "Camellia-128",
+      "Camellia-256",
+      "ChaCha20",
+      "ChaCha20-Poly1305",
+      "DES",
+      "DH-2048",
+      "DH-3072",
+      "DSA-1024",
+      "DSA-2048",
+      "DSA-3072",
+      "ECDH-P224",
+      "ECDH-P256",
+      "ECDH-P384",
+      "ECDH-P521",
+      "ECDSA-P224",
+      "ECDSA-P256",
+      "ECDSA-P384",
+      "ECDSA-P521",
+      "Ed25519",
+      "Ed448",
+      "HKDF-SHA256",
+      "HMAC-SHA256",
+      "HMAC-SHA512",
+      "MD5",
+      "ML-DSA-44",
+      "ML-DSA-65",
+      "ML-DSA-87",
+      "ML-KEM-1024",
+      "ML-KEM-512",
+      "ML-KEM-768",
+      "Poly1305",
+      "RC4",
+      "RSA-1024",
+      "RSA-2048",
+      "RSA-3072",
+      "RSA-4096",
+      "SEED-128",
+      "SHA-1",
+      "SHA-224",
+      "SHA-256",
+      "SHA-384",
+      "SHA-512",
+      "SHA3-256",
+      "SHA3-384",
+      "SHA3-512",
+      "SHAKE128",
+      "SHAKE256",
+      "SLH-DSA-SHA2-128s",
+      "SLH-DSA-SHA2-192s",
+      "SLH-DSA-SHA2-256s",
+      "Twofish-256",
+      "X25519",
+      "X448"
+    ],
+    "example_values": [
+      "3DES-112",
+      "AES-128",
+      "AES-192",
+      "AES-256",
+      "ARIA-128"
+    ]
+  },
+  "algorithm_family": {
+    "pandas_dtype": "object",
+    "feature_type": "categorical",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 4,
+    "min": null,
+    "max": null,
+    "allowed_values": [
+      "asymmetric",
+      "hash",
+      "pqc",
+      "symmetric"
+    ],
+    "example_values": [
+      "asymmetric",
+      "hash",
+      "pqc",
+      "symmetric"
+    ]
+  },
+  "crypto_role": {
+    "pandas_dtype": "object",
+    "feature_type": "categorical",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 8,
+    "min": null,
+    "max": null,
+    "allowed_values": [
+      "AEAD",
+      "KDF",
+      "MAC",
+      "XOF",
+      "encryption",
+      "hash",
+      "key_establishment",
+      "signature"
+    ],
+    "example_values": [
+      "AEAD",
+      "KDF",
+      "MAC",
+      "XOF",
+      "encryption"
+    ]
+  },
+  "key_or_hash_size_bits": {
+    "pandas_dtype": "int64",
+    "feature_type": "numeric",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 20,
+    "min": 0.0,
+    "max": 4096.0,
+    "allowed_values": null,
+    "example_values": [
+      128.0,
+      256.0,
+      3072.0,
+      128.0,
+      168.0
+    ]
+  },
+  "quantum_attack_type": {
+    "pandas_dtype": "object",
+    "feature_type": "categorical",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 6,
+    "min": null,
+    "max": null,
+    "allowed_values": [
+      "Generic",
+      "Generic quantum",
+      "Grover",
+      "Legacy/weak",
+      "None known",
+      "Shor"
+    ],
+    "example_values": [
+      "Generic",
+      "Generic quantum",
+      "Grover",
+      "Legacy/weak",
+      "None known"
+    ]
+  },
+  "quantum_vulnerable": {
+    "pandas_dtype": "int64",
+    "feature_type": "numeric",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 2,
+    "min": 0.0,
+    "max": 1.0,
+    "allowed_values": null,
+    "example_values": [
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      1.0
+    ]
+  },
+  "classical_security_bits_est": {
+    "pandas_dtype": "int64",
+    "feature_type": "numeric",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 9,
+    "min": 0.0,
+    "max": 256.0,
+    "allowed_values": null,
+    "example_values": [
+      128.0,
+      256.0,
+      128.0,
+      128.0,
+      112.0
+    ]
+  },
+  "nist_security_category": {
+    "pandas_dtype": "int64",
+    "feature_type": "numeric",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 5,
+    "min": 0.0,
+    "max": 5.0,
+    "allowed_values": null,
+    "example_values": [
+      1.0,
+      5.0,
+      0.0,
+      1.0,
+      0.0
+    ]
+  },
+  "deprecated_or_disallowed": {
+    "pandas_dtype": "int64",
+    "feature_type": "numeric",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 2,
+    "min": 0.0,
+    "max": 1.0,
+    "allowed_values": null,
+    "example_values": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  },
+  "protocol": {
+    "pandas_dtype": "object",
+    "feature_type": "categorical",
+    "null_count": 3127,
+    "has_missing": true,
+    "unique_count": 10,
+    "min": null,
+    "max": null,
+    "allowed_values": [
+      "Application",
+      "Database",
+      "IPsec",
+      "JWE/JWS",
+      "S/MIME",
+      "SSH",
+      "Storage",
+      "TLS1.2",
+      "TLS1.3",
+      "X.509/PKI"
+    ],
+    "example_values": [
+      "Application",
+      "Database",
+      "IPsec",
+      "JWE/JWS",
+      "S/MIME"
+    ]
+  },
+  "crypto_library": {
+    "pandas_dtype": "object",
+    "feature_type": "categorical",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 14,
+    "min": null,
+    "max": null,
+    "allowed_values": [
+      "BoringSSL",
+      "Botan",
+      "Go crypto",
+      "HSM/provider",
+      "Java JCA/JCE",
+      "LibreSSL",
+      "OpenSSL",
+      "RustCrypto",
+      "Unknown",
+      "WebCrypto",
+      "Windows CNG",
+      "libsodium",
+      "mbedTLS",
+      "wolfSSL"
+    ],
+    "example_values": [
+      "BoringSSL",
+      "Botan",
+      "Go crypto",
+      "HSM/provider",
+      "Java JCA/JCE"
+    ]
+  },
+  "deployment_environment": {
+    "pandas_dtype": "object",
+    "feature_type": "categorical",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 6,
+    "min": null,
+    "max": null,
+    "allowed_values": [
+      "cloud",
+      "container",
+      "edge",
+      "hybrid",
+      "on_prem",
+      "saas"
+    ],
+    "example_values": [
+      "cloud",
+      "container",
+      "edge",
+      "hybrid",
+      "on_prem"
+    ]
+  },
+  "environment_context": {
+    "pandas_dtype": "object",
+    "feature_type": "categorical",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 8,
+    "min": null,
+    "max": null,
+    "allowed_values": [
+      "critical_infrastructure",
+      "data_platform",
+      "developer_ci",
+      "enterprise_internal",
+      "financial",
+      "government",
+      "healthcare",
+      "internet_service"
+    ],
+    "example_values": [
+      "critical_infrastructure",
+      "data_platform",
+      "developer_ci",
+      "enterprise_internal",
+      "financial"
+    ]
+  },
+  "implementation_age_years": {
+    "pandas_dtype": "float64",
+    "feature_type": "numeric",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 98465,
+    "min": 0.1080312959208138,
+    "max": 18.0,
+    "allowed_values": null,
+    "example_values": [
+      3.425396863413527,
+      8.47895111926471,
+      4.276559970010968,
+      4.923671337073118,
+      4.752818634213785
+    ]
+  },
+  "key_age_days": {
+    "pandas_dtype": "int64",
+    "feature_type": "numeric",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 3412,
+    "min": 5.0,
+    "max": 3650.0,
+    "allowed_values": null,
+    "example_values": [
+      158.0,
+      724.0,
+      365.0,
+      312.0,
+      445.0
+    ]
+  },
+  "key_rotation_interval_days": {
+    "pandas_dtype": "int64",
+    "feature_type": "numeric",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 1655,
+    "min": 7.0,
+    "max": 1825.0,
+    "allowed_values": null,
+    "example_values": [
+      79.0,
+      436.0,
+      75.0,
+      350.0,
+      106.0
+    ]
+  },
+  "certificate_remaining_days": {
+    "pandas_dtype": "int64",
+    "feature_type": "numeric",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 824,
+    "min": 1.0,
+    "max": 825.0,
+    "allowed_values": null,
+    "example_values": [
+      245.0,
+      323.0,
+      289.0,
+      465.0,
+      681.0
+    ]
+  },
+  "data_sensitivity": {
+    "pandas_dtype": "int64",
+    "feature_type": "numeric",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 5,
+    "min": 1.0,
+    "max": 5.0,
+    "allowed_values": null,
+    "example_values": [
+      5.0,
+      3.0,
+      4.0,
+      4.0,
+      2.0
+    ]
+  },
+  "business_criticality": {
+    "pandas_dtype": "int64",
+    "feature_type": "numeric",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 5,
+    "min": 1.0,
+    "max": 5.0,
+    "allowed_values": null,
+    "example_values": [
+      4.0,
+      3.0,
+      4.0,
+      4.0,
+      4.0
+    ]
+  },
+  "data_lifetime_years": {
+    "pandas_dtype": "float64",
+    "feature_type": "numeric",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 99749,
+    "min": 0.2940602870247002,
+    "max": 50.0,
+    "allowed_values": null,
+    "example_values": [
+      10.66274102687124,
+      1.867622728937925,
+      2.696492519804228,
+      8.446047648394083,
+      4.721175834414523
+    ]
+  },
+  "migration_time_years": {
+    "pandas_dtype": "float64",
+    "feature_type": "numeric",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 99908,
+    "min": 0.1,
+    "max": 3.949770411700182,
+    "allowed_values": null,
+    "example_values": [
+      2.647439755496085,
+      2.239236190786323,
+      0.8143892617826307,
+      2.521661736146982,
+      1.446691456219771
+    ]
+  },
+  "migration_complexity": {
+    "pandas_dtype": "int64",
+    "feature_type": "numeric",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 5,
+    "min": 1.0,
+    "max": 5.0,
+    "allowed_values": null,
+    "example_values": [
+      5.0,
+      3.0,
+      3.0,
+      5.0,
+      4.0
+    ]
+  },
+  "crypto_agility": {
+    "pandas_dtype": "int64",
+    "feature_type": "numeric",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 5,
+    "min": 1.0,
+    "max": 5.0,
+    "allowed_values": null,
+    "example_values": [
+      3.0,
+      4.0,
+      3.0,
+      3.0,
+      2.0
+    ]
+  },
+  "internet_exposed": {
+    "pandas_dtype": "int64",
+    "feature_type": "numeric",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 2,
+    "min": 0.0,
+    "max": 1.0,
+    "allowed_values": null,
+    "example_values": [
+      1.0,
+      1.0,
+      1.0,
+      0.0,
+      0.0
+    ]
+  },
+  "external_facing": {
+    "pandas_dtype": "int64",
+    "feature_type": "numeric",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 2,
+    "min": 0.0,
+    "max": 1.0,
+    "allowed_values": null,
+    "example_values": [
+      1.0,
+      1.0,
+      1.0,
+      0.0,
+      0.0
+    ]
+  },
+  "dependency_count": {
+    "pandas_dtype": "int64",
+    "feature_type": "numeric",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 360,
+    "min": 0.0,
+    "max": 865.0,
+    "allowed_values": null,
+    "example_values": [
+      11.0,
+      2.0,
+      11.0,
+      40.0,
+      3.0
+    ]
+  },
+  "downstream_system_count": {
+    "pandas_dtype": "int64",
+    "feature_type": "numeric",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 169,
+    "min": 0.0,
+    "max": 333.0,
+    "allowed_values": null,
+    "example_values": [
+      5.0,
+      14.0,
+      3.0,
+      2.0,
+      13.0
+    ]
+  },
+  "HNDL_exposure": {
+    "pandas_dtype": "float64",
+    "feature_type": "numeric",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 46842,
+    "min": 0.0,
+    "max": 1.0,
+    "allowed_values": null,
+    "example_values": [
+      0.0,
+      0.0,
+      0.5042684326782381,
+      0.0,
+      0.1824905825097307
+    ]
+  },
+  "data_at_rest": {
+    "pandas_dtype": "int64",
+    "feature_type": "numeric",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 2,
+    "min": 0.0,
+    "max": 1.0,
+    "allowed_values": null,
+    "example_values": [
+      1.0,
+      1.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  },
+  "key_reuse_detected": {
+    "pandas_dtype": "int64",
+    "feature_type": "numeric",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 2,
+    "min": 0.0,
+    "max": 1.0,
+    "allowed_values": null,
+    "example_values": [
+      0.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0
+    ]
+  },
+  "hardware_dependency": {
+    "pandas_dtype": "int64",
+    "feature_type": "numeric",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 2,
+    "min": 0.0,
+    "max": 1.0,
+    "allowed_values": null,
+    "example_values": [
+      0.0,
+      1.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  },
+  "vendor_support_score": {
+    "pandas_dtype": "int64",
+    "feature_type": "numeric",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 5,
+    "min": 1.0,
+    "max": 5.0,
+    "allowed_values": null,
+    "example_values": [
+      5.0,
+      3.0,
+      5.0,
+      3.0,
+      2.0
+    ]
+  },
+  "inventory_confidence": {
+    "pandas_dtype": "int64",
+    "feature_type": "numeric",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 5,
+    "min": 1.0,
+    "max": 5.0,
+    "allowed_values": null,
+    "example_values": [
+      3.0,
+      4.0,
+      4.0,
+      4.0,
+      4.0
+    ]
+  },
+  "compliance_criticality": {
+    "pandas_dtype": "int64",
+    "feature_type": "numeric",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 5,
+    "min": 1.0,
+    "max": 5.0,
+    "allowed_values": null,
+    "example_values": [
+      3.0,
+      5.0,
+      3.0,
+      5.0,
+      5.0
+    ]
+  },
+  "quantum_attack_scenario": {
+    "pandas_dtype": "object",
+    "feature_type": "categorical",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 5,
+    "min": null,
+    "max": null,
+    "allowed_values": [
+      "aggressive_future",
+      "generic_quantum_effect",
+      "high_end_future",
+      "none_known",
+      "notional_future"
+    ],
+    "example_values": [
+      "aggressive_future",
+      "generic_quantum_effect",
+      "high_end_future",
+      "none_known",
+      "notional_future"
+    ]
+  },
+  "estimated_attack_time_log10_hours": {
+    "pandas_dtype": "float64",
+    "feature_type": "numeric",
+    "null_count": 53061,
+    "has_missing": true,
+    "unique_count": 999,
+    "min": 0.12,
+    "max": 10.73,
+    "allowed_values": null,
+    "example_values": [
+      6.45,
+      4.09,
+      6.2,
+      7.0,
+      6.39
+    ]
+  },
+  "quantum_estimate_confidence": {
+    "pandas_dtype": "object",
+    "feature_type": "categorical",
+    "null_count": 0,
+    "has_missing": false,
+    "unique_count": 2,
+    "min": null,
+    "max": null,
+    "allowed_values": [
+      "not-applicable",
+      "scenario-dependent"
+    ],
+    "example_values": [
+      "not-applicable",
+      "scenario-dependent"
+    ]
+  }
+}
