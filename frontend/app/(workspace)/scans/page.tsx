@@ -17,7 +17,6 @@ import { Tabs } from "@/components/ui/tabs";
 import { EmptyState, ErrorState, LoadingState } from "@/components/feedback/data-state";
 import { PageHeader, SectionLabel } from "@/components/data/page-header";
 import { StatusBadge } from "@/components/data/status-badge";
-import { GraphPanel } from "@/components/data/graph-panel";
 import { useToast } from "@/components/feedback/toast";
 import { api, isNoScanSelected } from "@/lib/api/client";
 import type { Handoff, NormalizedFinding, ScanBatch, ScanJob, ScanPreview, ScannerDescriptor, ScannerRegistry, StartScanPayload } from "@/lib/api/types";
@@ -77,7 +76,8 @@ const scanScopeOptions: Array<{ value: StartScanPayload["scan_type"]; label: str
 
 function joinPath(parent: string, child: string) {
   if (!parent) return child;
-  return `${parent.replace(/[\\/]+$/, "")}\\${child}`;
+  const separator = parent.includes("\\") ? "\\" : "/";
+  return `${parent}${separator}${child}`;
 }
 
 function isDemoJob(job: ScanJob) {
@@ -249,17 +249,7 @@ export default function ScansPage() {
     enabled: ready && hasSession && tab === "findings"
   });
 
-  const dependencies = useQuery({
-    queryKey: ["dependencies", scopeKey, cryptoOnly],
-    queryFn: () => api.dependencies(cryptoOnly ? { crypto_only: 1 } : undefined),
-    enabled: ready && hasSession && tab === "dependencies"
-  });
 
-  const depGraph = useQuery({
-    queryKey: ["dependency-graph", scopeKey],
-    queryFn: () => api.dependencyGraph(),
-    enabled: ready && hasSession && tab === "dependencies"
-  });
 
   const selectJob = (id: number | null) => {
     setSelection({ scopeKey, jobId: id, findingsPage: 1 });
@@ -426,28 +416,6 @@ export default function ScansPage() {
   // Row numbers continue across pages, so "#37" means the same finding whether
   // it is reached from page 1 or page 2.
   const findingRowOffset = (findingsPage - 1) * FINDINGS_PAGE_SIZE;
-  const dependencyRows = dependencies.data?.results || [];
-  const dependencyTotal = dependencies.data?.count || 0;
-  const keyServices = Array.from(
-    new Set(dependencyRows.map((row) => row.key_service).filter((service): service is string => Boolean(service)))
-  );
-  // Reverse index so each package can show what pulls it in and what it backs.
-  const dependentsByNode = new Map<string, number>();
-  const providesByNode = new Map<string, number>();
-  for (const edge of depGraph.data?.dependency_edges || []) {
-    if (edge.kind === "depends_on") {
-      dependentsByNode.set(edge.to, (dependentsByNode.get(edge.to) || 0) + 1);
-    } else if (edge.kind === "provides") {
-      providesByNode.set(edge.from, (providesByNode.get(edge.from) || 0) + 1);
-    }
-  }
-  const nodeIdByPackage = new Map<string, string>();
-  for (const node of depGraph.data?.dependency_nodes || []) {
-    nodeIdByPackage.set(`${node.ecosystem}:${node.package}`, node.id);
-  }
-  const transitiveCount = (depGraph.data?.dependency_edges || []).filter((edge) => edge.kind === "depends_on").length;
-  const providesCount = providesByNode.size;
-
   const jobPanel = !selectedJobId ? (
       <EmptyState title="No job selected" description="Start a discovery scan below, or open a previous scan from the audit history to follow its current state." />
   ) : job.isLoading ? (
@@ -499,8 +467,7 @@ export default function ScansPage() {
         items={[
           { value: "scan", label: "Scan" },
           { value: "findings", label: "Findings" },
-          { value: "graph", label: "Graph" },
-          { value: "dependencies", label: "Dependencies", count: dependencyTotal || undefined }
+
         ]}
       />
 
@@ -977,103 +944,6 @@ export default function ScansPage() {
         </Card>
       ) : null}
 
-      {tab === "graph" && hasSession ? <GraphPanel scopeKey={scopeKey} ready={ready} /> : null}
-
-
-      {tab === "dependencies" && hasSession ? (
-        <Card>
-          <CardHeader className="flex-row items-start justify-between">
-            <div>
-              <CardTitle>Discovered dependencies</CardTitle>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Packages declared by this scan, with the version actually requested and whether the dependency is
-                runtime or test-only.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
-                <input type="checkbox" className="accent-primary" checked={cryptoOnly} onChange={(event) => setCryptoOnly(event.target.checked)} />
-                Crypto only
-              </label>
-              <RefreshButton onRefresh={() => dependencies.refetch()} aria-label="Refresh dependencies" variant="ghost" />
-            </div>
-          </CardHeader>
-          <CardContent className="px-1">
-            {dependencies.isLoading ? (
-              <div className="p-4">
-                <LoadingState label="Loading dependencies" />
-              </div>
-            ) : dependencies.isError && !isNoScanSelected(dependencies.error) ? (
-              <div className="p-4">
-                <ErrorState message={dependencies.error instanceof Error ? dependencies.error.message : undefined} onRetry={() => void dependencies.refetch()} />
-              </div>
-            ) : dependencyRows.length ? (
-              <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Package</TableHead>
-                      <TableHead>Version</TableHead>
-                      <TableHead>Ecosystem</TableHead>
-                      <TableHead>Scope</TableHead>
-                      <TableHead>Capability</TableHead>
-                      <TableHead>Relevance</TableHead>
-                      <TableHead>Graph</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                      {dependencyRows.map((dependency) => (
-                        <TableRow key={dependency.id}>
-                          <TableCell className="font-mono text-xs">{dependency.package}</TableCell>
-                          <TableCell className="tnum text-xs text-muted-foreground">{dependency.version || "—"}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground">{titleCase(dependency.ecosystem)}</TableCell>
-                          <TableCell>
-                            <Badge variant={dependency.scope === "development" ? "muted" : "outline"} className="normal-case tracking-normal">
-                              {dependency.scope === "development" ? "Dev" : "Runtime"}
-                            </Badge>
-                          </TableCell>
-                        <TableCell className="text-xs">{dependency.capability || "—"}</TableCell>
-                        <TableCell>
-                          <RelevanceBadge relevance={dependency.relevance} />
-                        </TableCell>
-                        <TableCell className="text-[11px] text-muted-foreground">
-                          <DependencyImpact
-                            dependents={dependentsByNode.get(nodeIdByPackage.get(`${dependency.ecosystem}:${dependency.package}`) || "") || 0}
-                            provides={providesByNode.get(nodeIdByPackage.get(`${dependency.ecosystem}:${dependency.package}`) || "") || 0}
-                          />
-                        </TableCell>
-                        </TableRow>
-                      ))}
-                  </TableBody>
-                </Table>
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-3 text-xs text-muted-foreground">
-                  <span className="tnum">{formatNumber(dependencyTotal)} dependencies</span>
-                  <span className="tnum">
-                    {formatNumber(transitiveCount)} transitive links · {formatNumber(providesCount)} libraries mapped to assets
-                  </span>
-                  {keyServices.length ? <span>Key service: {keyServices.join(", ")}</span> : null}
-                </div>
-              </>
-            ) : (
-              <div className="p-4">
-                <EmptyState
-                  title={cryptoOnly ? "No cryptographic dependencies" : "No dependencies recorded"}
-                  description={
-                    cryptoOnly
-                      ? "No manifest in this scan declares a cryptographically-relevant package."
-                      : "Run a discovery scan over a project with a dependency manifest."
-                  }
-                  action={cryptoOnly ? null : (
-                    <Button variant="outline" size="sm" onClick={() => setTab("scan")}>
-                      Start a discovery scan
-                    </Button>
-                  )}
-                />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      ) : null}
 
       <Dialog
         open={reviewOpen}
@@ -1189,27 +1059,6 @@ const RELEVANCE_VARIANTS: Record<string, BadgeProps["variant"]> = {
   managed_key_service: "info",
   post_quantum: "success"
 };
-
-function DependencyImpact({ dependents, provides }: { dependents: number; provides: number }) {
-  if (!dependents && !provides) {
-    return <span className="text-muted-foreground">—</span>;
-  }
-  return (
-    <div className="space-y-0.5">
-      {dependents ? <p>{formatNumber(dependents)} depend{dependents === 1 ? "s" : ""} on it</p> : null}
-      {provides ? <p>backs {formatNumber(provides)} asset{provides === 1 ? "" : "s"}</p> : null}
-    </div>
-  );
-}
-
-function RelevanceBadge({ relevance }: { relevance: string }) {
-  if (!relevance) return <span className="text-xs text-muted-foreground">—</span>;
-  return (
-    <Badge variant={RELEVANCE_VARIANTS[relevance] || "muted"} className="normal-case tracking-normal">
-      {relevance.replace(/_/g, " ")}
-    </Badge>
-  );
-}
 
 function EvidenceCell({ finding }: { finding: NormalizedFinding }) {
   const evidence = finding.evidence || {};

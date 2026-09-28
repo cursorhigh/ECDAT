@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 const workspaceNavigation = [
   { href: "/dashboard", label: "Dashboard", icon: Gauge },
   { href: "/scans", label: "Discovery & scans", icon: Activity },
-  { href: "/assets", label: "Cryptographic assets", icon: Boxes },
+  { href: "/assets", label: "Discovered assets", icon: Boxes },
   { href: "/analysis", label: "Risk analysis", icon: ShieldAlert },
   { href: "/mitigation", label: "Mitigation & migration", icon: Route },
   { href: "/reports", label: "Reports & CBOM", icon: FileBarChart }
