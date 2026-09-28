@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ECDAT Executive Post-Quantum Cryptography Assessment</title>
+<style>
+:root {
+  --navy: #0f2745; --ink: #1f2937; --muted: #55627a; --faint: #8a95ab; --rule: #d7dde8;
+  --paper: #ffffff; --accent: #155e75; --red: #b91c1c; --amber: #b45309; --green: #15803d;
+}
+* { box-sizing: border-box; }
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  color: var(--ink); margin: 0; padding: 24pt 30pt; font-size: 9.5pt; line-height: 1.5;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+@page {
+  size: A4; margin: 18mm 15mm 20mm 15mm;
+  @bottom-right { content: "ECDAT · Confidential · Page " counter(page) " of " counter(pages); font-size: 7pt; color: var(--faint); }
+  @bottom-left { content: "Prepared by ECDAT Enterprise PQC Suite"; font-size: 7pt; color: var(--faint); }
+}
+h1, h2, h3, h4 { margin: 0; line-height: 1.25; }
+p { margin: 0 0 7pt; }
+.mono { font-family: 'Cascadia Mono', Consolas, Menlo, monospace; font-size: 8.3pt; }
+.cover { border-bottom: 2.5pt solid var(--navy); padding-bottom: 14pt; margin-bottom: 14pt; }
+.cover .kicker { font-size: 8pt; letter-spacing: 3px; color: var(--accent); text-transform: uppercase; font-weight: 600; }
+.cover h1 { font-size: 21pt; color: var(--navy); margin: 4pt 0 2pt; }
+.cover .sub { font-size: 10.5pt; color: var(--muted); }
+.meta { display: flex; flex-wrap: wrap; gap: 6pt 22pt; margin-top: 10pt; font-size: 8.3pt; color: var(--muted); }
+.meta b { color: var(--ink); display: block; font-size: 7pt; text-transform: uppercase; letter-spacing: 1px; color: var(--faint); }
+.conf-ribbon { display: inline-block; margin-top: 8pt; padding: 3pt 8pt; border: 0.75pt solid var(--amber); color: var(--amber); font-size: 7.5pt; letter-spacing: 1px; text-transform: uppercase; border-radius: 2pt; }
+h2.sec { font-size: 12.5pt; color: var(--navy); margin: 14pt 0 8pt; padding-bottom: 4pt; border-bottom: 1.25pt solid var(--rule); break-after: avoid; }
+h2.sec .no { color: var(--accent); font-weight: 700; margin-right: 6pt; }
+h3 { font-size: 10pt; color: var(--ink); margin: 8pt 0 5pt; break-after: avoid; }
+.kpi-row { display: flex; flex-wrap: wrap; gap: 7pt; margin: 0 0 10pt; }
+.kpi { flex: 1 1 120pt; border: 0.75pt solid var(--rule); border-top: 2.5pt solid var(--accent); padding: 6pt 8pt; border-radius: 3pt; break-inside: avoid; background: #fff; }
+.kpi .n { font-size: 16pt; font-weight: 700; color: var(--navy); font-family: 'Cascadia Mono', Consolas, monospace; }
+.kpi .l { font-size: 7.3pt; text-transform: uppercase; letter-spacing: 1px; color: var(--faint); }
+.kpi.warn { border-top-color: var(--amber); }
+.kpi.danger { border-top-color: var(--red); }
+.kpi.ok { border-top-color: var(--green); }
+table { width: 100%; border-collapse: collapse; margin: 4pt 0 10pt; font-size: 8.2pt; }
+th { background: var(--navy); color: #fff; text-align: left; padding: 5pt 6pt; font-size: 7.3pt; text-transform: uppercase; letter-spacing: 0.6px; }
+td { padding: 4.5pt 6pt; border-bottom: 0.6pt solid var(--rule); vertical-align: top; }
+tr:nth-child(even) td { background: #f8fafc; }
+.callout { border-left: 3.5pt solid var(--accent); background: #eef5f8; padding: 7pt 10pt; margin: 6pt 0 10pt; font-size: 8.7pt; border-radius: 0 3pt 3pt 0; break-inside: avoid; }
+.callout.warn { border-color: var(--amber); background: #fdf7ea; }
+.callout.danger { border-color: var(--red); background: #fdefef; }
+.badge { display: inline-block; padding: 1pt 5pt; border-radius: 4pt; font-size: 7pt; font-weight: 600; letter-spacing: 0.4px; color: #fff; }
+.b-red { background: var(--red); }
+.b-amber { background: var(--amber); }
+.b-green { background: var(--green); }
+.b-navy { background: var(--navy); }
+.wave-grid { display: flex; gap: 8pt; margin-bottom: 12pt; flex-wrap: wrap; }
+.wave-card { flex: 1 1 30%; border: 1pt solid var(--rule); padding: 8pt; border-radius: 4pt; background: #fafbfc; }
+.wave-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4pt; }
+.rec-item { border-left: 2.5pt solid var(--navy); padding: 4pt 8pt; margin-bottom: 8pt; background: #f8fafc; }
+.small { font-size: 7.8pt; color: var(--muted); }
+ul.tight { margin: 2pt 0 4pt; padding-left: 14pt; font-size: 8.2pt; }
+ul.tight li { margin-bottom: 2pt; }
+.page-break { break-before: page; }
+</style>
+</head>
+<body>
+
+<!-- Header Cover -->
+<div class="cover">
+  <div class="kicker">ECDAT · Enterprise Cryptographic Discovery &amp; Assessment</div>
+  <h1>Post-Quantum Cryptography (PQC) Migration &amp; Risk Report</h1>
+  <div class="sub">Comprehensive Multi-Engine Assessment: ML Risk Classifier, HNDL Threat, Mosca Timeline &amp; Mitigation Roadmap</div>
+  <div class="meta">
+    <div><b>Assessment Target</b>ECDAT Enterprise Post-Quantum Cryptographic Risk Report</div>
+    <div><b>Generated At</b>2026-09-28 11:41 UTC</div>
+    <div><b>PQC Standards</b>NIST FIPS 203 (ML-KEM), FIPS 204 (ML-DSA), FIPS 205 (SLH-DSA)</div>
+  </div>
+  <div class="conf-ribbon">Confidential · Enterprise Security Governance Report</div>
+</div>
+
+<!-- Section 1: Executive KPI Dashboard -->
+<h2 class="sec"><span class="no">1</span>Executive KPI Dashboard</h2>
+<div class="kpi-row">
+  <div class="kpi">
+    <div class="n">10</div>
+    <div class="l">Total Cryptographic Assets</div>
+  </div>
+  <div class="kpi danger">
+    <div class="n">5</div>
+    <div class="l">Quantum-Vulnerable Primitives</div>
+  </div>
+  <div class="kpi warn">
+    <div class="n">8</div>
+    <div class="l">HNDL Harvest-Now Exposed</div>
+  </div>
+  <div class="kpi danger">
+    <div class="n">5</div>
+    <div class="l">Wave 1 Immediate Actions</div>
+  </div>
+  <div class="kpi ok">
+    <div class="n">6 Qtrs</div>
+    <div class="l">Estimated Migration Duration</div>
+  </div>
+</div>
+
+<div class="callout danger">
+  <b>Executive Summary:</b> The ECDAT Enterprise Post-Quantum Cryptographic Risk Report evaluated a total of 10 cryptographic assets, identifying 6 high-risk configurations and 5 quantum-vulnerable items concentrated within a single internal blast zone. Although zero urgent or critical risk issues were detected immediately, proactive remediation is vital over an estimated 6-quarter timeline. All vulnerable primitives must undergo systematic migration to NIST-approved post-quantum standards according to structured waves.
+</div>
+
+<!-- Section 2: Quantum Threat & Mosca Theorem Assessment -->
+<h2 class="sec"><span class="no">2</span>Quantum Threat &amp; Timeline Deficit</h2>
+<p>
+  Under <b>Michele Mosca's Theorem (X + Y &gt; Z)</b>, if the migration duration (X) plus the required data shelf-life (Y)
+  exceeds the estimated time to a Cryptographically Relevant Quantum Computer (Z), assets fall into an active security deficit.
+</p>
+<div class="callout warn">
+  <b>Quantum Vulnerability Vector:</b> Public-key primitives such as RSA and ECC are fundamentally vulnerable to Shor's algorithm running on a future cryptographically-relevant quantum computer (CRQC). Furthermore, ciphertext captured today remains susceptible to Harvest-Now-Decrypt-Later (HNDL) attacks, making timely post-quantum migration an urgent enterprise imperative.
+</div>
+
+<!-- Section 3: Multi-Wave Mitigation Plan -->
+<h2 class="sec"><span class="no">3</span>Wave-Based PQC Remediation Roadmap</h2>
+<div class="wave-grid">
+  
+        <div class="wave-card">
+          <div class="wave-header">
+            <h4>Wave 1 - Stop the bleeding (HNDL & PQC triage)</h4>
+            <span class="badge b-navy">0-3 months</span>
+          </div>
+          <p class="small">Rotate HNDL-exposed keys, add hybrid handshakes and stage urgent post-quantum replacements for publicly exposed primitives.</p>
+          <div class="wave-stats">
+            <b>Assets Allocated: 5</b>
+          </div>
+        </div>
+        
+        <div class="wave-card">
+          <div class="wave-header">
+            <h4>Wave 2 - Post-quantum migration</h4>
+            <span class="badge b-navy">3-12 months</span>
+          </div>
+          <p class="small">Systematically move public-key signatures and key exchange to ML-KEM / ML-DSA per CNSA 2.0, covering downstream trust chains.</p>
+          <div class="wave-stats">
+            <b>Assets Allocated: 1</b>
+          </div>
+        </div>
+        
+        <div class="wave-card">
+          <div class="wave-header">
+            <h4>Wave 3 - Hardening & governance</h4>
+            <span class="badge b-navy">12-24 months</span>
+          </div>
+          <p class="small">Consolidate symmetric modes (AES-256), strengthen hashes to SHA-3, retire legacy ciphers and codify crypto policy so new failures cannot ship.</p>
+          <div class="wave-stats">
+            <b>Assets Allocated: 4</b>
+          </div>
+        </div>
+        
+</div>
+
+<!-- Section 4: Cryptographic Inventory & Action Directives -->
+<div class="page-break"></div>
+<h2 class="sec"><span class="no">4</span>Inventory &amp; Target PQC Replacements</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Asset ID</th>
+      <th>Algorithm</th>
+      <th>Category</th>
+      <th>Migration Wave</th>
+      <th>Target PQC Standard</th>
+      <th>Blast Radius</th>
+      <th>Action Directive</th>
+    </tr>
+  </thead>
+  <tbody>
+    
+        <tr>
+          <td class="mono">DISC-001</td>
+          <td class="mono"><b>RSA-2048</b></td>
+          <td>PUBLIC_KEY</td>
+          <td><span class="badge b-red">Wave 1</span></td>
+          <td class="mono small">ML-KEM-768 / ML-DSA-65</td>
+          <td><span class="badge b-red">CRITICAL</span></td>
+          <td class="small">Replace RSA-2048 with ML-KEM-768 / ML-DSA-65 (CNSA 2.0 / NIST PQC) in 'unknown'.</td>
+        </tr>
+        
+        <tr>
+          <td class="mono">DISC-002</td>
+          <td class="mono"><b>ECDSA</b></td>
+          <td>PUBLIC_KEY</td>
+          <td><span class="badge b-red">Wave 1</span></td>
+          <td class="mono small">ML-DSA-65</td>
+          <td><span class="badge b-red">CRITICAL</span></td>
+          <td class="small">Replace ECDSA with ML-DSA-65 (CNSA 2.0 / NIST PQC) in 'unknown'.</td>
+        </tr>
+        
+        <tr>
+          <td class="mono">DISC-006</td>
+          <td class="mono"><b>RSA-3072</b></td>
+          <td>PUBLIC_KEY</td>
+          <td><span class="badge b-red">Wave 1</span></td>
+          <td class="mono small">ML-KEM-768 / ML-DSA-65</td>
+          <td><span class="badge b-red">CRITICAL</span></td>
+          <td class="small">Replace RSA-3072 with ML-KEM-768 / ML-DSA-65 (CNSA 2.0 / NIST PQC) in 'unknown'.</td>
+        </tr>
+        
+        <tr>
+          <td class="mono">DISC-007</td>
+          <td class="mono"><b>RSA-4096</b></td>
+          <td>PUBLIC_KEY</td>
+          <td><span class="badge b-red">Wave 1</span></td>
+          <td class="mono small">ML-KEM-1024 / ML-DSA-87</td>
+          <td><span class="badge b-red">CRITICAL</span></td>
+          <td class="small">Replace RSA-4096 with ML-KEM-1024 / ML-DSA-87 (CNSA 2.0 / NIST PQC) in 'unknown'.</td>
+        </tr>
+        
+        <tr>
+          <td class="mono">DISC-008</td>
+          <td class="mono"><b>ED25519</b></td>
+          <td>PUBLIC_KEY</td>
+          <td><span class="badge b-red">Wave 1</span></td>
+          <td class="mono small">ML-DSA-65 / SLH-DSA</td>
+          <td><span class="badge b-red">CRITICAL</span></td>
+          <td class="small">Replace ED25519 with ML-DSA-65 / SLH-DSA (CNSA 2.0 / NIST PQC) in 'unknown'.</td>
+        </tr>
+        
+        <tr>
+          <td class="mono">DISC-004</td>
+          <td class="mono"><b>3DES-CBC</b></td>
+          <td>SYMMETRIC</td>
+          <td><span class="badge b-amber">Wave 2</span></td>
+          <td class="mono small">AES-256 (GCM)</td>
+          <td><span class="badge b-amber">HIGH</span></td>
+          <td class="small">Maintain 3DES-CBC with AES-256 strength; re-validate the cipher mode and key-management rotation in '{service}'.</td>
+        </tr>
+        
+        <tr>
+          <td class="mono">DISC-009</td>
+          <td class="mono"><b>AES-128-GCM</b></td>
+          <td>SYMMETRIC</td>
+          <td><span class="badge b-green">Wave 3</span></td>
+          <td class="mono small">AES-256 (GCM)</td>
+          <td><span class="badge b-amber">MEDIUM</span></td>
+          <td class="small">Maintain AES-128-GCM with AES-256 strength; re-validate the cipher mode and key-management rotation in '{service}'.</td>
+        </tr>
+        
+        <tr>
+          <td class="mono">DISC-003</td>
+          <td class="mono"><b>AES-256-GCM</b></td>
+          <td>SYMMETRIC</td>
+          <td><span class="badge b-green">Wave 3</span></td>
+          <td class="mono small">AES-256 (GCM)</td>
+          <td><span class="badge b-amber">LOW</span></td>
+          <td class="small">Maintain AES-256-GCM with AES-256 strength; re-validate the cipher mode and key-management rotation in '{service}'.</td>
+        </tr>
+        
+        <tr>
+          <td class="mono">DISC-010</td>
+          <td class="mono"><b>X25519+ML-KEM-768</b></td>
+          <td>UNKNOWN</td>
+          <td><span class="badge b-green">Wave 3</span></td>
+          <td class="mono small">Review & standards triage</td>
+          <td><span class="badge b-amber">LOW</span></td>
+          <td class="small">Triage the X25519+ML-KEM-768 reference in 'unknown' for standards compliance.</td>
+        </tr>
+        
+        <tr>
+          <td class="mono">DISC-005</td>
+          <td class="mono"><b>ML-KEM-768</b></td>
+          <td>UNKNOWN</td>
+          <td><span class="badge b-green">Wave 3</span></td>
+          <td class="mono small">Review & standards triage</td>
+          <td><span class="badge b-amber">MEDIUM</span></td>
+          <td class="small">Triage the ML-KEM-768 reference in 'unknown' for standards compliance.</td>
+        </tr>
+        
+  </tbody>
+</table>
+
+<!-- Section 5: Strategic Executive Recommendations -->
+<h2 class="sec"><span class="no">5</span>Strategic Governance &amp; Policy Recommendations</h2>
+
+        <div class="rec-item">
+          <h4>Wave 1 - Stop the bleeding (HNDL & PQC triage)</h4>
+          <p>Inventory and prioritize all quantum-vulnerable assets within the internal 'unknown' service blast zone, establishing baseline visibility and halting new deployments of legacy algorithms.</p>
+          
+        </div>
+        
+        <div class="rec-item">
+          <h4>Wave 2 - Post-quantum migration</h4>
+          <p>Execute systematic cryptographic replacements for identified vulnerable public-key and symmetric assets, transitioning to NIST FIPS 203 (ML-KEM) and FIPS 204 (ML-DSA) standards.</p>
+          
+        </div>
+        
+        <div class="rec-item">
+          <h4>Wave 3 - Hardening & governance</h4>
+          <p>Enforce strict cryptographic governance, continuously audit algorithm usage via automated tooling, and complete long-term hardening across all enterprise services.</p>
+          
+        </div>
+        
+
+</body>
+</html>

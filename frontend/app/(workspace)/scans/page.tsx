@@ -3,7 +3,7 @@
 import { ChangeEvent, FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, BadgeCheck, Boxes, Check, CheckCircle2, FileCode2, FileJson, FileType, Folder, FolderOpen, Loader2, Package, Play, Radar, ScanLine, Search, ShieldCheck, Upload, XCircle } from "lucide-react";
+import { AlertTriangle, BadgeCheck, Boxes, Check, CheckCircle2, Clock, FileCode2, FileJson, FileType, Folder, FolderOpen, Globe, Loader2, Package, Play, Radar, ScanLine, Search, ShieldAlert, ShieldCheck, SlidersHorizontal, Sparkles, Upload, XCircle } from "lucide-react";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Tooltip } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
@@ -139,10 +139,73 @@ export default function ScansPage() {
   const [cryptoOnly, setCryptoOnly] = useState(true);
   const [kindFilter, setKindFilter] = useState("");
 
+  // Operational Context Modal State (HNDL + Mosca)
+  const [riskDialogOpen, setRiskDialogOpen] = useState(false);
+  const [selectedScanForRisk, setSelectedScanForRisk] = useState<number | null>(null);
+  const [dataLifetimeYears, setDataLifetimeYears] = useState("8.0");
+  const [migrationComplexity, setMigrationComplexity] = useState("3.0");
+  const [quantumHorizonYear, setQuantumHorizonYear] = useState("2033");
+  const [dataSensitivity, setDataSensitivity] = useState("4");
+  const [cryptoAgility, setCryptoAgility] = useState("2");
+  const [isPublicAccess, setIsPublicAccess] = useState(true);
+  const [customAppName, setCustomAppName] = useState("");
+
   const scans = useQuery({ queryKey: ["scans", scopeKey], queryFn: () => api.scans({ page: 1 }), enabled: ready && hasSession });
+  const awaiting = useQuery({ queryKey: ["analysis-awaiting", scopeKey], queryFn: api.analysisAwaiting, enabled: ready && hasSession, refetchInterval: 4000 });
   const registry = useQuery({ queryKey: ["scanners"], queryFn: () => api.scanners(), enabled: ready, staleTime: 300_000 });
   const preview = useQuery({ queryKey: ["scan-preview", scanType, scopeKey], queryFn: () => api.scanPreview(scanType), enabled: ready && scanType !== "specified" });
   const browse = useQuery({ queryKey: ["browse", browsePath, scopeKey], queryFn: () => api.browse(browsePath || undefined), enabled: ready && browseOpen });
+
+  const awaitingRows = awaiting.data || [];
+
+  const startRiskAnalysis = useMutation({
+    mutationFn: async () => {
+      const scanId = selectedScanForRisk || awaitingRows[0]?.scan_job_id || selectedJobId || scans.data?.results?.[0]?.id;
+      if (!scanId) throw new Error("Choose a completed scan first.");
+      const rawContext = {
+        application: {
+          name: customAppName || "ECDAT Target Systems",
+          type: "enterprise_service",
+        },
+        data: {
+          lifetime_years: Number(dataLifetimeYears) || 8.0,
+          sensitivity: Number(dataSensitivity) || 4,
+          types: ["PII", "Financial", "SessionTokens"],
+        },
+        network: {
+          publicly_accessible: isPublicAccess,
+          internet_facing: isPublicAccess,
+        },
+        business_context: {
+          data_retention_years: Number(dataLifetimeYears) || 8.0,
+          migration_complexity: Number(migrationComplexity) || 3,
+          crypto_agility: Number(cryptoAgility) || 2,
+          quantum_horizon_year: Number(quantumHorizonYear) || 2033,
+          assessment_year: 2026,
+        },
+        operational_parameters: {
+          X_migration_time_years: Number(migrationComplexity) || 3.0,
+          Y_data_lifetime_years: Number(dataLifetimeYears) || 8.0,
+          Z_quantum_horizon_year: Number(quantumHorizonYear) || 2033,
+        }
+      };
+      return api.startAnalysis({ scan_job: Number(scanId), raw_system_context: rawContext });
+    },
+    onSuccess: (created) => {
+      setRiskDialogOpen(false);
+      pushToast(`Quantum Risk Analysis #${created.id} started successfully!`, "success");
+      router.push("/analysis");
+    },
+    onError: (error) => pushToast(error instanceof Error ? error.message : "Failed to start risk analysis.", "error")
+  });
+
+  const openRiskModal = (scanId?: number | null) => {
+    if (scanId) setSelectedScanForRisk(scanId);
+    else if (selectedJobId) setSelectedScanForRisk(selectedJobId);
+    else if (awaitingRows[0]?.scan_job_id) setSelectedScanForRisk(awaitingRows[0].scan_job_id);
+    else if (scans.data?.results?.[0]?.id) setSelectedScanForRisk(scans.data.results[0].id);
+    setRiskDialogOpen(true);
+  };
 
   const availableScanners = (registry.data?.scanners || []).filter((scanner) => scanner.status === "available");
 
@@ -463,6 +526,7 @@ export default function ScansPage() {
       isFetching={job.isFetching}
       onCancel={() => cancelScan.mutate(job.data!.id)}
       cancelling={cancelScan.isPending}
+      onStartRisk={openRiskModal}
     />
   ) : null;
 
@@ -473,6 +537,7 @@ export default function ScansPage() {
       scanners={availableScanners}
       onCancel={() => cancelBatch.mutate(activeBatch.id)}
       cancelling={cancelBatch.isPending}
+      onStartRisk={() => openRiskModal(activeBatch.sources?.[0]?.id)}
     />
   ) : activeBatchId !== null ? (
     <LoadingState label="Loading multi-source run" />
@@ -486,12 +551,43 @@ export default function ScansPage() {
         title="Cryptographic discovery"
         description="Collect evidence-backed cryptographic observations across connected sources. Classification, risk, and migration reasoning are produced by later stages."
         actions={
-          <Button variant="outline" size="sm" onClick={() => demoScan.mutate()} disabled={demoScan.isPending}>
-            <Play className="h-3.5 w-3.5" aria-hidden="true" />
-            {demoScan.isPending ? "Starting…" : "Run demo discovery"}
-          </Button>
+          <div className="flex items-center gap-2">
+            {scans.data?.results?.length ? (
+              <Button size="sm" onClick={() => openRiskModal()}>
+                <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                Run Risk Analysis
+              </Button>
+            ) : null}
+            <Button variant="outline" size="sm" onClick={() => demoScan.mutate()} disabled={demoScan.isPending}>
+              <Play className="h-3.5 w-3.5" aria-hidden="true" />
+              {demoScan.isPending ? "Starting…" : "Run demo discovery"}
+            </Button>
+          </div>
         }
       />
+
+      {/* Awaiting Risk Analysis Prompt */}
+      {awaitingRows.length ? (
+        <Card className="border-warning/40 bg-warning/5 animate-in fade-in">
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-warning" aria-hidden="true" />
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Discovery Complete — Operational Parameters Required</h3>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Scan #{awaitingRows[0].scan_job_id} is awaiting Mosca (X + Y &gt; Z) and HNDL operational parameters for quantum risk assessment.
+                  </p>
+                </div>
+              </div>
+              <Button size="sm" onClick={() => openRiskModal(awaitingRows[0].scan_job_id)}>
+                <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" />
+                Configure Parameters &amp; Run
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Tabs
         value={tab}
@@ -1167,6 +1263,143 @@ export default function ScansPage() {
           )}
         </div>
       </Dialog>
+      {/* Operational Context Dialog */}
+      <Dialog
+        open={riskDialogOpen}
+        onOpenChange={setRiskDialogOpen}
+        title="Operational Threat & Timeline Parameters"
+        description="Provide organizational context for Michele Mosca's Theorem (X + Y > Z) and HNDL (Harvest-Now-Decrypt-Later) Threat Scoring."
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setRiskDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => startRiskAnalysis.mutate()}
+              disabled={startRiskAnalysis.isPending}
+            >
+              {startRiskAnalysis.isPending ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              Commit Parameters &amp; Run Risk Analysis
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4 text-xs">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5 font-medium">
+                <Clock className="h-3.5 w-3.5 text-primary" />
+                Data Shelf-Life (Y years)
+              </Label>
+              <Input
+                type="number"
+                step="0.5"
+                value={dataLifetimeYears}
+                onChange={(e) => setDataLifetimeYears(e.target.value)}
+                placeholder="e.g. 8.0"
+              />
+              <p className="text-[10px] text-muted-foreground">Years data must remain secret.</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5 font-medium">
+                <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
+                Migration Duration (X years)
+              </Label>
+              <Input
+                type="number"
+                step="0.5"
+                value={migrationComplexity}
+                onChange={(e) => setMigrationComplexity(e.target.value)}
+                placeholder="e.g. 3.0"
+              />
+              <p className="text-[10px] text-muted-foreground">Years to migrate all infrastructure.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5 font-medium">
+                <ShieldAlert className="h-3.5 w-3.5 text-destructive" />
+                CRQC Horizon Year (Z)
+              </Label>
+              <Input
+                type="number"
+                value={quantumHorizonYear}
+                onChange={(e) => setQuantumHorizonYear(e.target.value)}
+                placeholder="e.g. 2033"
+              />
+              <p className="text-[10px] text-muted-foreground">Expected year quantum computers break classical crypto.</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5 font-medium">
+                Data Sensitivity Tier
+              </Label>
+              <Select
+                value={dataSensitivity}
+                onChange={(e) => setDataSensitivity(e.target.value)}
+              >
+                <option value="5">Tier 5 - Top Secret / Critical Infrastructure</option>
+                <option value="4">Tier 4 - High (PII / Financial / Auth Tokens)</option>
+                <option value="3">Tier 3 - Medium (Confidential Internal)</option>
+                <option value="2">Tier 2 - Low (Internal Operational)</option>
+                <option value="1">Tier 1 - Public Non-sensitive</option>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5 font-medium">
+                <Globe className="h-3.5 w-3.5 text-primary" />
+                Network Exposure
+              </Label>
+              <Select
+                value={isPublicAccess ? "public" : "internal"}
+                onChange={(e) => setIsPublicAccess(e.target.value === "public")}
+              >
+                <option value="public">Public / Internet-Facing</option>
+                <option value="internal">Internal / Private Mesh</option>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5 font-medium">
+                Crypto Agility Level
+              </Label>
+              <Select
+                value={cryptoAgility}
+                onChange={(e) => setCryptoAgility(e.target.value)}
+              >
+                <option value="3">High - Pluggable / Modular Crypto</option>
+                <option value="2">Moderate - Configurable Libraries</option>
+                <option value="1">Low - Hardcoded / Embedded Keys</option>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="font-medium">System / Application Label</Label>
+            <Input
+              value={customAppName}
+              onChange={(e) => setCustomAppName(e.target.value)}
+              placeholder="e.g. Enterprise Core Services &amp; Key Vault"
+            />
+          </div>
+
+          <div className="rounded border bg-muted/40 p-2.5 text-[11px] leading-relaxed text-muted-foreground">
+            <span className="font-medium text-foreground">Mosca Inequality Theorem:</span> If Migration Time (
+            <span className="font-semibold text-primary">{migrationComplexity}y</span>) + Shelf-Life (
+            <span className="font-semibold text-primary">{dataLifetimeYears}y</span>) &gt; Quantum Arrival (
+            <span className="font-semibold text-primary">{Number(quantumHorizonYear) - 2026}y</span>), then data is ALREADY vulnerable to Harvest Now Decrypt Later.
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }
@@ -1358,7 +1591,7 @@ function scannerName(scanners: ScannerDescriptor[], sourceType: string): string 
   );
 }
 
-function BatchMonitor({ batch, scanners, onCancel, cancelling }: { batch: ScanBatch; scanners: ScannerDescriptor[]; onCancel: () => void; cancelling: boolean }) {
+function BatchMonitor({ batch, scanners, onCancel, cancelling, onStartRisk }: { batch: ScanBatch; scanners: ScannerDescriptor[]; onCancel: () => void; cancelling: boolean; onStartRisk?: () => void }) {
   const status = String(batch.status || "").toLowerCase();
   const active = BATCH_ACTIVE.has(status);
   const sources = batch.sources || [];
@@ -1477,13 +1710,22 @@ function BatchMonitor({ batch, scanners, onCancel, cancelling }: { batch: ScanBa
             Some items were not inspected. The run still reports only what was actually read.
           </p>
         ) : null}
+
+        {!active && (batch.findings_count || 0) > 0 ? (
+          <div className="border-t p-4">
+            <Button size="sm" className="w-full" onClick={onStartRisk}>
+              <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+              Configure Operational Parameters &amp; Run Risk Analysis
+            </Button>
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );
 }
 
 
-function JobMonitor({ job, isFetching, onCancel, cancelling }: { job: ScanJob; isFetching: boolean; onCancel: () => void; cancelling: boolean }) {
+function JobMonitor({ job, isFetching, onCancel, cancelling, onStartRisk }: { job: ScanJob; isFetching: boolean; onCancel: () => void; cancelling: boolean; onStartRisk?: (id: number) => void }) {
   const status = String(job.status || "").toLowerCase();
   const terminal = TERMINAL_STATUSES.has(status);
   const cancellable = CANCELLABLE_STATUSES.has(status);
@@ -1591,7 +1833,7 @@ function JobMonitor({ job, isFetching, onCancel, cancelling }: { job: ScanJob; i
         <div
           className={
             outcome.variant === "success"
-              ? "flex items-center gap-2 border border-success/30 bg-success/5 p-3 text-xs text-success"
+              ? "flex flex-col gap-2.5 border border-success/30 bg-success/5 p-3 text-xs text-success"
               : outcome.variant === "danger"
                 ? "flex items-center gap-2 border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive"
                 : outcome.variant === "warning"
@@ -1599,10 +1841,22 @@ function JobMonitor({ job, isFetching, onCancel, cancelling }: { job: ScanJob; i
                   : "flex items-center gap-2 border border-border bg-muted/20 p-3 text-xs text-muted-foreground"
           }
         >
-          {outcome.variant === "success" ? <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" /> : <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />}
-          <span>
-            <span className="font-medium">{outcome.title}.</span> {outcome.detail}
-          </span>
+          <div className="flex items-center gap-2">
+            {outcome.variant === "success" ? <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" /> : <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />}
+            <span>
+              <span className="font-medium">{outcome.title}.</span> {outcome.detail}
+            </span>
+          </div>
+          {outcome.variant === "success" && (job.findings_count || 0) > 0 ? (
+            <Button
+              size="sm"
+              className="mt-1 w-full"
+              onClick={() => onStartRisk?.(job.id)}
+            >
+              <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+              Configure Operational Parameters &amp; Run Risk Analysis
+            </Button>
+          ) : null}
         </div>
       ) : null}
     </div>

@@ -223,6 +223,7 @@ def collect(sid=None, db=None):
                 "created": run.created_at,
                 "stats": stats,
                 "rows": rows,
+                "raw_system_context": run.raw_system_context or {},
             }
         )
         if run.status == AnalysisRun.Status.COMPLETED and latest_completed is None:
@@ -518,6 +519,26 @@ def _sec_analysis(runs) -> str:
     blocks = []
     for run in runs:
         stats = run["stats"]
+        ctx = run.get("raw_system_context") or {}
+        biz = ctx.get("business_context") or {}
+        data_ctx = ctx.get("data") or {}
+        op_params = ctx.get("operational_parameters") or {}
+
+        y_life = op_params.get("Y_data_lifetime_years") or data_ctx.get("lifetime_years") or biz.get("data_retention_years")
+        x_mig = op_params.get("X_migration_time_years") or biz.get("migration_complexity")
+        z_crqc = op_params.get("Z_quantum_horizon_year") or biz.get("quantum_horizon_year") or 2033
+        is_pub = ctx.get("network", {}).get("publicly_accessible")
+
+        context_strip = ""
+        if y_life or x_mig:
+            context_strip = (
+                f'<div class="callout" style="margin:6pt 0 8pt;padding:4pt 8pt;font-size:7.8pt;">'
+                f'<b>Operational Inputs:</b> Data Shelf-Life (Y): <b>{_esc(y_life)} yrs</b> · '
+                f'Migration Time (X): <b>{_esc(x_mig)} yrs</b> · CRQC Threat Horizon (Z): <b>{_esc(z_crqc)}</b> · '
+                f'Exposure: <b>{"Internet-Facing" if is_pub else "Internal"}</b>'
+                f'</div>'
+            )
+
         blocks.append(
             f"""
 <h3>Run #{run['id']} · {_esc(run['target'])}</h3>
@@ -529,6 +550,7 @@ def _sec_analysis(runs) -> str:
   <div><b>HNDL-applicable</b>{stats.get('hndl_applicable', 0)}</div>
   <div><b>Created</b>{_esc(_fmt_dt(run['created']))}</div>
 </div>
+{context_strip}
 """
         )
         if run["rows"]:
@@ -657,34 +679,45 @@ def _sec_mitigation(m) -> str:
     for i, w in enumerate(m["waves"], start=1):
         cls = ("red", "amber", "green")[min(i - 1, 2)]
         assets = " ".join(f"<span class='badge b-{cls}'>{_esc(x)}</span>" for x in (w.get("assets") or []))
+        asset_div = f"<div style='margin-top:3pt'>{assets}</div>" if assets else ""
         wave_cards.append(
             f"<div class='kpi {cls}' style='border-top:2pt solid transparent'><div class='l'>Wave {i} · {_esc(w.get('timeline') or '')}</div>"
             f"<div style='font-weight:700'>{_esc(w.get('name') or '')}</div><div class='small'>{_esc(w.get('focus') or '')}</div>"
-            f"{('<div style=\'margin-top:3pt\'>' + assets + '</div>') if assets else ''}</div>"
+            f"{asset_div}</div>"
         )
-    waves_block = f"""<h3>AI-optimized migration waves</h3><div class="kpi-row">{"".join(wave_cards)}</div>""" if m["waves"] else ""
+    waves_joined = "".join(wave_cards)
+    waves_block = f"<h3>AI-optimized migration waves</h3><div class='kpi-row'>{waves_joined}</div>" if m["waves"] else ""
 
     # Strategic recommendations
-    strategic = "".join(
-        f"<div class='kpi'><div class='l'>recommendation</div><div style='font-weight:700'>{_esc(x.get('title') or '')}</div>"
-        f"<div class='small'>{_esc(x.get('description') or '')}</div>"
-        f"{('<div class=\'small\'>Timeline: ' + _esc(x.get('timeline') or '') + '</div>') if x.get('timeline') else ''}</div>"
-        for x in m["strategic"]
-    )
-    strategic_block = f"""<h3>Strategic recommendations</h3><div class="kpi-row">{strategic}</div>""" if m["strategic"] else ""
+    strat_cards = []
+    for x in m["strategic"]:
+        t_line = f"<div class='small'>Timeline: {_esc(x.get('timeline') or '')}</div>" if x.get("timeline") else ""
+        strat_cards.append(
+            f"<div class='kpi'><div class='l'>recommendation</div><div style='font-weight:700'>{_esc(x.get('title') or '')}</div>"
+            f"<div class='small'>{_esc(x.get('description') or '')}</div>"
+            f"{t_line}</div>"
+        )
+    strat_joined = "".join(strat_cards)
+    strategic_block = f"<h3>Strategic recommendations</h3><div class='kpi-row'>{strat_joined}</div>" if m["strategic"] else ""
 
     # Prioritized remediation table
-    rows_html = "".join(
-        f"<tr><td class='mono'>{_esc(r['asset_id'] or '—')}</td>"
-        f"<td class='mono'>{_esc(r['algorithm'] or '—')}{' '+('<span class=\'badge b-red\'>PQ</span>' if r.get('quantum_vulnerable') else '')}</td>"
-        f"<td>{_severity_badge(r.get('migration_priority'))}</td>"
-        f"<td>{_severity_badge((r.get('blast_radius') or {}).get('severity'))}<br><span class='small'>{_esc((r.get('blast_radius') or {}).get('shared_assets', 0))} shared · {_esc(r.get('service') or '')}</span></td>"
-        f"<td class='mono'>{_esc((r.get('migration_impact') or {}).get('replacement') or '—')}</td>"
-        f"<td>{_esc((r.get('migration_impact') or {}).get('effort') or '—')}</td>"
-        f"<td class='num'>{_esc(r.get('migration_wave') or '—')}</td>"
-        f"<td class='small'>{'<br>'.join('• '+_esc(x) for x in (r.get('suggestions') or []))}</td></tr>"
-        for r in m["rows"]
-    ) or '<tr><td colspan="8" class="note">Rows appear once the plan is generated.</td></tr>'
+    row_items = []
+    for r in m["rows"]:
+        pq_badge = " <span class='badge b-red'>PQ</span>" if r.get("quantum_vulnerable") else ""
+        br = r.get("blast_radius") or {}
+        br_sub = f"<br><span class='small'>{_esc(br.get('shared_assets', 0))} shared · {_esc(r.get('service') or '')}</span>"
+        suggs = "<br>".join("• " + _esc(x) for x in (r.get("suggestions") or []))
+        row_items.append(
+            f"<tr><td class='mono'>{_esc(r['asset_id'] or '—')}</td>"
+            f"<td class='mono'>{_esc(r['algorithm'] or '—')}{pq_badge}</td>"
+            f"<td>{_severity_badge(r.get('migration_priority'))}</td>"
+            f"<td>{_severity_badge(br.get('severity'))}{br_sub}</td>"
+            f"<td class='mono'>{_esc((r.get('migration_impact') or {}).get('replacement') or '—')}</td>"
+            f"<td>{_esc((r.get('migration_impact') or {}).get('effort') or '—')}</td>"
+            f"<td class='num'>{_esc(r.get('migration_wave') or '—')}</td>"
+            f"<td class='small'>{suggs}</td></tr>"
+        )
+    rows_html = "".join(row_items) or '<tr><td colspan="8" class="note">Rows appear once the plan is generated.</td></tr>'
 
     return f"""
 <div class="section page-break">

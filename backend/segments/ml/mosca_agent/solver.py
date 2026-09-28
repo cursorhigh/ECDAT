@@ -123,10 +123,15 @@ class MoscaSolver:
             return 0.0, False
 
         # Asymmetric Cryptography (Shor's Algorithm)
-        if canonical_fam == "asymmetric" or attack_type == "Shor" or is_qv:
-            if catalog_role in ("key_establishment", "encryption", "kdf") or any(k in algo_str.upper() for k in ["RSA", "DH", "ECDH", "X25519", "X448"]):
+        if (
+            canonical_fam in ("asymmetric", "ecc", "dh", "dsa", "rsa", "public_key")
+            or attack_type == "Shor"
+            or is_qv
+            or any(k in algo_str.upper() for k in ["ECC", "ECDSA", "ECDH", "ED25519", "ED448", "X25519", "X448", "RSA", "DH", "DSA", "ELGAMAL"])
+        ):
+            if catalog_role in ("key_establishment", "encryption", "kdf") or any(k in algo_str.upper() for k in ["RSA", "DH", "ECDH", "X25519", "X448", "ECC"]):
                 return 1.0, True
-            # Signatures
+            # Signatures and asymmetric keys
             return 0.70, True
 
         if canonical_fam in ("hash", "mac") or catalog_role in ("hash", "mac"):

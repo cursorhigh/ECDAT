@@ -135,7 +135,31 @@ _REPLACEMENTS = {
         "HIGH",
         "HIGH",
         "HIGH",
-        "RSA is used across TLS, JWTs and certificates; each trust anchor must move to ML-KEM/ML-DSA.",
+        "RSA is used across TLS, JWTs and certificates; each trust anchor must move to ML-KEM (FIPS 203) / ML-DSA (FIPS 204).",
+    ),
+    "RSA-2048": (
+        "ML-KEM-768 / ML-DSA-65",
+        "PUBLIC_KEY",
+        "HIGH",
+        "HIGH",
+        "HIGH",
+        "RSA-2048 is vulnerable to Shor's algorithm; migrate to NIST FIPS 203 (ML-KEM-768) and FIPS 204 (ML-DSA-65).",
+    ),
+    "RSA-3072": (
+        "ML-KEM-768 / ML-DSA-65",
+        "PUBLIC_KEY",
+        "HIGH",
+        "HIGH",
+        "HIGH",
+        "RSA-3072 is vulnerable to Shor's algorithm; migrate to NIST FIPS 203 (ML-KEM-768) and FIPS 204 (ML-DSA-65).",
+    ),
+    "RSA-4096": (
+        "ML-KEM-1024 / ML-DSA-87",
+        "PUBLIC_KEY",
+        "HIGH",
+        "HIGH",
+        "HIGH",
+        "RSA-4096 is vulnerable to Shor's algorithm; migrate to NIST FIPS 203 (ML-KEM-1024) and FIPS 204 (ML-DSA-87).",
     ),
     "ECDSA": (
         "ML-DSA-65",
@@ -143,7 +167,23 @@ _REPLACEMENTS = {
         "MEDIUM",
         "MEDIUM",
         "MEDIUM",
-        "ECDSA signatures migrate cleanly to ML-DSA; verify curve usage first.",
+        "ECDSA signatures migrate cleanly to ML-DSA (FIPS 204); verify curve usage first.",
+    ),
+    "ECDSA-P256": (
+        "ML-DSA-65",
+        "PUBLIC_KEY",
+        "MEDIUM",
+        "MEDIUM",
+        "MEDIUM",
+        "ECDSA P-256 signatures migrate to ML-DSA-65 (FIPS 204) per CNSA 2.0.",
+    ),
+    "ECDSA-P384": (
+        "ML-DSA-87",
+        "PUBLIC_KEY",
+        "MEDIUM",
+        "MEDIUM",
+        "MEDIUM",
+        "ECDSA P-384 signatures migrate to ML-DSA-87 (FIPS 204) per CNSA 2.0.",
     ),
     "ECDH": (
         "ML-KEM-1024",
@@ -151,7 +191,15 @@ _REPLACEMENTS = {
         "MEDIUM",
         "MEDIUM",
         "MEDIUM",
-        "Key agreement migrates to ML-KEM with a hybrid handshake (X25519MLKEM768).",
+        "Key agreement migrates to ML-KEM (FIPS 203) with a hybrid handshake (X25519MLKEM768).",
+    ),
+    "X25519": (
+        "ML-KEM-768 (Hybrid X25519MLKEM768)",
+        "PUBLIC_KEY",
+        "LOW",
+        "LOW",
+        "LOW",
+        "X25519 key exchange upgrades to hybrid X25519MLKEM768 for immediate post-quantum security.",
     ),
     "EC": (
         "ML-KEM-1024 / ML-DSA-65",
@@ -159,15 +207,15 @@ _REPLACEMENTS = {
         "MEDIUM",
         "MEDIUM",
         "MEDIUM",
-        "Elliptic-curve assets can move to ML-KEM/ML-DSA per CNSA 2.0.",
+        "Elliptic-curve assets move to ML-KEM/ML-DSA per CNSA 2.0.",
     ),
     "ED25519": (
-        "ML-DSA-65",
+        "ML-DSA-65 / SLH-DSA",
         "PUBLIC_KEY",
         "MEDIUM",
         "MEDIUM",
         "MEDIUM",
-        "Ed25519 signatures migrate to ML-DSA; keep graceful fallback while pubkeys rotate.",
+        "Ed25519 signatures migrate to ML-DSA-65 (FIPS 204) or SLH-DSA (FIPS 205); keep graceful fallback while pubkeys rotate.",
     ),
     "EDDSA": (
         "ML-DSA-65",
@@ -183,7 +231,7 @@ _REPLACEMENTS = {
         "HIGH",
         "HIGH",
         "HIGH",
-        "DSA is baroque and PQC-weak; replace with ML-KEM/ML-DSA.",
+        "DSA is obsolete and PQC-vulnerable; replace with ML-KEM/ML-DSA.",
     ),
     "DH": (
         "ML-KEM-1024",
@@ -191,7 +239,7 @@ _REPLACEMENTS = {
         "HIGH",
         "HIGH",
         "HIGH",
-        "Diffie-Hellman key exchange moves to ML-KEM.",
+        "Diffie-Hellman key exchange moves to ML-KEM (FIPS 203).",
     ),
     "ELGAMAL": (
         "ML-KEM-1024",
@@ -209,13 +257,37 @@ _REPLACEMENTS = {
         "LOW",
         "AES-256 is quantum-resilient (Grover safety margin); validate GCM mode.",
     ),
+    "AES-128": (
+        "AES-256 (GCM)",
+        "SYMMETRIC",
+        "MEDIUM",
+        "MEDIUM",
+        "MEDIUM",
+        "AES-128 key length offers 64-bit security against Grover's algorithm; upgrade to AES-256.",
+    ),
+    "AES-256": (
+        "AES-256 (GCM)",
+        "SYMMETRIC",
+        "LOW",
+        "LOW",
+        "LOW",
+        "AES-256 is fully quantum-safe at 128-bit Grover security bound; confirm AEAD (GCM) mode.",
+    ),
+    "CHACHA20": (
+        "ChaCha20-Poly1305 / AES-256 (GCM)",
+        "SYMMETRIC",
+        "LOW",
+        "LOW",
+        "LOW",
+        "ChaCha20 provides 256-bit key quantum security; pair with Poly1305 AEAD.",
+    ),
     "DES": (
         "AES-256 (GCM)",
         "SYMMETRIC",
         "MEDIUM",
         "MEDIUM",
         "MEDIUM",
-        "DES/3DES is legacy; migrate to AES-256.",
+        "DES is broken classically and quantumly; migrate to AES-256 (GCM).",
     ),
     "3DES": (
         "AES-256 (GCM)",
@@ -223,7 +295,7 @@ _REPLACEMENTS = {
         "MEDIUM",
         "MEDIUM",
         "MEDIUM",
-        "3DES is legacy; migrate to AES-256.",
+        "3DES is deprecated; migrate to AES-256 (GCM).",
     ),
     "BLOWFISH": (
         "AES-256 (GCM)",
@@ -231,7 +303,7 @@ _REPLACEMENTS = {
         "MEDIUM",
         "MEDIUM",
         "MEDIUM",
-        "Blowfish is legacy; migrate to AES-256.",
+        "Blowfish is legacy with 64-bit block size; migrate to AES-256.",
     ),
     "RC4": (
         "AES-256 (GCM)",
@@ -239,7 +311,7 @@ _REPLACEMENTS = {
         "MEDIUM",
         "MEDIUM",
         "MEDIUM",
-        "RC4 is broken; migrate to AES-256.",
+        "RC4 is broken; migrate to AES-256 (GCM).",
     ),
     "CAMELLIA": (
         "AES-256 (GCM)",
@@ -319,6 +391,10 @@ def compute_migration_impact(asset_ctx: Dict[str, Any]) -> Dict[str, Any]:
         lookup = family
     if lookup not in _REPLACEMENTS:
         lookup = algo.split()[0] if algo else ""
+    if lookup not in _REPLACEMENTS:
+        lookup = algo.split("-")[0] if algo else ""
+    if lookup not in _REPLACEMENTS:
+        lookup = algo.split("_")[0] if algo else ""
     if lookup not in _REPLACEMENTS:
         lookup = ""
 

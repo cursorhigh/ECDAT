@@ -1,0 +1,779 @@
+{
+  "application": "ECDAT Enterprise Post-Quantum Cryptographic Risk Report",
+  "repository": {},
+  "summary": {
+    "assets": 10,
+    "by_priority": {
+      "URGENT": 0,
+      "HIGH": 6,
+      "MEDIUM": 1,
+      "LOW": 2
+    },
+    "by_risk": {
+      "CRITICAL": 0,
+      "HIGH": 6,
+      "MEDIUM": 1,
+      "LOW": 3
+    },
+    "urgent": 0,
+    "critical_risk": 0,
+    "high_risk": 6,
+    "quantum_vulnerable": 5,
+    "hndl_exposed": 0,
+    "wave1": 5,
+    "wave2": 1,
+    "wave3": 4,
+    "effort_estimate_quarters": 6,
+    "has_assets": true
+  },
+  "digital_twin": {
+    "abstractions": [
+      {
+        "type": "algorithm",
+        "label": "RSA-2048",
+        "count": 1,
+        "contexts": [
+          "unknown"
+        ],
+        "roles": [
+          "cryptographic_primitives"
+        ]
+      },
+      {
+        "type": "algorithm",
+        "label": "ECDSA",
+        "count": 1,
+        "contexts": [
+          "unknown"
+        ],
+        "roles": [
+          "digital_signature",
+          "authentication",
+          "certificates"
+        ]
+      },
+      {
+        "type": "algorithm",
+        "label": "AES-256-GCM",
+        "count": 1,
+        "contexts": [
+          "unknown"
+        ],
+        "roles": [
+          "cryptographic_primitives"
+        ]
+      },
+      {
+        "type": "algorithm",
+        "label": "3DES-CBC",
+        "count": 1,
+        "contexts": [
+          "unknown"
+        ],
+        "roles": [
+          "cryptographic_primitives"
+        ]
+      },
+      {
+        "type": "algorithm",
+        "label": "ML-KEM-768",
+        "count": 1,
+        "contexts": [
+          "unknown"
+        ],
+        "roles": [
+          "cryptographic_primitives"
+        ]
+      },
+      {
+        "type": "algorithm",
+        "label": "RSA-3072",
+        "count": 1,
+        "contexts": [
+          "unknown"
+        ],
+        "roles": [
+          "cryptographic_primitives"
+        ]
+      },
+      {
+        "type": "algorithm",
+        "label": "RSA-4096",
+        "count": 1,
+        "contexts": [
+          "unknown"
+        ],
+        "roles": [
+          "cryptographic_primitives"
+        ]
+      },
+      {
+        "type": "algorithm",
+        "label": "ED25519",
+        "count": 1,
+        "contexts": [
+          "unknown"
+        ],
+        "roles": [
+          "digital_signature",
+          "authentication",
+          "certificates"
+        ]
+      },
+      {
+        "type": "algorithm",
+        "label": "AES-128-GCM",
+        "count": 1,
+        "contexts": [
+          "unknown"
+        ],
+        "roles": [
+          "cryptographic_primitives"
+        ]
+      },
+      {
+        "type": "algorithm",
+        "label": "X25519+ML-KEM-768",
+        "count": 1,
+        "contexts": [
+          "unknown"
+        ],
+        "roles": [
+          "cryptographic_primitives"
+        ]
+      }
+    ],
+    "contexts": {
+      "services": [
+        "unknown"
+      ],
+      "applications": [
+        "ECDAT Enterprise Post-Quantum Cryptographic Risk Report"
+      ],
+      "exposure": "internal",
+      "data_types": [],
+      "publicly_accessible": false
+    },
+    "high_value_points": [
+      {
+        "label": "Service 'unknown'",
+        "reason": "concentrates 10 cryptographic asset(s) in one blast zone"
+      }
+    ]
+  },
+  "quantum_risk": {
+    "post_quantum_vulnerable": [
+      {
+        "asset_id": "DISC-001",
+        "algorithm": "RSA-2048",
+        "service": "unknown",
+        "priority": "HIGH"
+      },
+      {
+        "asset_id": "DISC-002",
+        "algorithm": "ECDSA",
+        "service": "unknown",
+        "priority": "HIGH"
+      },
+      {
+        "asset_id": "DISC-006",
+        "algorithm": "RSA-3072",
+        "service": "unknown",
+        "priority": "HIGH"
+      },
+      {
+        "asset_id": "DISC-007",
+        "algorithm": "RSA-4096",
+        "service": "unknown",
+        "priority": "HIGH"
+      },
+      {
+        "asset_id": "DISC-008",
+        "algorithm": "ED25519",
+        "service": "unknown",
+        "priority": "HIGH"
+      }
+    ],
+    "hndl_present": false,
+    "harvest_now_decrypt_later": false,
+    "rationale": "Public-key primitives (RSA, ECC) are vulnerable to Shor's algorithm on a future cryptographically-relevant quantum computer (CRQC). Ciphertext captured today can be decrypted later (Harvest-Now-Decrypt-Later), and long-lived signatures forged - which is why PQC migration is time-critical.",
+    "urgency": "Wave 1"
+  },
+  "blast_radius": {
+    "severity": "CRITICAL",
+    "affected_services": 1,
+    "affected_findings": 10,
+    "public_surface": false,
+    "per_algorithm": [
+      {
+        "algorithm": "RSA-2048",
+        "count": 1,
+        "severity": "CRITICAL"
+      },
+      {
+        "algorithm": "ECDSA",
+        "count": 1,
+        "severity": "CRITICAL"
+      },
+      {
+        "algorithm": "RSA-3072",
+        "count": 1,
+        "severity": "CRITICAL"
+      },
+      {
+        "algorithm": "RSA-4096",
+        "count": 1,
+        "severity": "CRITICAL"
+      },
+      {
+        "algorithm": "ED25519",
+        "count": 1,
+        "severity": "CRITICAL"
+      },
+      {
+        "algorithm": "3DES-CBC",
+        "count": 1,
+        "severity": "HIGH"
+      },
+      {
+        "algorithm": "ML-KEM-768",
+        "count": 1,
+        "severity": "MEDIUM"
+      },
+      {
+        "algorithm": "AES-128-GCM",
+        "count": 1,
+        "severity": "MEDIUM"
+      },
+      {
+        "algorithm": "AES-256-GCM",
+        "count": 1,
+        "severity": "LOW"
+      },
+      {
+        "algorithm": "X25519+ML-KEM-768",
+        "count": 1,
+        "severity": "LOW"
+      }
+    ],
+    "poorest_link": "CRITICAL"
+  },
+  "rows": [
+    {
+      "id": "DISC-001",
+      "asset_id": "DISC-001",
+      "algorithm": "RSA-2048",
+      "family": "RSA",
+      "algorithm_category": "PUBLIC_KEY",
+      "classical_security": "STANDARD",
+      "overall_risk": "HIGH",
+      "migration_priority": "HIGH",
+      "quantum_vulnerable": true,
+      "hndl_risk": "0.03",
+      "service": "unknown",
+      "blast_radius": {
+        "severity": "CRITICAL",
+        "severity_rank": 0,
+        "service": "unknown",
+        "exposure": "internal",
+        "shared_assets": 10,
+        "services_affected": [
+          "unknown"
+        ],
+        "reason": "RSA-2048 is post-quantum vulnerable (Shor) and lives in 'unknown' (internal surface); compromise breaks confidentiality and integrity for 10 trust chain member(s)."
+      },
+      "migration_impact": {
+        "replacement": "ML-KEM-768 / ML-DSA-65",
+        "replacement_category": "PUBLIC_KEY",
+        "effort": "HIGH",
+        "impact": "HIGH",
+        "compatibility_risk": "HIGH",
+        "reason": "RSA-2048 is vulnerable to Shor's algorithm; migrate to NIST FIPS 203 (ML-KEM-768) and FIPS 204 (ML-DSA-65)."
+      },
+      "migration_wave": 1,
+      "suggestions": [
+        "Replace RSA-2048 with ML-KEM-768 / ML-DSA-65 (CNSA 2.0 / NIST PQC) in 'unknown'.",
+        "Adopt hybrid key exchange (X25519MLKEM768) so TLS and message-level handshakes are HNDL-safe today.",
+        "Rotate RSA-2048 keys/certificates in 'unknown' now - harvest-now decrypt-later exposure: 0.03.",
+        "Schedule within the current migration quarter; assign an owner."
+      ],
+      "recommended_action": "Schedule replacement within the current migration window.",
+      "source_context": {}
+    },
+    {
+      "id": "DISC-002",
+      "asset_id": "DISC-002",
+      "algorithm": "ECDSA",
+      "family": "ECDSA",
+      "algorithm_category": "PUBLIC_KEY",
+      "classical_security": "STANDARD",
+      "overall_risk": "HIGH",
+      "migration_priority": "HIGH",
+      "quantum_vulnerable": true,
+      "hndl_risk": "0.009",
+      "service": "unknown",
+      "blast_radius": {
+        "severity": "CRITICAL",
+        "severity_rank": 0,
+        "service": "unknown",
+        "exposure": "internal",
+        "shared_assets": 10,
+        "services_affected": [
+          "unknown"
+        ],
+        "reason": "ECDSA is post-quantum vulnerable (Shor) and lives in 'unknown' (internal surface); compromise breaks confidentiality and integrity for 10 trust chain member(s)."
+      },
+      "migration_impact": {
+        "replacement": "ML-DSA-65",
+        "replacement_category": "PUBLIC_KEY",
+        "effort": "MEDIUM",
+        "impact": "MEDIUM",
+        "compatibility_risk": "MEDIUM",
+        "reason": "ECDSA signatures migrate cleanly to ML-DSA (FIPS 204); verify curve usage first."
+      },
+      "migration_wave": 1,
+      "suggestions": [
+        "Replace ECDSA with ML-DSA-65 (CNSA 2.0 / NIST PQC) in 'unknown'.",
+        "Adopt hybrid key exchange (X25519MLKEM768) so TLS and message-level handshakes are HNDL-safe today.",
+        "Rotate ECDSA keys/certificates in 'unknown' now - harvest-now decrypt-later exposure: 0.009.",
+        "Schedule within the current migration quarter; assign an owner."
+      ],
+      "recommended_action": "Schedule replacement within the current migration window.",
+      "source_context": {}
+    },
+    {
+      "id": "DISC-006",
+      "asset_id": "DISC-006",
+      "algorithm": "RSA-3072",
+      "family": "RSA",
+      "algorithm_category": "PUBLIC_KEY",
+      "classical_security": "STANDARD",
+      "overall_risk": "HIGH",
+      "migration_priority": "HIGH",
+      "quantum_vulnerable": true,
+      "hndl_risk": "0.03",
+      "service": "unknown",
+      "blast_radius": {
+        "severity": "CRITICAL",
+        "severity_rank": 0,
+        "service": "unknown",
+        "exposure": "internal",
+        "shared_assets": 10,
+        "services_affected": [
+          "unknown"
+        ],
+        "reason": "RSA-3072 is post-quantum vulnerable (Shor) and lives in 'unknown' (internal surface); compromise breaks confidentiality and integrity for 10 trust chain member(s)."
+      },
+      "migration_impact": {
+        "replacement": "ML-KEM-768 / ML-DSA-65",
+        "replacement_category": "PUBLIC_KEY",
+        "effort": "HIGH",
+        "impact": "HIGH",
+        "compatibility_risk": "HIGH",
+        "reason": "RSA-3072 is vulnerable to Shor's algorithm; migrate to NIST FIPS 203 (ML-KEM-768) and FIPS 204 (ML-DSA-65)."
+      },
+      "migration_wave": 1,
+      "suggestions": [
+        "Replace RSA-3072 with ML-KEM-768 / ML-DSA-65 (CNSA 2.0 / NIST PQC) in 'unknown'.",
+        "Adopt hybrid key exchange (X25519MLKEM768) so TLS and message-level handshakes are HNDL-safe today.",
+        "Rotate RSA-3072 keys/certificates in 'unknown' now - harvest-now decrypt-later exposure: 0.03.",
+        "Schedule within the current migration quarter; assign an owner."
+      ],
+      "recommended_action": "Schedule replacement within the current migration window.",
+      "source_context": {}
+    },
+    {
+      "id": "DISC-007",
+      "asset_id": "DISC-007",
+      "algorithm": "RSA-4096",
+      "family": "RSA",
+      "algorithm_category": "PUBLIC_KEY",
+      "classical_security": "STANDARD",
+      "overall_risk": "HIGH",
+      "migration_priority": "HIGH",
+      "quantum_vulnerable": true,
+      "hndl_risk": "0.03",
+      "service": "unknown",
+      "blast_radius": {
+        "severity": "CRITICAL",
+        "severity_rank": 0,
+        "service": "unknown",
+        "exposure": "internal",
+        "shared_assets": 10,
+        "services_affected": [
+          "unknown"
+        ],
+        "reason": "RSA-4096 is post-quantum vulnerable (Shor) and lives in 'unknown' (internal surface); compromise breaks confidentiality and integrity for 10 trust chain member(s)."
+      },
+      "migration_impact": {
+        "replacement": "ML-KEM-1024 / ML-DSA-87",
+        "replacement_category": "PUBLIC_KEY",
+        "effort": "HIGH",
+        "impact": "HIGH",
+        "compatibility_risk": "HIGH",
+        "reason": "RSA-4096 is vulnerable to Shor's algorithm; migrate to NIST FIPS 203 (ML-KEM-1024) and FIPS 204 (ML-DSA-87)."
+      },
+      "migration_wave": 1,
+      "suggestions": [
+        "Replace RSA-4096 with ML-KEM-1024 / ML-DSA-87 (CNSA 2.0 / NIST PQC) in 'unknown'.",
+        "Adopt hybrid key exchange (X25519MLKEM768) so TLS and message-level handshakes are HNDL-safe today.",
+        "Rotate RSA-4096 keys/certificates in 'unknown' now - harvest-now decrypt-later exposure: 0.03.",
+        "Schedule within the current migration quarter; assign an owner."
+      ],
+      "recommended_action": "Schedule replacement within the current migration window.",
+      "source_context": {}
+    },
+    {
+      "id": "DISC-008",
+      "asset_id": "DISC-008",
+      "algorithm": "ED25519",
+      "family": "Ed25519",
+      "algorithm_category": "PUBLIC_KEY",
+      "classical_security": "STANDARD",
+      "overall_risk": "HIGH",
+      "migration_priority": "HIGH",
+      "quantum_vulnerable": true,
+      "hndl_risk": "0.009",
+      "service": "unknown",
+      "blast_radius": {
+        "severity": "CRITICAL",
+        "severity_rank": 0,
+        "service": "unknown",
+        "exposure": "internal",
+        "shared_assets": 10,
+        "services_affected": [
+          "unknown"
+        ],
+        "reason": "Ed25519 is post-quantum vulnerable (Shor) and lives in 'unknown' (internal surface); compromise breaks confidentiality and integrity for 10 trust chain member(s)."
+      },
+      "migration_impact": {
+        "replacement": "ML-DSA-65 / SLH-DSA",
+        "replacement_category": "PUBLIC_KEY",
+        "effort": "MEDIUM",
+        "impact": "MEDIUM",
+        "compatibility_risk": "MEDIUM",
+        "reason": "Ed25519 signatures migrate to ML-DSA-65 (FIPS 204) or SLH-DSA (FIPS 205); keep graceful fallback while pubkeys rotate."
+      },
+      "migration_wave": 1,
+      "suggestions": [
+        "Replace ED25519 with ML-DSA-65 / SLH-DSA (CNSA 2.0 / NIST PQC) in 'unknown'.",
+        "Adopt hybrid key exchange (X25519MLKEM768) so TLS and message-level handshakes are HNDL-safe today.",
+        "Rotate ED25519 keys/certificates in 'unknown' now - harvest-now decrypt-later exposure: 0.009.",
+        "Schedule within the current migration quarter; assign an owner."
+      ],
+      "recommended_action": "Schedule replacement within the current migration window.",
+      "source_context": {}
+    },
+    {
+      "id": "DISC-004",
+      "asset_id": "DISC-004",
+      "algorithm": "3DES-CBC",
+      "family": "3DES",
+      "algorithm_category": "SYMMETRIC",
+      "classical_security": "STANDARD",
+      "overall_risk": "HIGH",
+      "migration_priority": "HIGH",
+      "quantum_vulnerable": false,
+      "hndl_risk": "",
+      "service": "unknown",
+      "blast_radius": {
+        "severity": "HIGH",
+        "severity_rank": 1,
+        "service": "unknown",
+        "exposure": "internal",
+        "shared_assets": 10,
+        "services_affected": [
+          "unknown"
+        ],
+        "reason": "3DES-CBC in 'unknown' exposes 10 crypto asset(s); surface is internal."
+      },
+      "migration_impact": {
+        "replacement": "AES-256 (GCM)",
+        "replacement_category": "SYMMETRIC",
+        "effort": "MEDIUM",
+        "impact": "MEDIUM",
+        "compatibility_risk": "MEDIUM",
+        "reason": "3DES is deprecated; migrate to AES-256 (GCM)."
+      },
+      "migration_wave": 2,
+      "suggestions": [
+        "Maintain 3DES-CBC with AES-256 strength; re-validate the cipher mode and key-management rotation in '{service}'.",
+        "Ensure symmetric keys are rotated on schedule and stored in a KMS.",
+        "Schedule within the current migration quarter; assign an owner."
+      ],
+      "recommended_action": "Schedule replacement within the current migration window.",
+      "source_context": {}
+    },
+    {
+      "id": "DISC-009",
+      "asset_id": "DISC-009",
+      "algorithm": "AES-128-GCM",
+      "family": "AES",
+      "algorithm_category": "SYMMETRIC",
+      "classical_security": "STANDARD",
+      "overall_risk": "MEDIUM",
+      "migration_priority": "MEDIUM",
+      "quantum_vulnerable": false,
+      "hndl_risk": "",
+      "service": "unknown",
+      "blast_radius": {
+        "severity": "MEDIUM",
+        "severity_rank": 2,
+        "service": "unknown",
+        "exposure": "internal",
+        "shared_assets": 10,
+        "services_affected": [
+          "unknown"
+        ],
+        "reason": "AES-128-GCM in 'unknown' exposes 10 crypto asset(s); surface is internal."
+      },
+      "migration_impact": {
+        "replacement": "AES-256 (GCM)",
+        "replacement_category": "SYMMETRIC",
+        "effort": "LOW",
+        "impact": "LOW",
+        "compatibility_risk": "LOW",
+        "reason": "AES-256 is quantum-resilient (Grover safety margin); validate GCM mode."
+      },
+      "migration_wave": 3,
+      "suggestions": [
+        "Maintain AES-128-GCM with AES-256 strength; re-validate the cipher mode and key-management rotation in '{service}'.",
+        "Ensure symmetric keys are rotated on schedule and stored in a KMS."
+      ],
+      "recommended_action": "Plan replacement during the next major release.",
+      "source_context": {}
+    },
+    {
+      "id": "DISC-003",
+      "asset_id": "DISC-003",
+      "algorithm": "AES-256-GCM",
+      "family": "AES",
+      "algorithm_category": "SYMMETRIC",
+      "classical_security": "STANDARD",
+      "overall_risk": "LOW",
+      "migration_priority": "LOW",
+      "quantum_vulnerable": false,
+      "hndl_risk": "",
+      "service": "unknown",
+      "blast_radius": {
+        "severity": "LOW",
+        "severity_rank": 3,
+        "service": "unknown",
+        "exposure": "internal",
+        "shared_assets": 10,
+        "services_affected": [
+          "unknown"
+        ],
+        "reason": "AES-256-GCM in 'unknown' exposes 10 crypto asset(s); surface is internal."
+      },
+      "migration_impact": {
+        "replacement": "AES-256 (GCM)",
+        "replacement_category": "SYMMETRIC",
+        "effort": "LOW",
+        "impact": "LOW",
+        "compatibility_risk": "LOW",
+        "reason": "AES-256 is quantum-resilient (Grover safety margin); validate GCM mode."
+      },
+      "migration_wave": 3,
+      "suggestions": [
+        "Maintain AES-256-GCM with AES-256 strength; re-validate the cipher mode and key-management rotation in '{service}'.",
+        "Ensure symmetric keys are rotated on schedule and stored in a KMS."
+      ],
+      "recommended_action": "Monitor and maintain current deployment with sound key management.",
+      "source_context": {}
+    },
+    {
+      "id": "DISC-010",
+      "asset_id": "DISC-010",
+      "algorithm": "X25519+ML-KEM-768",
+      "family": "X25519+ML",
+      "algorithm_category": "UNKNOWN",
+      "classical_security": "STANDARD",
+      "overall_risk": "LOW",
+      "migration_priority": "LOW",
+      "quantum_vulnerable": false,
+      "hndl_risk": "",
+      "service": "unknown",
+      "blast_radius": {
+        "severity": "LOW",
+        "severity_rank": 3,
+        "service": "unknown",
+        "exposure": "internal",
+        "shared_assets": 10,
+        "services_affected": [
+          "unknown"
+        ],
+        "reason": "X25519+ML-KEM-768 in 'unknown' exposes 10 crypto asset(s); surface is internal."
+      },
+      "migration_impact": {
+        "replacement": "Review & standards triage",
+        "replacement_category": "UNKNOWN",
+        "effort": "MEDIUM",
+        "impact": "MEDIUM",
+        "compatibility_risk": "MEDIUM",
+        "reason": "Unrecognized or custom crypto requires a standards-compliance review."
+      },
+      "migration_wave": 3,
+      "suggestions": [
+        "Triage the X25519+ML-KEM-768 reference in 'unknown' for standards compliance.",
+        "Add a crypto policy guard: only approved suites may ship."
+      ],
+      "recommended_action": "Monitor and maintain current deployment with sound key management.",
+      "source_context": {}
+    },
+    {
+      "id": "DISC-005",
+      "asset_id": "DISC-005",
+      "algorithm": "ML-KEM-768",
+      "family": "ML",
+      "algorithm_category": "UNKNOWN",
+      "classical_security": "STANDARD",
+      "overall_risk": "LOW",
+      "migration_priority": "NEGLIGIBLE",
+      "quantum_vulnerable": false,
+      "hndl_risk": "",
+      "service": "unknown",
+      "blast_radius": {
+        "severity": "MEDIUM",
+        "severity_rank": 2,
+        "service": "unknown",
+        "exposure": "internal",
+        "shared_assets": 10,
+        "services_affected": [
+          "unknown"
+        ],
+        "reason": "ML-KEM-768 in 'unknown' exposes 10 crypto asset(s); surface is internal."
+      },
+      "migration_impact": {
+        "replacement": "Review & standards triage",
+        "replacement_category": "UNKNOWN",
+        "effort": "MEDIUM",
+        "impact": "MEDIUM",
+        "compatibility_risk": "MEDIUM",
+        "reason": "Unrecognized or custom crypto requires a standards-compliance review."
+      },
+      "migration_wave": 3,
+      "suggestions": [
+        "Triage the ML-KEM-768 reference in 'unknown' for standards compliance.",
+        "Add a crypto policy guard: only approved suites may ship."
+      ],
+      "recommended_action": "Monitor and maintain current deployment with sound key management.",
+      "source_context": {}
+    }
+  ],
+  "waves": [
+    {
+      "name": "Wave 1 - Stop the bleeding (HNDL & PQC triage)",
+      "timeline": "0-3 months",
+      "focus": "Rotate HNDL-exposed keys, add hybrid handshakes and stage urgent post-quantum replacements for publicly exposed primitives.",
+      "assets": [
+        "DISC-001",
+        "DISC-002",
+        "DISC-006",
+        "DISC-007",
+        "DISC-008"
+      ],
+      "asset_count": 5
+    },
+    {
+      "name": "Wave 2 - Post-quantum migration",
+      "timeline": "3-12 months",
+      "focus": "Systematically move public-key signatures and key exchange to ML-KEM / ML-DSA per CNSA 2.0, covering downstream trust chains.",
+      "assets": [
+        "DISC-004"
+      ],
+      "asset_count": 1
+    },
+    {
+      "name": "Wave 3 - Hardening & governance",
+      "timeline": "12-24 months",
+      "focus": "Consolidate symmetric modes (AES-256), strengthen hashes to SHA-3, retire legacy ciphers and codify crypto policy so new failures cannot ship.",
+      "assets": [
+        "DISC-009",
+        "DISC-003",
+        "DISC-010",
+        "DISC-005"
+      ],
+      "asset_count": 4
+    }
+  ],
+  "recommendations": [
+    {
+      "priority": "HIGH",
+      "wave": 1,
+      "title": "HNDL exposure cut & key rotation",
+      "description": "0 asset(s) face harvest-now-decrypt-later exposure. Rotate affected keys/certificates and introduce hybrid TLS handshakes before any large-scale PQC migration.",
+      "actions": [
+        "Rotate HNDL-exposed keys & certs",
+        "Enable X25519MLKEM768 hybrid handshake"
+      ]
+    },
+    {
+      "priority": "HIGH",
+      "wave": 1,
+      "title": "Urgent post-quantum replacements",
+      "description": "0 asset(s) are URGENT priority and 5 are post-quantum vulnerable on a internal surface. Stage ML-KEM/ML-DSA pilots in the most exposed services first.",
+      "actions": [
+        "Pilot ML-KEM/ML-DSA in exposed services",
+        "Certify trust chains against CNSA 2.0"
+      ]
+    },
+    {
+      "priority": "MEDIUM",
+      "wave": 2,
+      "title": "Broad public-key migration",
+      "description": "Migrate all remaining RSA/ECC primitives to NIST PQC within the next two quarters, with graceful fallback while certificates rotate.",
+      "actions": [
+        "Schedule RSA/ECC -> ML-KEM/ML-DSA migration",
+        "Update libraries & SDKs"
+      ]
+    },
+    {
+      "priority": "MEDIUM",
+      "wave": 3,
+      "title": "Symmetric & digest hardening",
+      "description": "Consolidate data-at-rest to AES-256 GCM and strengthen hashes to SHA-256/SHA-3; retire DES/3DES/MD5/SHA-1 references.",
+      "actions": [
+        "AES-256 GCM enforcement",
+        "SHA-3 digest adoption",
+        "Retire legacy ciphers"
+      ]
+    },
+    {
+      "priority": "MEDIUM",
+      "wave": 3,
+      "title": "Crypto governance & policy",
+      "description": "Codify an approved-cryptography policy and wire CBOM-driven guardrails into CI so new disallowed primitives fail the build.",
+      "actions": [
+        "Publish approved algorithms policy",
+        "CBOM guardrail in CI",
+        "Quarterly crypto audit"
+      ]
+    }
+  ],
+  "executive_summary": "The ECDAT Enterprise Post-Quantum Cryptographic Risk Report evaluated a total of 10 cryptographic assets, identifying 6 high-risk configurations and 5 quantum-vulnerable items concentrated within a single internal blast zone. Although zero urgent or critical risk issues were detected immediately, proactive remediation is vital over an estimated 6-quarter timeline. All vulnerable primitives must undergo systematic migration to NIST-approved post-quantum standards according to structured waves.",
+  "quantum_risk_narrative": "Public-key primitives such as RSA and ECC are fundamentally vulnerable to Shor's algorithm running on a future cryptographically-relevant quantum computer (CRQC). Furthermore, ciphertext captured today remains susceptible to Harvest-Now-Decrypt-Later (HNDL) attacks, making timely post-quantum migration an urgent enterprise imperative.",
+  "strategic_recommendations": [
+    {
+      "title": "Wave 1 - Stop the bleeding (HNDL & PQC triage)",
+      "description": "Inventory and prioritize all quantum-vulnerable assets within the internal 'unknown' service blast zone, establishing baseline visibility and halting new deployments of legacy algorithms.",
+      "timeline": "0-3 months"
+    },
+    {
+      "title": "Wave 2 - Post-quantum migration",
+      "description": "Execute systematic cryptographic replacements for identified vulnerable public-key and symmetric assets, transitioning to NIST FIPS 203 (ML-KEM) and FIPS 204 (ML-DSA) standards.",
+      "timeline": "3-12 months"
+    },
+    {
+      "title": "Wave 3 - Hardening & governance",
+      "description": "Enforce strict cryptographic governance, continuously audit algorithm usage via automated tooling, and complete long-term hardening across all enterprise services.",
+      "timeline": "12-24 months"
+    }
+  ],
+  "ai_context": {
+    "model_used": "gemini-3.5-flash-lite",
+    "enhanced": true,
+    "engine": "deterministic-rules + LLM narrator"
+  },
+  "generated_at": "2026-09-28T11:35:00.307278+00:00"
+}

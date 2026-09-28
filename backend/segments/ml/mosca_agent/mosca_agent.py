@@ -276,7 +276,7 @@ class MOSCAAgent:
         )
 
         # Category mapping for test/legacy compatibility
-        if family == "asymmetric" or any(k in algo_name.upper() for k in ["RSA", "ECDSA", "ED25519", "DH", "ECDH"]):
+        if family in ("asymmetric", "ecc", "dh", "dsa", "rsa", "public_key") or any(k in algo_name.upper() for k in ["RSA", "ECC", "ECDSA", "ED25519", "ED448", "DH", "ECDH", "X25519", "X448", "DSA", "ELGAMAL"]):
             algo_category = "PUBLIC_KEY"
         elif family == "symmetric" or any(k in algo_name.upper() for k in ["AES", "DES", "3DES", "CHACHA"]):
             algo_category = "SYMMETRIC"
