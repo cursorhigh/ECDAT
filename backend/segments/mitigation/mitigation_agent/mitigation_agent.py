@@ -234,9 +234,10 @@ class MitigationAgent:
             if r.get("blast_radius", {}).get("severity") in ("CRITICAL", "HIGH"):
                 wave_high += 1
 
+        effort_range = rules.compute_effort_range(rows)
         effort_high = sum(1 for r in rows if (r.get("migration_impact") or {}).get("effort") == "HIGH")
         effort_med = sum(1 for r in rows if (r.get("migration_impact") or {}).get("effort") == "MEDIUM")
-        effort_quarters = max(1, effort_high + (effort_med + 1) // 2)
+        effort_quarters = effort_range.get("high_quarters") or max(1, effort_high + (effort_med + 1) // 2)
 
         return {
             "assets": len(rows),
@@ -251,6 +252,11 @@ class MitigationAgent:
             "wave2": sum(1 for r in rows if r.get("migration_wave") == 2),
             "wave3": sum(1 for r in rows if r.get("migration_wave") == 3),
             "effort_estimate_quarters": effort_quarters,
+            "effort_low_quarters": effort_range.get("low_quarters", 0.0),
+            "effort_high_quarters": effort_range.get("high_quarters", 0.0),
+            "deduplicated_tasks": effort_range.get("deduplicated_tasks", len(rows)),
+            "actions_count": len(rows),
+            "effort_model": effort_range,
             "has_assets": len(assets) > 0,
         }
 

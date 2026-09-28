@@ -119,6 +119,57 @@ class TestHNDLRiskModule(unittest.TestCase):
 
         hndl = res["hndl"]
         self.assertIsNone(hndl["quantum_vulnerable"])
+        self.assertEqual(hndl["future_decryption_risk"], "NOT_ASSESSABLE")
+
+    def test_06_missing_data_lifetime_not_assessable(self):
+        cbom_asset = {
+            "asset_id": "crypto-rsa-006",
+            "algorithm": {"family": "RSA", "name": "RSA-2048"},
+            "purpose": ["encryption"],
+        }
+        # Missing data_lifetime_years
+        risk_context = {
+            "data_context": {"sensitivity": "HIGH"},
+            "network_context": {"internet_exposed": True},
+        }
+        res = self.agent.analyze(cbom_asset, risk_context)
+        hndl = res["hndl"]
+        self.assertFalse(hndl["applicable"])
+        self.assertEqual(hndl["future_decryption_risk"], "NOT_ASSESSABLE")
+        self.assertEqual(hndl["evidence_status"], "NOT_ASSESSABLE")
+
+    def test_07_unlabelled_data_types_not_assessable(self):
+        cbom_asset = {
+            "asset_id": "crypto-rsa-007",
+            "algorithm": {"family": "RSA", "name": "RSA-2048"},
+            "purpose": ["encryption"],
+        }
+        # Data types: none labelled, no sensitivity provided
+        risk_context = {
+            "data_context": {"data_lifetime_years": 8.0, "data_types": ["none labelled"]},
+            "network_context": {"internet_exposed": False, "exposure": "internal"},
+        }
+        res = self.agent.analyze(cbom_asset, risk_context)
+        hndl = res["hndl"]
+        self.assertFalse(hndl["applicable"])
+        self.assertEqual(hndl["future_decryption_risk"], "NOT_ASSESSABLE")
+        self.assertEqual(hndl["evidence_status"], "NOT_ASSESSABLE")
+
+    def test_08_missing_network_exposure_not_assessable(self):
+        cbom_asset = {
+            "asset_id": "crypto-rsa-008",
+            "algorithm": {"family": "RSA", "name": "RSA-2048"},
+            "purpose": ["encryption"],
+        }
+        # Missing network exposure
+        risk_context = {
+            "data_context": {"sensitivity": "HIGH", "data_lifetime_years": 8.0},
+        }
+        res = self.agent.analyze(cbom_asset, risk_context)
+        hndl = res["hndl"]
+        self.assertFalse(hndl["applicable"])
+        self.assertEqual(hndl["future_decryption_risk"], "NOT_ASSESSABLE")
+        self.assertEqual(hndl["evidence_status"], "NOT_ASSESSABLE")
 
 
 def run_terminal_demonstration():

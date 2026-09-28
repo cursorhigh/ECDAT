@@ -1,12 +1,8 @@
 {
   "format": "ECDAT-CBOM",
   "version": "1.0",
-<<<<<<< HEAD
-  "generated_at": "2026-09-28T00:01:07Z",
-=======
   "spec_version": "1.6-CycloneDX",
-  "generated_at": "2026-09-27T12:15:33Z",
->>>>>>> 5c6b5ace39d0621d468ae3808909089b01d7e993
+  "generated_at": "2026-09-28T19:39:53Z",
   "repository": {
     "name": "enterprise-auth-service",
     "url": "https://github.com/example/enterprise-auth-service"
@@ -172,7 +168,7 @@
       "algorithm": "SHA-256",
       "family": "hash",
       "parameters": {
-        "key_size": 256,
+        "key_size": null,
         "mode": null,
         "curve": null,
         "padding": null,
@@ -187,7 +183,7 @@
         "line": 12
       },
       "evidence": "hashlib.sha256(data).hexdigest()",
-      "confidence": 0.95,
+      "confidence": 0.9,
       "validation_status": "confirmed",
       "crypto_properties": {
         "primitive": "digest",
@@ -216,14 +212,6 @@
             "snippet": "hashlib.sha256(data).hexdigest()",
             "evidence_type": "explicit",
             "explanation": "The SHA-256 algorithm is explicitly referenced in the source code."
-          },
-          {
-            "field": "parameters.key_size",
-            "value": 256,
-            "source": "source_code",
-            "snippet": "hashlib.sha256(data).hexdigest()",
-            "evidence_type": "explicit",
-            "explanation": "The key size is explicitly specified as 256."
           },
           {
             "field": "parameters.hash",
@@ -447,10 +435,10 @@
   "cyclonedx_bom": {
     "bomFormat": "CycloneDX",
     "specVersion": "1.6",
-    "serialNumber": "urn:uuid:11113823-a37d-4d62-8759-63d8e28dbf91",
+    "serialNumber": "urn:uuid:d58b03cc-1c2b-4dc4-8f15-48adda9c8bfd",
     "version": 1,
     "metadata": {
-      "timestamp": "2026-09-27T12:15:33Z",
+      "timestamp": "2026-09-28T19:39:53Z",
       "tools": {
         "components": [
           {
@@ -614,7 +602,7 @@
           "assetType": "algorithm",
           "algorithmProperties": {
             "primitive": "digest",
-            "parameterSetIdentifier": "256",
+            "parameterSetIdentifier": null,
             "curve": null,
             "executionEnvironment": "software-plain",
             "implementationPlatform": "Python Standard Library",
@@ -641,7 +629,7 @@
           },
           {
             "name": "ecdat:confidence",
-            "value": "0.95"
+            "value": "0.9"
           },
           {
             "name": "ecdat:quantum_vulnerable",

@@ -175,6 +175,51 @@ class HNDLAgent:
 
         assess_year = int(assessment_year or ctx.get("assessment_year") or self.default_assessment_year)
 
+        assumptions = {
+            "quantum_horizon_year": horizon_year,
+            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
+            "quantum_horizon_source": horizon_source,
+            "assessment_year": assess_year,
+        }
+
+        # Strict Input Assessability Check (HNDL Input Validation Boundary)
+        is_assessable, unassessable_reason = self.validator.check_hndl_assessability(cbom_asset, ctx)
+        if not is_assessable or (family == "unknown" or "CUSTOM" in algo_name.upper() or "UNKNOWN" in algo_name.upper()):
+            reason = f"HNDL exposure is NOT_ASSESSABLE for '{algo_name}' because: {unassessable_reason}."
+            timeline_metrics = {
+                "assessment_year": assess_year,
+                "data_lifetime_years": None,
+                "data_expiry_year": "NOT_ASSESSABLE",
+                "quantum_horizon_year": horizon_year,
+                "exposure_window_years": 0.0,
+                "compromised_while_sensitive": False,
+                "timeline_factor": 0.0,
+            }
+            return {
+                "asset_id": asset_id,
+                "algorithm": algo_name,
+                "hndl": {
+                    "applicable": False,
+                    "evidence_status": "NOT_ASSESSABLE",
+                    "hndl_exposure_score": 0.0,
+                    "urgency_tier": "NOT_ASSESSABLE",
+                    "harvestability": "NOT_ASSESSABLE",
+                    "quantum_vulnerable": None,
+                    "future_decryption_risk": "NOT_ASSESSABLE",
+                    "data_lifetime_years": None,
+                    "timeline": timeline_metrics,
+                    "threat_vectors": {
+                        "crypto_susceptibility": 0.0,
+                        "harvestability_score": 0.0,
+                        "impact_multiplier": 0.0,
+                        "pfs_status": "NOT_ASSESSABLE",
+                    },
+                    "assumptions": assumptions,
+                    "reason": reason,
+                    "mitigation_priority": "NOT_ASSESSABLE",
+                },
+            }
+
         # 3. Deterministic Engine Computations
         # Vector A: Crypto Susceptibility
         s_crypto, qv = self.engine.calculate_crypto_susceptibility(
@@ -233,14 +278,6 @@ class HNDLAgent:
             crypto_role=crypto_role,
         )
 
-        # Assumptions Metadata
-        assumptions = {
-            "quantum_horizon_year": horizon_year,
-            "quantum_horizon_type": "SCENARIO_ASSUMPTION",
-            "quantum_horizon_source": horizon_source,
-            "assessment_year": assess_year,
-        }
-
         # 4. Deterministic Explainability Rationale
         reason = HNDLExplainabilityBuilder.build_explanation(
             algorithm_name=algo_name,
@@ -255,7 +292,10 @@ class HNDLAgent:
             pfs_status=pfs_status,
         )
 
-        qv_val = None if (family == "unknown" or "CUSTOM" in algo_name.upper() or "UNKNOWN" in algo_name.upper()) else qv
+        # Evidence Quality and Context Completeness Evaluation
+        has_operational_context = True
+        evidence_status = "ASSESSED"
+        qv_val = qv
         if not applicable or s_harvest == 0.0 or harvest_tier == "LOW":
             future_risk_val = "LOW" if (s_crypto > 0.0 and qv_val) else "NEGLIGIBLE"
         elif future_risk == "CRITICAL" and data_sensitivity >= 4:
@@ -265,17 +305,20 @@ class HNDLAgent:
         else:
             future_risk_val = future_risk
 
+        qv_val = None if (family == "unknown" or "CUSTOM" in algo_name.upper() or "UNKNOWN" in algo_name.upper()) else qv
+
         assessment_result = {
             "asset_id": asset_id,
             "algorithm": algo_name,
             "hndl": {
                 "applicable": applicable,
-                "hndl_exposure_score": hndl_score,
+                "evidence_status": evidence_status,
+                "hndl_exposure_score": hndl_score if evidence_status == "ASSESSED" else 0.0,
                 "urgency_tier": urgency_tier,
-                "harvestability": harvest_tier,
+                "harvestability": harvest_tier if has_operational_context else "UNKNOWN",
                 "quantum_vulnerable": qv_val,
                 "future_decryption_risk": future_risk_val,
-                "data_lifetime_years": data_lifetime,
+                "data_lifetime_years": data_lifetime if has_operational_context else None,
                 "timeline": timeline_metrics,
                 "threat_vectors": {
                     "crypto_susceptibility": s_crypto,

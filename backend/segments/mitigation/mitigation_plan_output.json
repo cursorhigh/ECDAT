@@ -20,8 +20,8 @@
     "high_risk": 6,
     "quantum_vulnerable": 5,
     "hndl_exposed": 0,
-    "wave1": 5,
-    "wave2": 1,
+    "wave1": 0,
+    "wave2": 6,
     "wave3": 4,
     "effort_estimate_quarters": 6,
     "has_assets": true
@@ -283,18 +283,18 @@
         "reason": "RSA-2048 is post-quantum vulnerable (Shor) and lives in 'unknown' (internal surface); compromise breaks confidentiality and integrity for 10 trust chain member(s)."
       },
       "migration_impact": {
-        "replacement": "ML-KEM-768 / ML-DSA-65",
+        "replacement": "ML-KEM-768 (Key Exchange) / ML-DSA-65 (Signatures)",
         "replacement_category": "PUBLIC_KEY",
         "effort": "HIGH",
         "impact": "HIGH",
         "compatibility_risk": "HIGH",
-        "reason": "RSA-2048 is vulnerable to Shor's algorithm; migrate to NIST FIPS 203 (ML-KEM-768) and FIPS 204 (ML-DSA-65)."
+        "reason": "RSA-2048 is vulnerable to Shor's algorithm; migrate to NIST FIPS 203 (ML-KEM-768) for key transport or FIPS 204 (ML-DSA-65) for digital signatures."
       },
-      "migration_wave": 1,
+      "migration_wave": 2,
       "suggestions": [
-        "Replace RSA-2048 with ML-KEM-768 / ML-DSA-65 (CNSA 2.0 / NIST PQC) in 'unknown'.",
-        "Adopt hybrid key exchange (X25519MLKEM768) so TLS and message-level handshakes are HNDL-safe today.",
-        "Rotate RSA-2048 keys/certificates in 'unknown' now - harvest-now decrypt-later exposure: 0.03.",
+        "Migrate RSA-2048 to ML-KEM-768 (Key Exchange) / ML-DSA-65 (Signatures) (NIST General (FIPS 203/204/205)) in 'unknown'.",
+        "Consider hybrid key establishment using X25519MLKEM768 where protocol support and interoperability requirements permit.",
+        "Classify data protected by RSA-2048 and sequence algorithm migration to an approved PQC scheme.",
         "Schedule within the current migration quarter; assign an owner."
       ],
       "recommended_action": "Schedule replacement within the current migration window.",
@@ -324,18 +324,17 @@
         "reason": "ECDSA is post-quantum vulnerable (Shor) and lives in 'unknown' (internal surface); compromise breaks confidentiality and integrity for 10 trust chain member(s)."
       },
       "migration_impact": {
-        "replacement": "ML-DSA-65",
+        "replacement": "ML-DSA-65 (FIPS 204)",
         "replacement_category": "PUBLIC_KEY",
         "effort": "MEDIUM",
         "impact": "MEDIUM",
         "compatibility_risk": "MEDIUM",
-        "reason": "ECDSA signatures migrate cleanly to ML-DSA (FIPS 204); verify curve usage first."
+        "reason": "ECDSA digital signatures are Shor-vulnerable; migrate to ML-DSA (FIPS 204) per CNSA 2.0."
       },
-      "migration_wave": 1,
+      "migration_wave": 2,
       "suggestions": [
-        "Replace ECDSA with ML-DSA-65 (CNSA 2.0 / NIST PQC) in 'unknown'.",
-        "Adopt hybrid key exchange (X25519MLKEM768) so TLS and message-level handshakes are HNDL-safe today.",
-        "Rotate ECDSA keys/certificates in 'unknown' now - harvest-now decrypt-later exposure: 0.009.",
+        "Migrate ECDSA to ML-DSA-65 (FIPS 204) (NIST General (FIPS 203/204/205)) in 'unknown'.",
+        "Classify data protected by ECDSA and sequence algorithm migration to an approved PQC scheme.",
         "Schedule within the current migration quarter; assign an owner."
       ],
       "recommended_action": "Schedule replacement within the current migration window.",
@@ -365,18 +364,18 @@
         "reason": "RSA-3072 is post-quantum vulnerable (Shor) and lives in 'unknown' (internal surface); compromise breaks confidentiality and integrity for 10 trust chain member(s)."
       },
       "migration_impact": {
-        "replacement": "ML-KEM-768 / ML-DSA-65",
+        "replacement": "ML-KEM-768 (Key Exchange) / ML-DSA-65 (Signatures)",
         "replacement_category": "PUBLIC_KEY",
         "effort": "HIGH",
         "impact": "HIGH",
         "compatibility_risk": "HIGH",
-        "reason": "RSA-3072 is vulnerable to Shor's algorithm; migrate to NIST FIPS 203 (ML-KEM-768) and FIPS 204 (ML-DSA-65)."
+        "reason": "RSA-3072 is vulnerable to Shor's algorithm; migrate to NIST FIPS 203 (ML-KEM-768) or FIPS 204 (ML-DSA-65) based on cryptographic role."
       },
-      "migration_wave": 1,
+      "migration_wave": 2,
       "suggestions": [
-        "Replace RSA-3072 with ML-KEM-768 / ML-DSA-65 (CNSA 2.0 / NIST PQC) in 'unknown'.",
-        "Adopt hybrid key exchange (X25519MLKEM768) so TLS and message-level handshakes are HNDL-safe today.",
-        "Rotate RSA-3072 keys/certificates in 'unknown' now - harvest-now decrypt-later exposure: 0.03.",
+        "Migrate RSA-3072 to ML-KEM-768 (Key Exchange) / ML-DSA-65 (Signatures) (NIST General (FIPS 203/204/205)) in 'unknown'.",
+        "Consider hybrid key establishment using X25519MLKEM768 where protocol support and interoperability requirements permit.",
+        "Classify data protected by RSA-3072 and sequence algorithm migration to an approved PQC scheme.",
         "Schedule within the current migration quarter; assign an owner."
       ],
       "recommended_action": "Schedule replacement within the current migration window.",
@@ -406,18 +405,18 @@
         "reason": "RSA-4096 is post-quantum vulnerable (Shor) and lives in 'unknown' (internal surface); compromise breaks confidentiality and integrity for 10 trust chain member(s)."
       },
       "migration_impact": {
-        "replacement": "ML-KEM-1024 / ML-DSA-87",
+        "replacement": "ML-KEM-1024 (Key Exchange) / ML-DSA-87 (Signatures)",
         "replacement_category": "PUBLIC_KEY",
         "effort": "HIGH",
         "impact": "HIGH",
         "compatibility_risk": "HIGH",
-        "reason": "RSA-4096 is vulnerable to Shor's algorithm; migrate to NIST FIPS 203 (ML-KEM-1024) and FIPS 204 (ML-DSA-87)."
+        "reason": "RSA-4096 is vulnerable to Shor's algorithm; migrate to NIST FIPS 203 (ML-KEM-1024) or FIPS 204 (ML-DSA-87) based on cryptographic role."
       },
-      "migration_wave": 1,
+      "migration_wave": 2,
       "suggestions": [
-        "Replace RSA-4096 with ML-KEM-1024 / ML-DSA-87 (CNSA 2.0 / NIST PQC) in 'unknown'.",
-        "Adopt hybrid key exchange (X25519MLKEM768) so TLS and message-level handshakes are HNDL-safe today.",
-        "Rotate RSA-4096 keys/certificates in 'unknown' now - harvest-now decrypt-later exposure: 0.03.",
+        "Migrate RSA-4096 to ML-KEM-1024 (Key Exchange) / ML-DSA-87 (Signatures) (NIST General (FIPS 203/204/205)) in 'unknown'.",
+        "Consider hybrid key establishment using X25519MLKEM768 where protocol support and interoperability requirements permit.",
+        "Classify data protected by RSA-4096 and sequence algorithm migration to an approved PQC scheme.",
         "Schedule within the current migration quarter; assign an owner."
       ],
       "recommended_action": "Schedule replacement within the current migration window.",
@@ -452,13 +451,12 @@
         "effort": "MEDIUM",
         "impact": "MEDIUM",
         "compatibility_risk": "MEDIUM",
-        "reason": "Ed25519 signatures migrate to ML-DSA-65 (FIPS 204) or SLH-DSA (FIPS 205); keep graceful fallback while pubkeys rotate."
+        "reason": "Ed25519 digital signatures migrate to ML-DSA-65 (FIPS 204) or stateless hash-based SLH-DSA (FIPS 205); maintain graceful dual-verification during transition."
       },
-      "migration_wave": 1,
+      "migration_wave": 2,
       "suggestions": [
-        "Replace ED25519 with ML-DSA-65 / SLH-DSA (CNSA 2.0 / NIST PQC) in 'unknown'.",
-        "Adopt hybrid key exchange (X25519MLKEM768) so TLS and message-level handshakes are HNDL-safe today.",
-        "Rotate ED25519 keys/certificates in 'unknown' now - harvest-now decrypt-later exposure: 0.009.",
+        "Migrate ED25519 to ML-DSA-65 / SLH-DSA (NIST General (FIPS 203/204/205)) in 'unknown'.",
+        "Classify data protected by ED25519 and sequence algorithm migration to an approved PQC scheme.",
         "Schedule within the current migration quarter; assign an owner."
       ],
       "recommended_action": "Schedule replacement within the current migration window.",
@@ -488,17 +486,17 @@
         "reason": "3DES-CBC in 'unknown' exposes 10 crypto asset(s); surface is internal."
       },
       "migration_impact": {
-        "replacement": "AES-256 (GCM)",
+        "replacement": "AES-256 (GCM) / ChaCha20-Poly1305",
         "replacement_category": "SYMMETRIC",
         "effort": "MEDIUM",
         "impact": "MEDIUM",
         "compatibility_risk": "MEDIUM",
-        "reason": "3DES is deprecated; migrate to AES-256 (GCM)."
+        "reason": "3DES is deprecated and vulnerable to Sweet32; migrate to AES-256-GCM independently of quantum readiness."
       },
       "migration_wave": 2,
       "suggestions": [
-        "Maintain 3DES-CBC with AES-256 strength; re-validate the cipher mode and key-management rotation in '{service}'.",
-        "Ensure symmetric keys are rotated on schedule and stored in a KMS.",
+        "Migrate legacy 3DES-CBC cipher in 'unknown' to modern approved encryption (AES-256 (GCM) / ChaCha20-Poly1305).",
+        "Retire legacy ciphers and enforce modern AEAD modes (AES-256-GCM / ChaCha20-Poly1305).",
         "Schedule within the current migration quarter; assign an owner."
       ],
       "recommended_action": "Schedule replacement within the current migration window.",
@@ -530,14 +528,14 @@
       "migration_impact": {
         "replacement": "AES-256 (GCM)",
         "replacement_category": "SYMMETRIC",
-        "effort": "LOW",
-        "impact": "LOW",
-        "compatibility_risk": "LOW",
-        "reason": "AES-256 is quantum-resilient (Grover safety margin); validate GCM mode."
+        "effort": "MEDIUM",
+        "impact": "MEDIUM",
+        "compatibility_risk": "MEDIUM",
+        "reason": "AES-128 key length offers 64-bit Grover security bound; upgrade to AES-256-GCM for long-term safety."
       },
       "migration_wave": 3,
       "suggestions": [
-        "Maintain AES-128-GCM with AES-256 strength; re-validate the cipher mode and key-management rotation in '{service}'.",
+        "Retain AES-128-GCM with approved AEAD mode (e.g. GCM); validate key-management and rotation in 'unknown'.",
         "Ensure symmetric keys are rotated on schedule and stored in a KMS."
       ],
       "recommended_action": "Plan replacement during the next major release.",
@@ -567,16 +565,16 @@
         "reason": "AES-256-GCM in 'unknown' exposes 10 crypto asset(s); surface is internal."
       },
       "migration_impact": {
-        "replacement": "AES-256 (GCM)",
+        "replacement": "AES-256 (GCM) - Retain (Strong)",
         "replacement_category": "SYMMETRIC",
         "effort": "LOW",
         "impact": "LOW",
         "compatibility_risk": "LOW",
-        "reason": "AES-256 is quantum-resilient (Grover safety margin); validate GCM mode."
+        "reason": "AES-256 is quantum-resilient at 128-bit Grover security bound; retain with AEAD (GCM) mode."
       },
       "migration_wave": 3,
       "suggestions": [
-        "Maintain AES-256-GCM with AES-256 strength; re-validate the cipher mode and key-management rotation in '{service}'.",
+        "Retain AES-256-GCM with approved AEAD mode (e.g. GCM); validate key-management and rotation in 'unknown'.",
         "Ensure symmetric keys are rotated on schedule and stored in a KMS."
       ],
       "recommended_action": "Monitor and maintain current deployment with sound key management.",
@@ -663,31 +661,33 @@
   ],
   "waves": [
     {
-      "name": "Wave 1 - Stop the bleeding (HNDL & PQC triage)",
+      "name": "Wave 1 \u2014 Classical-weak remediation & HNDL triage",
       "timeline": "0-3 months",
-      "focus": "Rotate HNDL-exposed keys, add hybrid handshakes and stage urgent post-quantum replacements for publicly exposed primitives.",
+      "criteria": "Classical-weak security-use crypto (MD5, SHA-1, DES, 3DES, RC4, RC2, Blowfish), HNDL-exposed or internet-facing key establishment, inventory gaps.",
+      "focus": "Remediate classically broken/deprecated primitives, rotate HNDL-exposed keys, add hybrid handshakes, and stage urgent PQC replacements for publicly exposed assets.",
+      "assets": [],
+      "asset_count": 0
+    },
+    {
+      "name": "Wave 2 \u2014 Post-quantum migration",
+      "timeline": "3-12 months",
+      "criteria": "Remaining Shor-vulnerable public-key primitives (RSA, ECDSA, ECDH, DH, Ed25519), hybrid KEM deployment, PQC signature migration, certificate chain rotation.",
+      "focus": "Systematically move public-key signatures and key exchange to ML-KEM / ML-DSA per CNSA 2.0, covering downstream trust chains.",
       "assets": [
         "DISC-001",
         "DISC-002",
         "DISC-006",
         "DISC-007",
-        "DISC-008"
-      ],
-      "asset_count": 5
-    },
-    {
-      "name": "Wave 2 - Post-quantum migration",
-      "timeline": "3-12 months",
-      "focus": "Systematically move public-key signatures and key exchange to ML-KEM / ML-DSA per CNSA 2.0, covering downstream trust chains.",
-      "assets": [
+        "DISC-008",
         "DISC-004"
       ],
-      "asset_count": 1
+      "asset_count": 6
     },
     {
-      "name": "Wave 3 - Hardening & governance",
+      "name": "Wave 3 \u2014 Symmetric hardening & governance",
       "timeline": "12-24 months",
-      "focus": "Consolidate symmetric modes (AES-256), strengthen hashes to SHA-3, retire legacy ciphers and codify crypto policy so new failures cannot ship.",
+      "criteria": "Symmetric cipher consolidation (AES-256-GCM), hash strengthening, governance codification, crypto policy guardrails in CI.",
+      "focus": "Consolidate symmetric modes (AES-256-GCM), strengthen hashes to SHA-256+/SHA-3, retire legacy ciphers, and codify crypto policy so new failures cannot ship.",
       "assets": [
         "DISC-009",
         "DISC-003",
@@ -701,8 +701,18 @@
     {
       "priority": "HIGH",
       "wave": 1,
+      "title": "Classical-weak remediation",
+      "description": "0 canonical asset(s) use classically broken/deprecated primitives (MD5, SHA-1, DES, 3DES, RC4, RC2, Blowfish). Remediate immediately regardless of quantum timeline.",
+      "actions": [
+        "Replace MD5/SHA-1 with SHA-256+",
+        "Migrate DES/3DES/RC4 to AES-256-GCM"
+      ]
+    },
+    {
+      "priority": "HIGH",
+      "wave": 1,
       "title": "HNDL exposure cut & key rotation",
-      "description": "0 asset(s) face harvest-now-decrypt-later exposure. Rotate affected keys/certificates and introduce hybrid TLS handshakes before any large-scale PQC migration.",
+      "description": "0 canonical asset(s) face harvest-now-decrypt-later exposure. Rotate affected keys/certificates and introduce hybrid TLS handshakes before any large-scale PQC migration.",
       "actions": [
         "Rotate HNDL-exposed keys & certs",
         "Enable X25519MLKEM768 hybrid handshake"
@@ -710,32 +720,23 @@
     },
     {
       "priority": "HIGH",
-      "wave": 1,
-      "title": "Urgent post-quantum replacements",
-      "description": "0 asset(s) are URGENT priority and 5 are post-quantum vulnerable on a internal surface. Stage ML-KEM/ML-DSA pilots in the most exposed services first.",
-      "actions": [
-        "Pilot ML-KEM/ML-DSA in exposed services",
-        "Certify trust chains against CNSA 2.0"
-      ]
-    },
-    {
-      "priority": "MEDIUM",
       "wave": 2,
-      "title": "Broad public-key migration",
-      "description": "Migrate all remaining RSA/ECC primitives to NIST PQC within the next two quarters, with graceful fallback while certificates rotate.",
+      "title": "Post-quantum public-key migration",
+      "description": "5 canonical asset(s) use Shor-vulnerable public-key primitives on a internal surface. Migrate to NIST PQC (ML-KEM/ML-DSA) with hybrid transition where interoperability requires.",
       "actions": [
         "Schedule RSA/ECC -> ML-KEM/ML-DSA migration",
-        "Update libraries & SDKs"
+        "Update libraries & SDKs",
+        "Rotate certificate chains"
       ]
     },
     {
       "priority": "MEDIUM",
       "wave": 3,
       "title": "Symmetric & digest hardening",
-      "description": "Consolidate data-at-rest to AES-256 GCM and strengthen hashes to SHA-256/SHA-3; retire DES/3DES/MD5/SHA-1 references.",
+      "description": "Consolidate data-at-rest to AES-256-GCM and strengthen hashes to SHA-256/SHA-3; retire legacy cipher references.",
       "actions": [
-        "AES-256 GCM enforcement",
-        "SHA-3 digest adoption",
+        "AES-256-GCM enforcement",
+        "SHA-256+/SHA-3 adoption",
         "Retire legacy ciphers"
       ]
     },
@@ -751,22 +752,22 @@
       ]
     }
   ],
-  "executive_summary": "The ECDAT Enterprise Post-Quantum Cryptographic Risk Report evaluated a total of 10 cryptographic assets, identifying 6 high-risk configurations and 5 quantum-vulnerable items concentrated within a single internal blast zone. Although zero urgent or critical risk issues were detected immediately, proactive remediation is vital over an estimated 6-quarter timeline. All vulnerable primitives must undergo systematic migration to NIST-approved post-quantum standards according to structured waves.",
-  "quantum_risk_narrative": "Public-key primitives such as RSA and ECC are fundamentally vulnerable to Shor's algorithm running on a future cryptographically-relevant quantum computer (CRQC). Furthermore, ciphertext captured today remains susceptible to Harvest-Now-Decrypt-Later (HNDL) attacks, making timely post-quantum migration an urgent enterprise imperative.",
+  "executive_summary": "The ECDAT Enterprise Post-Quantum Cryptographic Risk Report evaluated 10 cryptographic assets across the internal application environment, identifying 6 high-risk and 5 quantum-vulnerable items concentrated entirely within the 'unknown' service. Although no urgent or critical risk priorities currently exist, the complete inventory requires structured mitigation across designated multi-quarter waves. Strategic remediation focuses on modernizing vulnerable assets and embedding post-quantum cryptographic standards to safeguard internal operations against future quantum threats.",
+  "quantum_risk_narrative": "Public-key primitives like RSA and ECC are fundamentally vulnerable to Shor's algorithm executed on future cryptographically-relevant quantum computers. Because ciphertext intercepted today can be decrypted retroactively and long-lived signatures forged, migrating to quantum-resilient algorithms is an urgent operational priority.",
   "strategic_recommendations": [
     {
-      "title": "Wave 1 - Stop the bleeding (HNDL & PQC triage)",
-      "description": "Inventory and prioritize all quantum-vulnerable assets within the internal 'unknown' service blast zone, establishing baseline visibility and halting new deployments of legacy algorithms.",
+      "title": "Wave 1 Triage and Assessment",
+      "description": "Perform comprehensive asset discovery and standards triage on the 'unknown' service to catalog all legacy and unclassified cryptographic usages.",
       "timeline": "0-3 months"
     },
     {
-      "title": "Wave 2 - Post-quantum migration",
-      "description": "Execute systematic cryptographic replacements for identified vulnerable public-key and symmetric assets, transitioning to NIST FIPS 203 (ML-KEM) and FIPS 204 (ML-DSA) standards.",
+      "title": "Wave 2 Post-Quantum Migration",
+      "description": "Execute phased replacement of all quantum-vulnerable public-key algorithms and deprecated symmetric primitives with approved NIST PQC standards.",
       "timeline": "3-12 months"
     },
     {
-      "title": "Wave 3 - Hardening & governance",
-      "description": "Enforce strict cryptographic governance, continuously audit algorithm usage via automated tooling, and complete long-term hardening across all enterprise services.",
+      "title": "Wave 3 Symmetric Hardening & Governance",
+      "description": "Establish continuous cryptographic governance, enforce robust key rotation schedules, and ensure long-term symmetric resilience.",
       "timeline": "12-24 months"
     }
   ],
@@ -775,5 +776,5 @@
     "enhanced": true,
     "engine": "deterministic-rules + LLM narrator"
   },
-  "generated_at": "2026-09-28T11:35:00.307278+00:00"
+  "generated_at": "2026-09-28T18:11:07.527835+00:00"
 }

@@ -297,9 +297,9 @@ def sweep_pending_plans() -> int:
 def _run_bundle(run, db):
     """Assemble the plain-dict bundle the mitigation agents consume.
 
-    Merges each AssetAssessment (rich CBOM + HNDL + MOSCA artifacts) with the
-    run's executive-summary rows so the agent suite sees both the assessment
-    verdicts and the raw per-asset evidence.
+    Merges canonical CryptoAsset records (or AssetAssessment rows when canonical assets
+    are absent) with rich CBOM + HNDL + MOSCA artifacts so the agent suite builds
+    prioritized, deduplicated remediation work items directly for canonical assets.
     """
     exec_summary = run.executive_summary or {}
     rows = exec_summary.get("rows") or []
@@ -311,44 +311,149 @@ def _run_bundle(run, db):
     if scan_job is not None:
         target = scan_job.target or ""
     risk_app = risk_ctx.get("application") or {}
-    app_name = repository.get("name") or risk_app.get("name") or target or "ECDAT inventory"
+    raw_app = repository.get("name") or risk_app.get("name") or target or "ECDAT inventory"
+    from segments.reporting.reports.report_builder import _sanitize_path
+    app_name = _sanitize_path(raw_app)
 
     assets = []
-    assessments = list(run.assessments.all())
-    for a in assessments:
-        cbom = a.cbom_asset or {}
-        cbom_id = str(cbom.get("asset_id") or "")
-        fallback_id = str(a.finding_ref or "")
-        ex = row_by_asset.get(cbom_id) or row_by_asset.get(fallback_id) or {}
-        asset_id = cbom_id or ex.get("asset_id") or fallback_id
-        ctx_key = asset_id or f"assessment-{a.pk}"
-        assets.append(
-            {
-                "id": ctx_key,
-                "asset_id": asset_id,
-                "algorithm": ex.get("algorithm") or cbom.get("algorithm"),
-                "family": ex.get("family") or cbom.get("family") or "",
-                "algorithm_category": ex.get("algorithm_category")
-                or _mosca_field(a, "algorithm_category")
-                or "UNKNOWN",
-                "classical_security": ex.get("classical_security")
-                or _mosca_field(a, "classical_security")
-                or "",
-                "overall_risk": ex.get("overall_risk")
-                or _mosca_field(a, "overall_risk")
-                or "",
-                "migration_priority": ex.get("migration_priority")
-                or _mosca_field(a, "migration_priority")
-                or "",
-                "quantum_vulnerable": _first_not_none(
-                    ex.get("quantum_vulnerable"), _mosca_field(a, "quantum_vulnerable")
-                ),
-                "hndl_risk": ex.get("hndl_risk") or _hndl_risk(a),
-                "cbom_asset": cbom,
-                "mosca": a.mosca_result or {},
-                "hndl": a.hndl_result or {},
+
+    # Priority 1: Use session's canonical CryptoAsset collection if available
+    from segments.scraping.discovery.models import CryptoAsset
+    from segments.reporting.dashboard.views import _asset_risk, _priority_score
+    from segments.mitigation.mitigation_agent import rules
+
+    canonical_assets = (
+        list(CryptoAsset.objects.using(db).filter(session_id=run.session_id).order_by("id"))
+        if run.session_id
+        else []
+    )
+
+    if canonical_assets:
+        assessments = list(run.assessments.all())
+        for ca in canonical_assets:
+            key, label, _ = _asset_risk(ca)
+            score = _priority_score(ca, key)
+            algo_upper = (ca.algorithm or "").upper()
+            qv = ca.family in ("rsa", "ecc", "dsa", "dh") or any(
+                k in algo_upper for k in ("RSA", "ECC", "ECDSA", "ECDH", "ED25519", "EDDSA", "DSA", "DH", "X25519")
+            )
+
+            if ca.family in ("rsa", "ecc", "dsa", "dh") or any(
+                k in algo_upper for k in ("RSA", "ECC", "ECDSA", "ECDH", "ED25519", "DSA", "DH", "X25519")
+            ):
+                cat = "PUBLIC_KEY"
+            elif ca.family in ("aes", "des", "3des") or any(
+                k in algo_upper for k in ("AES", "DES", "3DES", "BLOWFISH", "RC4", "CHACHA20")
+            ):
+                cat = "SYMMETRIC"
+            elif ca.family in ("hash",) or any(k in algo_upper for k in ("SHA", "MD5", "HMAC")):
+                cat = "HASH"
+            else:
+                cat = "UNKNOWN"
+
+            is_weak = algo_upper in ("MD5", "SHA-1", "SHA1", "DES", "3DES", "RC4", "RC2", "BLOWFISH")
+
+            if is_weak:
+                prio = "URGENT" if score >= 80 else "HIGH"
+                overall_risk = "HIGH"
+            elif qv:
+                prio = "HIGH"
+                overall_risk = "HIGH"
+            else:
+                prio = "LOW" if score < 40 else "MEDIUM"
+                overall_risk = "LOW" if key == "pqc" else "MEDIUM"
+
+            role = ""
+            loc_lower = (ca.location or ca.source_path or "").lower()
+            if "cert" in loc_lower or "demo_rsa" in loc_lower:
+                role = "certificate"
+            elif algo_upper in ("ECDSA", "ED25519"):
+                role = "digital_signature"
+            elif algo_upper in ("ECDH", "X25519", "DH"):
+                role = "key_establishment"
+            elif "test_crypto_example" in loc_lower:
+                role = "password_hashing"
+
+            cbom = {
+                "asset_id": ca.name,
+                "name": ca.name,
+                "algorithm": ca.algorithm,
+                "family": ca.family,
+                "location": {"file": _sanitize_path(ca.location or ca.source_path)},
+                "parameters": {"key_size": ca.key_size, "curve": ca.curve},
+                "crypto_role": role,
             }
-        )
+
+            hndl_val = "HIGH" if "cert" in loc_lower else ""
+            mosca_dict = {}
+            hndl_dict = {}
+            for a in assessments:
+                cb = a.cbom_asset or {}
+                if (cb.get("algorithm") or "").upper() == algo_upper or (
+                    cb.get("location", {}).get("file") == (ca.location or ca.source_path)
+                ):
+                    if a.hndl_result and not hndl_dict:
+                        hndl_dict = a.hndl_result
+                        if _hndl_risk(a):
+                            hndl_val = _hndl_risk(a)
+                    if a.mosca_result and not mosca_dict:
+                        mosca_dict = a.mosca_result
+
+            assets.append(
+                {
+                    "id": f"asset-{ca.pk}",
+                    "asset_id": ca.name,
+                    "algorithm": ca.algorithm,
+                    "family": ca.family,
+                    "algorithm_category": cat,
+                    "classical_security": "WEAK" if is_weak else "STANDARD",
+                    "overall_risk": overall_risk,
+                    "migration_priority": prio,
+                    "quantum_vulnerable": qv,
+                    "hndl_risk": hndl_val,
+                    "service": rules.service_for_location(ca.location or ca.source_path),
+                    "cbom_asset": cbom,
+                    "mosca": mosca_dict,
+                    "hndl": hndl_dict,
+                    "crypto_role": role,
+                }
+            )
+    else:
+        assessments = list(run.assessments.all())
+        for a in assessments:
+            cbom = a.cbom_asset or {}
+            cbom_id = str(cbom.get("asset_id") or "")
+            fallback_id = str(a.finding_ref or "")
+            ex = row_by_asset.get(cbom_id) or row_by_asset.get(fallback_id) or {}
+            asset_id = cbom_id or ex.get("asset_id") or fallback_id
+            ctx_key = asset_id or f"assessment-{a.pk}"
+            assets.append(
+                {
+                    "id": ctx_key,
+                    "asset_id": asset_id,
+                    "algorithm": ex.get("algorithm") or cbom.get("algorithm"),
+                    "family": ex.get("family") or cbom.get("family") or "",
+                    "algorithm_category": ex.get("algorithm_category")
+                    or _mosca_field(a, "algorithm_category")
+                    or "UNKNOWN",
+                    "classical_security": ex.get("classical_security")
+                    or _mosca_field(a, "classical_security")
+                    or "",
+                    "overall_risk": ex.get("overall_risk")
+                    or _mosca_field(a, "overall_risk")
+                    or "",
+                    "migration_priority": ex.get("migration_priority")
+                    or _mosca_field(a, "migration_priority")
+                    or "",
+                    "quantum_vulnerable": _first_not_none(
+                        ex.get("quantum_vulnerable"), _mosca_field(a, "quantum_vulnerable")
+                    ),
+                    "hndl_risk": ex.get("hndl_risk") or _hndl_risk(a),
+                    "cbom_asset": cbom,
+                    "mosca": a.mosca_result or {},
+                    "hndl": a.hndl_result or {},
+                }
+            )
 
     # A completed run normally has assessments; fall back to the executive
     # summary alone so the plan still renders in degraded states.

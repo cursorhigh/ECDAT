@@ -143,7 +143,7 @@ def _infer_owner(location: str) -> str:
     return mapping.get(base, "Unknown Owner")
 
 
-def classify_asset(norm: NormalizedFinding, using=None, session_id=None) -> CryptoAsset:
+def classify_asset(norm: NormalizedFinding, using=None, session_id=None) -> CryptoAsset | None:
     """Create or refresh the canonical CryptoAsset for a normalized finding.
 
     `session_id` scopes the created asset to a work session. The lookup is on
@@ -151,11 +151,17 @@ def classify_asset(norm: NormalizedFinding, using=None, session_id=None) -> Cryp
     an asset, and a later sighting with better metadata updates the record
     instead of being dropped.
 
-    It defaults to the normalized finding's own session for the same reason as
-    in `normalize_finding`: an asset always belongs to the session whose
-    findings produced it, and defaulting it here prevents an unscoped asset that
-    no session-scoped read would ever return.
+    Bare keywords (crypto, KEY, TLS, HASH, openssl_conf, etc.) are filtered
+    out and never become canonical CryptoAsset rows.
     """
+    if norm is None:
+        return None
+
+    # Filter out bare indicators
+    from .normalizer import is_bare_indicator
+    if (norm.evidence and norm.evidence.get("is_indicator")) or is_bare_indicator(norm.algorithm, norm.family, norm.kind):
+        return None
+
     if session_id is None:
         session_id = norm.session_id
 

@@ -160,15 +160,15 @@ class TestMoscaEngine(unittest.TestCase):
         self.assertEqual(solution["urgency_tier"], "NEGLIGIBLE")
 
     def test_symmetric_ciphers_in_mosca(self):
-        # AES-256 (Grover resistant) -> S_crypto = 0.05
+        # AES-256 (Grover resistant, 128-bit quantum security) -> S_crypto = 0.0
         s_256, qv_256 = self.solver.calculate_crypto_susceptibility("AES-256", family="symmetric", key_size=256)
-        self.assertEqual(s_256, 0.05)
+        self.assertEqual(s_256, 0.0)
         self.assertFalse(qv_256)
 
-        # 3DES (Deprecated) -> S_crypto = 0.80
+        # 3DES (Classically Deprecated) -> S_crypto = 0.80, not Shor-vulnerable
         s_3des, qv_3des = self.solver.calculate_crypto_susceptibility("3DES-112", family="symmetric")
         self.assertEqual(s_3des, 0.80)
-        self.assertTrue(qv_3des)
+        self.assertFalse(qv_3des)
 
     # -------------------------------------------------------------------------
     # 5. Asset-Level Analysis & Output Contract Tests

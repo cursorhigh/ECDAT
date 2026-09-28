@@ -337,13 +337,33 @@ def _run_pipeline(run, db, mode):
     run.progress = 35
     run.save(using=db, update_fields=["cbom_document", "progress"])
 
+    from segments.ml.cbom.threat_context import resolve_threat_context
+    threat_ctx = resolve_threat_context(run.raw_system_context)
+
     risk_ctx = RiskClassificationAgent().analyze(run.raw_system_context)
+    risk_ctx["data_lifetime_years"] = threat_ctx.data_shelf_life_y
+    risk_ctx["migration_time_years"] = threat_ctx.migration_years_x
+    risk_ctx["quantum_horizon_year"] = threat_ctx.crqc_year_z
+    risk_ctx["assessment_year"] = threat_ctx.assessment_year
+    risk_ctx["network_exposure"] = threat_ctx.network_exposure
+    risk_ctx["internet_exposed"] = threat_ctx.internet_facing
+    risk_ctx["standards_profile"] = threat_ctx.standards_profile
+    risk_ctx["data_sensitivity"] = threat_ctx.data_sensitivity
+    risk_ctx["data_types"] = threat_ctx.data_types
+    risk_ctx["hndl_assessable"] = threat_ctx.hndl_assessable
     run.risk_context = risk_ctx
     run.progress = 45
     run.save(using=db, update_fields=["risk_context", "progress"])
 
-    hndl = HNDLAgent()
-    mosca = MOSCAAgent(verbose=False)
+    hndl = HNDLAgent(
+        default_quantum_horizon_year=threat_ctx.crqc_year_z,
+        default_assessment_year=threat_ctx.assessment_year,
+    )
+    mosca = MOSCAAgent(
+        verbose=False,
+        default_quantum_horizon_year=threat_ctx.crqc_year_z,
+        default_assessment_year=threat_ctx.assessment_year,
+    )
     assets = cbom.get("crypto_assets") or []
     total = max(1, len(assets))
     rows = []
@@ -357,8 +377,18 @@ def _run_pipeline(run, db, mode):
             return run
         if not isinstance(asset, dict):
             continue
-        h_res = hndl.analyze(cbom_asset=asset, risk_context=risk_ctx)
-        m_res = mosca.analyze(asset, operational_context=run.raw_system_context)
+        h_res = hndl.analyze(
+            cbom_asset=asset,
+            risk_context=risk_ctx,
+            quantum_horizon_year=threat_ctx.crqc_year_z,
+            assessment_year=threat_ctx.assessment_year,
+        )
+        m_res = mosca.analyze(
+            asset,
+            operational_context=risk_ctx,
+            quantum_horizon_year=threat_ctx.crqc_year_z,
+            assessment_year=threat_ctx.assessment_year,
+        )
 
         asset_obj = None
         pk = parse_finding_id(asset.get("asset_id"))
@@ -372,6 +402,37 @@ def _run_pipeline(run, db, mode):
                 if asset_obj is not None:
                     _write_back_parameters(asset, asset_obj, db)
 
+        m_assessment = m_res.get("mosca_assessment") or {}
+        h_body = h_res.get("hndl") or {}
+        algo_name = str(asset.get("algorithm") or asset.get("name") or "").upper()
+        algo_clean = algo_name.replace("-", "").replace("_", "")
+        fam = str(asset.get("family") or "").lower()
+
+        # Classical-weak security-use primitives must have minimum HIGH priority
+        is_classical_weak = any(k in algo_clean for k in ["MD5", "SHA1", "DES", "3DES", "RC4", "RC2", "BLOWFISH"])
+        is_checksum = "checksum" in str(asset.get("purpose") or "").lower() or "checksum" in str(asset.get("role") or "").lower()
+        if is_classical_weak and not is_checksum:
+            m_assessment["classical_security"] = "WEAK"
+            if m_assessment.get("migration_priority") in ("LOW", "MEDIUM", "UNKNOWN", None):
+                m_assessment["migration_priority"] = "HIGH"
+            if m_assessment.get("overall_risk") in ("LOW", "MEDIUM", "UNKNOWN", None):
+                m_assessment["overall_risk"] = "HIGH"
+
+        # Propagate Mosca At Risk into risk and priority for Shor-vulnerable assets
+        if threat_ctx.mosca_at_risk and m_assessment.get("quantum_vulnerable"):
+            is_key_est = any(k in algo_clean for k in ["RSA", "DH", "ECDH", "X25519", "X448"]) or fam in ("dh", "rsa")
+            if is_key_est:
+                if threat_ctx.internet_facing or threat_ctx.network_exposure in ("public", "external"):
+                    m_assessment["migration_priority"] = "URGENT"
+                    m_assessment["overall_risk"] = "CRITICAL"
+                elif m_assessment.get("migration_priority") in ("LOW", "MEDIUM", None):
+                    m_assessment["migration_priority"] = "HIGH"
+                    m_assessment["overall_risk"] = "HIGH"
+            else:
+                # Signature-only Shor asset: forgery-before-CRQC timeline evaluation
+                if m_assessment.get("migration_priority") in ("LOW", "MEDIUM", None):
+                    m_assessment["migration_priority"] = "HIGH"
+
         AssetAssessment.objects.using(db).create(
             run=run,
             mode=mode,
@@ -383,8 +444,6 @@ def _run_pipeline(run, db, mode):
             session_id=run.session_id,
         )
 
-        m_assessment = m_res.get("mosca_assessment") or {}
-        h_body = h_res.get("hndl") or {}
         rows.append(
             {
                 "asset_id": asset.get("asset_id"),
@@ -397,9 +456,13 @@ def _run_pipeline(run, db, mode):
                 "quantum_vulnerable": m_assessment.get("quantum_vulnerable"),
             }
         )
-        if m_assessment.get("migration_priority") == "URGENT":
+        pri = str(m_assessment.get("migration_priority") or "").upper()
+        risk = str(m_assessment.get("overall_risk") or "").upper()
+        if pri in ("URGENT", "CRITICAL"):
             urgent += 1
-        if m_assessment.get("overall_risk") == "CRITICAL":
+        elif pri == "HIGH" and threat_ctx.mosca_at_risk and m_assessment.get("quantum_vulnerable"):
+            urgent += 1
+        if risk in ("CRITICAL", "HIGH") or pri in ("URGENT", "CRITICAL"):
             critical += 1
         if h_body.get("applicable"):
             hndl_applicable += 1
@@ -424,6 +487,17 @@ def _run_pipeline(run, db, mode):
             "urgent": urgent,
             "critical": critical,
             "hndl_applicable": hndl_applicable,
+        },
+        "threat_context": {
+            "migration_years_x": threat_ctx.migration_years_x,
+            "data_shelf_life_y": threat_ctx.data_shelf_life_y,
+            "crqc_year_z": threat_ctx.crqc_year_z,
+            "years_until_crqc": threat_ctx.years_until_crqc,
+            "mosca_at_risk": threat_ctx.mosca_at_risk,
+            "network_exposure": threat_ctx.network_exposure,
+            "standards_profile": threat_ctx.standards_profile,
+            "conflict_warnings": threat_ctx.conflict_warnings,
+            "hndl_assessable": threat_ctx.hndl_assessable,
         },
     }
     run.status = AnalysisRun.Status.COMPLETED

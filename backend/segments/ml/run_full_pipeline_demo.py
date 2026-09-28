@@ -23,6 +23,10 @@ backend_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..
 if backend_root not in sys.path:
     sys.path.insert(0, backend_root)
 
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+import django
+django.setup()
+
 from segments.ml.pipeline import ECDATPipeline
 from segments.ml.final_combined_result import format_final_terminal_report
 

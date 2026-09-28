@@ -1,6 +1,6 @@
 {
   "report_title": "ECDAT Enterprise Post-Quantum Cryptographic Risk Report",
-  "generated_at": "2026-09-27T13:14:10.469356+00:00",
+  "generated_at": "2026-09-28T18:20:25.017389+00:00",
   "generation_provider": "Google Gemini AI",
   "portfolio_stats": {
     "total_assets": 10,
@@ -16,11 +16,11 @@
     "highest_risk_score": 46.0,
     "earliest_migration_deadline_year": 2029.8
   },
-  "executive_summary": "Executive Post-Quantum Cryptographic Assessment completed across 10 identified assets. The application inventory contains 0 CRITICAL, 6 HIGH, 1 MEDIUM, and 3 LOW risk components. Analysis indicates 5 classical assets are in active timeline deficit under Michele Mosca's Theorem (X + Y > Z), with 0 assets currently overdue for migration start. 8 assets present active Harvest-Now-Decrypt-Later exposure. Earliest mandatory migration start deadline is 2029.8.",
+  "executive_summary": "The enterprise cryptographic portfolio analyzed across 10 assets reveals significant vulnerability to quantum threats, driven by the presence of classical asymmetric algorithms such as RSA-2048, RSA-3072, RSA-4096, ECDSA, Ed25519, and deprecated primitives like 3'DES-CBC. Across the portfolio, 6 assets are classified in the HIGH risk tier [ML Risk Model], 8 assets are exposed to Harvest-Now-Decrypt-Later (HNDL) risks [HNDL Engine], and 5 assets exhibit active migration timeline deficits under Mosca's Inequality [Mosca Theorem]. With an earliest migration start deadline established at 2029.8, immediate migration planning toward NIST standards such as ML-KEM-768 (FIPS 203) and ML-DSA (FIPS 204) is required.",
   "key_findings": [
-    "6 of 10 assets (60.0%) require prioritized remediation or post-quantum migration [ML Risk & Policy].",
-    "8 assets exhibit interceptability risks requiring Perfect Forward Secrecy or PQC encapsulation [HNDL Engine].",
-    "Earliest mandatory migration start deadline is 2029.8. [Mosca Theorem]."
+    "6 assets (DISC-001, DISC-002, DISC-004, DISC-006, DISC-007, DISC-008) are classified as HIGH risk [ML Risk Model], driven heavily by quantum vulnerability and cryptographic role features with CatBoost confidence scores ranging between 81.5% and 87.3%.",
+    "8 assets are exposed to Harvest-Now-Decrypt-Later threats [HNDL Engine], with long-lived data extending up to year 2034, while 5 assets violate Mosca's Inequality (X + Y > Z) [Mosca Theorem] with migration deficits ranging from +1.2y to +4.2y.",
+    "The portfolio's earliest migration start deadline is established at 2029.8 [Mosca Theorem], requiring prioritized remediation for classical asymmetric assets (RSA, ECDSA, Ed25519) while maintaining resilient posture on native PQC (ML-KEM-768) and hybrid assets."
   ],
   "source_attribution_summary": {
     "ML_RISK": "CatBoost 37-feature classifier evaluated multi-variable cryptographic feature vectors and class probabilities.",
@@ -48,7 +48,7 @@
         "ML_PREDICTION_HIGH"
       ],
       "primary_risk_driver": "Quantum-Vulnerable Classical Asymmetric Primitive (RSA-2048)",
-      "executive_narrative": "Asset 'DISC-001' utilizing RSA-2048 is classified as CLASSICAL_VULNERABLE with an overall HIGH risk (Score: 26.1/100, Urgency: HIGH). [ML Risk Model] predicted class 'HIGH' with 87.3% confidence. [HNDL Engine] evaluated exposure score at 0.03 (MEDIUM). [Mosca Theorem] calculated timeline margin of 2.8 years (\u0394M = -2.8y, Must start migration by 2029.8).",
+      "executive_narrative": "Asset DISC-001 utilizing RSA-2048 presents a significant quantum exposure identified by the [ML Risk Model] with a HIGH risk tier and 87.32% probability. The [HNDL Engine] notes an exposure to Harvest-Now-Decrypt-Later threats with a data expiry year of 2034.0, while the [Mosca Theorem] analysis establishes a migration start deadline of 2029.8 based on a 3.2-year migration time (X), 1.0-year data lifetime (Y), and a 7.0-year CRQC horizon (Z), resulting in a SAFE_BUFFER posture.",
       "attributions": [
         {
           "pillar": "ML_RISK",
@@ -75,7 +75,7 @@
           "source_detail": "Mosca Inequality X+Y<=Z computed timeline margin 2.8y (\u0394M = -2.8y, Must start by: 2029.8)"
         }
       ],
-      "recommended_action": "Migrate key establishment from RSA-2048 to NIST FIPS 203 ML-KEM-768 (or hybrid X25519+ML-KEM-768); enforce Perfect Forward Secrecy.",
+      "recommended_action": "Migrate RSA-2048 key establishment to post-quantum cryptography standards such as ML-KEM-768 / FIPS 203.",
       "ml_summary": {
         "risk_tier": "HIGH",
         "confidence": 0.8732,
@@ -136,7 +136,7 @@
         "MOSCA_DEFICIT_+4.2Y"
       ],
       "primary_risk_driver": "Mosca Theorem Timeline Deficit (+4.2y) & Long-Lived Shelf Life",
-      "executive_narrative": "Asset 'DISC-002' utilizing ECDSA is classified as CLASSICAL_VULNERABLE with an overall HIGH risk (Score: 45.3/100, Urgency: HIGH). [ML Risk Model] predicted class 'HIGH' with 84.1% confidence. [HNDL Engine] evaluated exposure score at 0.01 (LOW). [Mosca Theorem] calculated timeline deficit +4.2 years (Must start migration by 2029.8).",
+      "executive_narrative": "Cryptographic asset DISC-002 utilizing ECDSA with a P-256 curve has been classified with a HIGH risk tier at 84.07% confidence, driven primarily by quantum vulnerability, key size, and cryptographic role [ML Risk Model]. While the HNDL Engine notes a low future decryption risk and low harvestability score of 0.3 for this signing operation, Mosca's Theorem reveals an active migration deficit (X + Y > Z) of 4.2 years, requiring a migration start deadline by 2029.8 [Mosca Theorem]. Because digital signing algorithms like ECDSA are susceptible to forgery and impersonation attacks via Cryptologically Relevant Quantum Computers (CRQCs), immediate transition planning is essential.",
       "attributions": [
         {
           "pillar": "ML_RISK",
@@ -163,7 +163,7 @@
           "source_detail": "Mosca Inequality X+Y>Z computed timeline deficit +4.2y (Must start by: 2029.8)"
         }
       ],
-      "recommended_action": "Migrate digital signatures from ECDSA to NIST FIPS 204 ML-DSA-65 or NIST FIPS 205 SLH-DSA.",
+      "recommended_action": "Migrate ECDSA P-256 signing mechanisms to NIST-standardized Post-Quantum Cryptography algorithms such as ML-DSA (FIPS 204) or SLH-DSA (FIPS 205) before the migration deadline of 2029.8.",
       "ml_summary": {
         "risk_tier": "HIGH",
         "confidence": 0.8407,
@@ -223,7 +223,7 @@
         "SYMMETRIC_QUANTUM_RESILIENT_256BIT"
       ],
       "primary_risk_driver": "Quantum-Resilient Baseline Cryptography",
-      "executive_narrative": "Asset 'DISC-003' utilizing AES-256-GCM is classified as SYMMETRIC_QUANTUM_RESILIENT with an overall LOW risk (Score: 5.0/100, Urgency: LOW). [ML Risk Model] predicted class 'LOW' with 91.3% confidence. [PQC / Resilient Baseline] algorithm is quantum safe against Shor's algorithm; migration is not required.",
+      "executive_narrative": "Asset DISC-003 utilizes AES-256-GCM for symmetric encryption, which is classified under the LOW risk tier with a 0.9131 confidence score [ML Risk Model]. The HNDL Timeline Engine evaluates the future decryption risk as LOW with a minimal harvestability score of 0.3 and data expiry set for 2034 [HNDL Engine]. Furthermore, Mosca's inequality is not satisfied (X=3.2 years, Y=8.0 years, Z=7.0 years yielding a deficit of 0.0), indicating that the migration posture is quantum-resilient and the timeline is currently secure [Mosca Theorem].",
       "attributions": [
         {
           "pillar": "ML_RISK",
@@ -238,7 +238,7 @@
           "source_detail": "NIST SP 800-57 / FIPS 203-205 reference catalog mapped algorithm to SYMMETRIC_QUANTUM_RESILIENT"
         }
       ],
-      "recommended_action": "Maintain AES-256 with authenticated Galois/Counter Mode (GCM); ensure unique nonces and enforce cryptographic agility.",
+      "recommended_action": "Maintain current cryptographic posture; AES-256-GCM is quantum-resilient against Grover's algorithm when utilizing 256-bit keys.",
       "ml_summary": {
         "risk_tier": "LOW",
         "confidence": 0.9131,
@@ -281,11 +281,11 @@
     },
     {
       "asset_id": "DISC-004",
-      "algorithm": "3DES-CBC",
+      "algorithm": "3'DES-CBC",
       "pqc_status": "LEGACY_DEPRECATED",
       "policy_status": "DEPRECATED_ALGORITHM",
       "policy_overrides": [
-        "POLICY_OVERRIDE: 3DES-CBC is deprecated by NIST SP 800-131A (disallowed after 2023)"
+        "POLICY_OVERRIDE: 3'DES-CBC is deprecated by NIST SP 800-131A (disallowed after 2023)"
       ],
       "base_risk_class": "MEDIUM",
       "final_risk_class": "HIGH",
@@ -300,8 +300,8 @@
         "DEPRECATED_PRIMITIVE",
         "POLICY_DEPRECATED_OVERRIDE"
       ],
-      "primary_risk_driver": "Cryptographic Policy Override: 3DES-CBC is deprecated and disallowed",
-      "executive_narrative": "Asset 'DISC-004' utilizing 3DES-CBC is classified as LEGACY_DEPRECATED with an overall HIGH risk (Score: 20.0/100, Urgency: HIGH). [ML Risk Model] predicted class 'LOW' with 81.5% confidence. [Policy Engine] applied an override: POLICY_OVERRIDE: 3DES-CBC is deprecated by NIST SP 800-131A (disallowed after 2023). [HNDL Engine] evaluated exposure score at 0.02 (MEDIUM). [Mosca Theorem] calculated timeline deficit +4.2 years (Must start migration by 2029.8).",
+      "primary_risk_driver": "Cryptographic Policy Override: 3'DES-CBC is deprecated and disallowed",
+      "executive_narrative": "Asset DISC-004 utilizes 3'DES-CBC encryption, which is evaluated under [ML Risk Model] as LOW risk for direct quantum vulnerability (confidence 0.8152, top features: quantum_vulnerable, key_or_hash_size_bits, crypto_role, HNDL_exposure). However, the [HNDL Engine] notes a future decryption risk of MEDIUM with data expiring in 2034. Furthermore, [Mosca Theorem] indicates that the inequality X + Y > Z is satisfied with a migration time X of 3.2 years, data lifetime Y of 8.0 years, and a CRQC horizon Z of 7.0 years (time-to-crqc of 7.0 years based on a 2033 quantum horizon and 2026 assessment year). This results in a timeline deficit \u0394M of 4.2 years and a migration start deadline of 2029.8, establishing a HIGH urgency tier.",
       "attributions": [
         {
           "pillar": "ML_RISK",
@@ -324,11 +324,11 @@
         {
           "pillar": "POLICY_ENGINE",
           "metric_name": "policy_override",
-          "value": "POLICY_OVERRIDE: 3DES-CBC is deprecated by NIST SP 800-131A (disallowed after 2023)",
+          "value": "POLICY_OVERRIDE: 3'DES-CBC is deprecated by NIST SP 800-131A (disallowed after 2023)",
           "source_detail": "Policy compliance rule triggered risk reclassification"
         }
       ],
-      "recommended_action": "Retire legacy 3DES-CBC immediately per NIST SP 800-131A; migrate to modern symmetric AEAD (AES-256-GCM).",
+      "recommended_action": "Migrate legacy 3'DES-CBC encryption to AES-256-GCM or AES-256-CBC to ensure robust post-quantum symmetric security margins.",
       "ml_summary": {
         "risk_tier": "LOW",
         "confidence": 0.8152,
@@ -388,7 +388,7 @@
         "PQC_NATIVE_ALGORITHM"
       ],
       "primary_risk_driver": "Native Post-Quantum Key Encapsulation (NIST FIPS 203 ML-KEM-768)",
-      "executive_narrative": "Asset 'DISC-005' utilizing ML-KEM-768 is classified as PQC_NATIVE with an overall LOW risk (Score: 0.0/100, Urgency: NEGLIGIBLE). [ML Risk Model] predicted class 'LOW' with 99.5% confidence. [PQC / Resilient Baseline] algorithm is quantum safe against Shor's algorithm; migration is not required.",
+      "executive_narrative": "Cryptographic asset DISC-005 implements ML-KEM-768 under NIST FIPS 203, demonstrating a quantum-resilient posture [ML Risk Model]. The asset exhibits a negligible Harvest-Now-Decrypt-Later exposure score and negligible future decryption risk [HNDL Engine]. Furthermore, Michele Mosca's inequality evaluation confirms that the migration duration (X) and data shelf-life (Y) do not exceed the time to CRQC (Z), resulting in a zero-year deficit and a status of quantum resilient [Mosca Theorem].",
       "attributions": [
         {
           "pillar": "ML_RISK",
@@ -403,7 +403,7 @@
           "source_detail": "NIST SP 800-57 / FIPS 203-205 reference catalog mapped algorithm to PQC_NATIVE"
         }
       ],
-      "recommended_action": "Maintain NIST FIPS 203 ML-KEM-768 deployment; validate implementation correctness, side-channel protections, and crypto-agility.",
+      "recommended_action": "Maintain current quantum-safe implementation of ML-KEM-768, ensure strict compliance with NIST FIPS 203 operational guidelines, and log in the enterprise CBOM inventory as a verified post-quantum asset.",
       "ml_summary": {
         "risk_tier": "LOW",
         "confidence": 0.9953,
@@ -464,7 +464,7 @@
         "MOSCA_DEFICIT_+1.2Y"
       ],
       "primary_risk_driver": "Mosca Theorem Timeline Deficit (+1.2y) & Long-Lived Shelf Life",
-      "executive_narrative": "Asset 'DISC-006' utilizing RSA-3072 is classified as CLASSICAL_VULNERABLE with an overall HIGH risk (Score: 36.0/100, Urgency: HIGH). [ML Risk Model] predicted class 'HIGH' with 84.7% confidence. [HNDL Engine] evaluated exposure score at 0.03 (MEDIUM). [Mosca Theorem] calculated timeline deficit +1.2 years (Must start migration by 2029.8).",
+      "executive_narrative": "Cryptographic asset DISC-006 (RSA-3072, used for authentication) is classified as HIGH risk with an 84.69% probability by the [ML Risk Model], driven heavily by features such as quantum vulnerability and key size. While the [HNDL Engine] notes a lower harvestability score (0.3) and a moderate future decryption risk with a data expiry year of 2034, the [Mosca Theorem] indicates an active inequality satisfaction with a migration deficit (\u0394M) of 1.2 years, setting a mandatory migration start deadline of 2029.8 based on a 3.2-year migration duration, 5.0-year data lifetime, and a 7.0-year CRQC horizon.",
       "attributions": [
         {
           "pillar": "ML_RISK",
@@ -491,7 +491,7 @@
           "source_detail": "Mosca Inequality X+Y>Z computed timeline deficit +1.2y (Must start by: 2029.8)"
         }
       ],
-      "recommended_action": "RSA-3072 is quantum-vulnerable. Determine whether the RSA-3072 usage provides key establishment, encryption, or digital signatures, then migrate to the corresponding NIST FIPS 203 (ML-KEM), FIPS 204 (ML-DSA), or FIPS 205 (SLH-DSA) mechanism.",
+      "recommended_action": "Migrate RSA authentication mechanisms to post-quantum standards such as ML-DSA (FIPS 204) or SLH-DSA (FIPS 205) before the 2029.8 migration deadline.",
       "ml_summary": {
         "risk_tier": "HIGH",
         "confidence": 0.8469,
@@ -552,7 +552,7 @@
         "MOSCA_DEFICIT_+4.2Y"
       ],
       "primary_risk_driver": "Mosca Theorem Timeline Deficit (+4.2y) & Long-Lived Shelf Life",
-      "executive_narrative": "Asset 'DISC-007' utilizing RSA-4096 is classified as CLASSICAL_VULNERABLE with an overall HIGH risk (Score: 46.0/100, Urgency: HIGH). [ML Risk Model] predicted class 'HIGH' with 84.0% confidence. [HNDL Engine] evaluated exposure score at 0.03 (MEDIUM). [Mosca Theorem] calculated timeline deficit +4.2 years (Must start migration by 2029.8).",
+      "executive_narrative": "Asset DISC-007 (RSA-4096 used for signing) is classified as HIGH risk with 84.05% confidence, driven primarily by quantum vulnerability and key size characteristics [ML Risk Model]. While the HNDL Engine notes a low direct harvestability score of 0.30 and a data expiry year of 2034 [HNDL Engine], the Mosca Theorem analysis confirms that the migration duration (X=3.2 years) plus data shelf life (Y=8.0 years) exceeds the CRQC horizon (Z=7.0 years), generating a timeline deficit (\u0394M) of 4.2 years with a mandatory migration start deadline by year 2029.8 [Mosca Theorem].",
       "attributions": [
         {
           "pillar": "ML_RISK",
@@ -579,7 +579,7 @@
           "source_detail": "Mosca Inequality X+Y>Z computed timeline deficit +4.2y (Must start by: 2029.8)"
         }
       ],
-      "recommended_action": "Migrate digital signatures from RSA-4096 to NIST FIPS 204 ML-DSA-65 or NIST FIPS 205 SLH-DSA.",
+      "recommended_action": "Migrate RSA signing functions to post-quantum signature schemes such as ML-DSA (FIPS 204) or SLH-DSA (FIPS 205), and ensure cryptographic agility frameworks are established prior to the 2029.8 migration start deadline.",
       "ml_summary": {
         "risk_tier": "HIGH",
         "confidence": 0.8405,
@@ -640,7 +640,7 @@
         "MOSCA_DEFICIT_+4.2Y"
       ],
       "primary_risk_driver": "Mosca Theorem Timeline Deficit (+4.2y) & Long-Lived Shelf Life",
-      "executive_narrative": "Asset 'DISC-008' utilizing Ed25519 is classified as CLASSICAL_VULNERABLE with an overall HIGH risk (Score: 45.3/100, Urgency: HIGH). [ML Risk Model] predicted class 'HIGH' with 84.3% confidence. [HNDL Engine] evaluated exposure score at 0.01 (LOW). [Mosca Theorem] calculated timeline deficit +4.2 years (Must start migration by 2029.8).",
+      "executive_narrative": "Asset DISC-008 (Ed25519) has been classified with a HIGH risk tier at 84.29% confidence [ML Risk Model], driven by quantum vulnerability and key size characteristics. Although future decryption risk from harvest-now-decrypt-later attacks is assessed as low for signing roles [HNDL Engine], Mosca's inequality confirms a migration deficit of 4.2 years (X + Y = 11.2 > Z = 7.0), mandating a migration start deadline by year 2029.8 [Mosca Theorem].",
       "attributions": [
         {
           "pillar": "ML_RISK",
@@ -667,7 +667,7 @@
           "source_detail": "Mosca Inequality X+Y>Z computed timeline deficit +4.2y (Must start by: 2029.8)"
         }
       ],
-      "recommended_action": "Migrate digital signatures from Ed25519 to NIST FIPS 204 ML-DSA-65 or NIST FIPS 205 SLH-DSA.",
+      "recommended_action": "Migrate Ed25519 digital signatures to post-quantum cryptographic standards such as ML-DSA (FIPS 204) or SLH-DSA (FIPS 205) before the 2029.8 migration deadline.",
       "ml_summary": {
         "risk_tier": "HIGH",
         "confidence": 0.8429,
@@ -727,7 +727,7 @@
         "SYMMETRIC_128BIT_TRANSITIONAL"
       ],
       "primary_risk_driver": "Quantum-Resilient Baseline Cryptography",
-      "executive_narrative": "Asset 'DISC-009' utilizing AES-128-GCM is classified as SYMMETRIC_TRANSITIONAL with an overall MEDIUM risk (Score: 12.0/100, Urgency: MEDIUM). [ML Risk Model] predicted class 'LOW' with 81.5% confidence. [PQC / Resilient Baseline] algorithm is quantum safe against Shor's algorithm; migration is not required.",
+      "executive_narrative": "Asset DISC-009 (AES-128-GCM) has been evaluated as low risk [ML Risk Model] with a LOW risk tier and a confidence score of 0.8152, driven by key size and cryptographic role features. While the HNDL Engine notes a moderate future decryption risk with a data expiry year of 2034 [HNDL Engine], Mosca's Theorem indicates an active migration deficit (X + Y > Z) with a deficit of 4.2 years, necessitating a migration start deadline of 2029.8 [Mosca Theorem].",
       "attributions": [
         {
           "pillar": "ML_RISK",
@@ -742,7 +742,7 @@
           "source_detail": "NIST SP 800-57 / FIPS 203-205 reference catalog mapped algorithm to SYMMETRIC_TRANSITIONAL"
         }
       ],
-      "recommended_action": "Assess data retention and security requirements; consider transitioning to AES-256-GCM for long-lived sensitive data (>10 years).",
+      "recommended_action": "Plan migration pathway to upgrade symmetric encryption from AES-128-GCM to AES-256-GCM to mitigate Grover's algorithm key-search reduction prior to the 2029.8 migration deadline.",
       "ml_summary": {
         "risk_tier": "LOW",
         "confidence": 0.8152,
@@ -802,7 +802,7 @@
         "HYBRID_PQC_DEPLOYED"
       ],
       "primary_risk_driver": "Hybrid Post-Quantum Key Establishment Deployed",
-      "executive_narrative": "Asset 'DISC-010' utilizing X25519+ML-KEM-768 is classified as HYBRID_PQC with an overall LOW risk (Score: 5.0/100, Urgency: LOW). [ML Risk Model] predicted class 'LOW' with 95.7% confidence. [PQC / Resilient Baseline] algorithm is quantum safe against Shor's algorithm; migration is not required.",
+      "executive_narrative": "Asset DISC-010 is classified under a LOW risk tier with a 0.957 confidence score [ML Risk Model]. The HNDL engine reports a negligible future decryption risk and zero harvestability exposure score due to its quantum-resistant hybrid design [HNDL Engine]. Furthermore, Mosca's inequality is not satisfied (X=3.2 years, Y=1.0 year, Z=7.0 years, deficit \u0394M = 0.0), indicating that the migration posture is robustly quantum-resilient with no timeline deficit [Mosca Theorem].",
       "attributions": [
         {
           "pillar": "ML_RISK",
@@ -817,7 +817,7 @@
           "source_detail": "NIST SP 800-57 / FIPS 203-205 reference catalog mapped algorithm to HYBRID_PQC"
         }
       ],
-      "recommended_action": "Maintain X25519+ML-KEM-768 hybrid deployment; validate decapsulation downgrade resistance, implementation correctness, and ensure crypto-agility.",
+      "recommended_action": "Maintain current NIST FIPS 203 hybrid key establishment configuration (X25519+ML-KEM-768) and continue standard cryptographic inventory monitoring.",
       "ml_summary": {
         "risk_tier": "LOW",
         "confidence": 0.957,
@@ -863,7 +863,7 @@
     "format": "ECDAT-CBOM",
     "version": "1.0",
     "spec_version": "1.6-CycloneDX",
-    "generated_at": "2026-09-27T13:13:47Z",
+    "generated_at": "2026-09-28T18:09:45Z",
     "repository": {
       "name": "enterprise-banking-core",
       "url": "https://github.com/enterprise/banking-core"
@@ -1109,7 +1109,7 @@
       {
         "asset_id": "DISC-004",
         "asset_type": "algorithm",
-        "algorithm": "3DES-CBC",
+        "algorithm": "3'DES-CBC",
         "family": "symmetric",
         "parameters": {
           "key_size": 168,
@@ -1147,16 +1147,16 @@
           "method": "deterministic",
           "detection_method": "deterministic",
           "ai_used": false,
-          "summary": "3DES-CBC was identified through an explicit deterministic cryptographic API pattern.",
+          "summary": "3'DES-CBC was identified through an explicit deterministic cryptographic API pattern.",
           "decision_reason": "The deterministic extraction rule successfully identified the algorithm and key parameters without requiring AI assistance.",
           "field_evidence": [
             {
               "field": "algorithm",
-              "value": "3DES-CBC",
+              "value": "3'DES-CBC",
               "source": "source_code",
               "snippet": "Cipher.getInstance('DESede/CBC/PKCS5Padding')",
               "evidence_type": "pattern_match",
-              "explanation": "The 3DES-CBC cryptographic API is associated with 3DES-CBC in matched deterministic rules."
+              "explanation": "The 3'DES-CBC cryptographic API is associated with 3'DES-CBC in matched deterministic rules."
             },
             {
               "field": "parameters.key_size",
@@ -1184,7 +1184,7 @@
         "algorithm": "ML-KEM-768",
         "family": "pqc",
         "parameters": {
-          "key_size": 768,
+          "key_size": null,
           "mode": null,
           "curve": null,
           "padding": null,
@@ -1229,14 +1229,6 @@
               "snippet": "MLKEMGenerator.generateSecretKey(768)",
               "evidence_type": "pattern_match",
               "explanation": "The ML-KEM-768 cryptographic API is associated with ML-KEM-768 in matched deterministic rules."
-            },
-            {
-              "field": "parameters.key_size",
-              "value": 768,
-              "source": "source_code",
-              "snippet": "MLKEMGenerator.generateSecretKey(768)",
-              "evidence_type": "explicit",
-              "explanation": "The key size is explicitly specified as 768."
             }
           ],
           "confidence_reason": "High confidence because explicit cryptographic evidence and standard API patterns were found in the source code."
@@ -1534,7 +1526,7 @@
         "algorithm": "X25519+ML-KEM-768",
         "family": "asymmetric",
         "parameters": {
-          "key_size": 1024,
+          "key_size": null,
           "mode": "hybrid",
           "curve": "X25519",
           "padding": null,
@@ -1584,14 +1576,6 @@
               "explanation": "The X25519+ML-KEM-768 cryptographic API is associated with X25519+ML-KEM-768 in matched deterministic rules."
             },
             {
-              "field": "parameters.key_size",
-              "value": 1024,
-              "source": "source_code",
-              "snippet": "key_size=1024",
-              "evidence_type": "pattern_match",
-              "explanation": "The key size of 1024 bits was inferred from the standard algorithm specification."
-            },
-            {
               "field": "parameters.mode",
               "value": "HYBRID",
               "source": "source_code",
@@ -1615,10 +1599,10 @@
     "cyclonedx_bom": {
       "bomFormat": "CycloneDX",
       "specVersion": "1.6",
-      "serialNumber": "urn:uuid:5bb98307-1bdd-43c0-93d7-1b4643d9e7a2",
+      "serialNumber": "urn:uuid:2d9a6da2-b7f4-46c5-b537-78ddf6aa29ec",
       "version": 1,
       "metadata": {
-        "timestamp": "2026-09-27T13:13:47Z",
+        "timestamp": "2026-09-28T18:09:45Z",
         "tools": {
           "components": [
             {
@@ -1828,8 +1812,8 @@
         },
         {
           "type": "cryptographic-asset",
-          "bom-ref": "crypto-asset-DISC-004-3des-cbc",
-          "name": "3DES-CBC",
+          "bom-ref": "crypto-asset-DISC-004-3'des-cbc",
+          "name": "3'DES-CBC",
           "description": "encryption",
           "evidence": {
             "occurrences": [
@@ -1908,7 +1892,7 @@
             "assetType": "algorithm",
             "algorithmProperties": {
               "primitive": "key_establishment",
-              "parameterSetIdentifier": "768",
+              "parameterSetIdentifier": null,
               "curve": null,
               "executionEnvironment": "software-plain",
               "implementationPlatform": "MLKEMGenerator.generateSecretKey(768)",
@@ -2228,7 +2212,7 @@
             "assetType": "algorithm",
             "algorithmProperties": {
               "primitive": "key_establishment",
-              "parameterSetIdentifier": "1024",
+              "parameterSetIdentifier": null,
               "curve": "X25519",
               "executionEnvironment": "software-plain",
               "implementationPlatform": "HybridKeyExchange.of(X25519, MLKEM768)",
@@ -2282,6 +2266,7 @@
         "algorithm": "RSA-2048",
         "hndl": {
           "applicable": true,
+          "evidence_status": "ASSESSED",
           "hndl_exposure_score": 0.03,
           "urgency_tier": "MEDIUM",
           "harvestability": "MEDIUM",
@@ -2318,6 +2303,7 @@
         "algorithm": "ECDSA",
         "hndl": {
           "applicable": true,
+          "evidence_status": "ASSESSED",
           "hndl_exposure_score": 0.009,
           "urgency_tier": "LOW",
           "harvestability": "MEDIUM",
@@ -2354,6 +2340,7 @@
         "algorithm": "AES-256-GCM",
         "hndl": {
           "applicable": true,
+          "evidence_status": "ASSESSED",
           "hndl_exposure_score": 0.0015,
           "urgency_tier": "LOW",
           "harvestability": "MEDIUM",
@@ -2387,9 +2374,10 @@
       },
       "DISC-004": {
         "asset_id": "DISC-004",
-        "algorithm": "3DES-CBC",
+        "algorithm": "3'DES-CBC",
         "hndl": {
           "applicable": true,
+          "evidence_status": "ASSESSED",
           "hndl_exposure_score": 0.024,
           "urgency_tier": "MEDIUM",
           "harvestability": "MEDIUM",
@@ -2417,7 +2405,7 @@
             "quantum_horizon_source": "USER_OVERRIDE",
             "assessment_year": 2026
           },
-          "reason": "Algorithm 3DES-CBC is susceptible to quantum cryptanalysis (susceptibility: 0.80). Protected data has a confidentiality requirement of 8.0 years (expiring in 2034). Under the configured 2033 quantum-horizon scenario (source: USER_OVERRIDE), an exposure window of 1.0 years exists where harvested ciphertext can be decrypted while still confidential. Interception score is 0.30 (PFS status could not be verified from code evidence.), yielding a composite HNDL exposure score of 0.0240.",
+          "reason": "Algorithm 3'DES-CBC is susceptible to quantum cryptanalysis (susceptibility: 0.80). Protected data has a confidentiality requirement of 8.0 years (expiring in 2034). Under the configured 2033 quantum-horizon scenario (source: USER_OVERRIDE), an exposure window of 1.0 years exists where harvested ciphertext can be decrypted while still confidential. Interception score is 0.30 (PFS status could not be verified from code evidence.), yielding a composite HNDL exposure score of 0.0240.",
           "mitigation_priority": "P2 - Plan migration to post-quantum algorithm; ensure perfect forward secrecy (PFS) is enforced in the interim."
         }
       },
@@ -2426,6 +2414,7 @@
         "algorithm": "ML-KEM-768",
         "hndl": {
           "applicable": false,
+          "evidence_status": "ASSESSED",
           "hndl_exposure_score": 0.0,
           "urgency_tier": "NEGLIGIBLE",
           "harvestability": "MEDIUM",
@@ -2462,6 +2451,7 @@
         "algorithm": "RSA-3072",
         "hndl": {
           "applicable": true,
+          "evidence_status": "ASSESSED",
           "hndl_exposure_score": 0.03,
           "urgency_tier": "MEDIUM",
           "harvestability": "MEDIUM",
@@ -2498,6 +2488,7 @@
         "algorithm": "RSA-4096",
         "hndl": {
           "applicable": true,
+          "evidence_status": "ASSESSED",
           "hndl_exposure_score": 0.03,
           "urgency_tier": "MEDIUM",
           "harvestability": "MEDIUM",
@@ -2534,6 +2525,7 @@
         "algorithm": "Ed25519",
         "hndl": {
           "applicable": true,
+          "evidence_status": "ASSESSED",
           "hndl_exposure_score": 0.009,
           "urgency_tier": "LOW",
           "harvestability": "MEDIUM",
@@ -2570,6 +2562,7 @@
         "algorithm": "AES-128-GCM",
         "hndl": {
           "applicable": true,
+          "evidence_status": "ASSESSED",
           "hndl_exposure_score": 0.0105,
           "urgency_tier": "MEDIUM",
           "harvestability": "MEDIUM",
@@ -2606,6 +2599,7 @@
         "algorithm": "X25519+ML-KEM-768",
         "hndl": {
           "applicable": false,
+          "evidence_status": "ASSESSED",
           "hndl_exposure_score": 0.0,
           "urgency_tier": "NEGLIGIBLE",
           "harvestability": "MEDIUM",
@@ -2893,13 +2887,13 @@
       },
       "DISC-004": {
         "asset_id": "DISC-004",
-        "algorithm": "3DES-CBC",
+        "algorithm": "3'DES-CBC",
         "mosca": {
           "inequality_satisfied": true,
           "mosca_risk_index": 0.24,
           "urgency_tier": "HIGH",
           "migration_posture": "MIGRATION_DEFICIT",
-          "quantum_vulnerable": true,
+          "quantum_vulnerable": false,
           "algorithm_category": "SYMMETRIC",
           "migration_priority": "HIGH",
           "overall_risk": "HIGH",
@@ -2931,15 +2925,15 @@
             "quantum_horizon_source": "USER_OVERRIDE",
             "assessment_year": 2026
           },
-          "reason": "MOSCA DEFICIT: For 3DES-CBC (migration time X=3.2 yrs, data shelf-life Y=8.0 yrs, time to CRQC Z=7.0 yrs), the combined timeline X + Y (11.2 yrs) exceeds time to CRQC (7.0 yrs). This results in a 4.2-year Mosca deficit where sensitive data remains vulnerable to quantum decryption after projected 2033 CRQC arrival (source: USER_OVERRIDE), yielding a Mosca risk index of 0.2400.",
-          "migration_guidance": "P1 - HIGH PRIORITY: Allocate engineering resources to migrate 3DES-CBC before 2030 deadline."
+          "reason": "MOSCA DEFICIT: For 3'DES-CBC (migration time X=3.2 yrs, data shelf-life Y=8.0 yrs, time to CRQC Z=7.0 yrs), the combined timeline X + Y (11.2 yrs) exceeds time to CRQC (7.0 yrs). This results in a 4.2-year Mosca deficit where sensitive data remains vulnerable to quantum decryption after projected 2033 CRQC arrival (source: USER_OVERRIDE), yielding a Mosca risk index of 0.2400.",
+          "migration_guidance": "P1 - HIGH PRIORITY: Allocate engineering resources to migrate 3'DES-CBC before 2030 deadline."
         },
         "mosca_assessment": {
           "inequality_satisfied": true,
           "mosca_risk_index": 0.24,
           "urgency_tier": "HIGH",
           "migration_posture": "MIGRATION_DEFICIT",
-          "quantum_vulnerable": true,
+          "quantum_vulnerable": false,
           "algorithm_category": "SYMMETRIC",
           "migration_priority": "HIGH",
           "overall_risk": "HIGH",
@@ -2971,8 +2965,8 @@
             "quantum_horizon_source": "USER_OVERRIDE",
             "assessment_year": 2026
           },
-          "reason": "MOSCA DEFICIT: For 3DES-CBC (migration time X=3.2 yrs, data shelf-life Y=8.0 yrs, time to CRQC Z=7.0 yrs), the combined timeline X + Y (11.2 yrs) exceeds time to CRQC (7.0 yrs). This results in a 4.2-year Mosca deficit where sensitive data remains vulnerable to quantum decryption after projected 2033 CRQC arrival (source: USER_OVERRIDE), yielding a Mosca risk index of 0.2400.",
-          "migration_guidance": "P1 - HIGH PRIORITY: Allocate engineering resources to migrate 3DES-CBC before 2030 deadline."
+          "reason": "MOSCA DEFICIT: For 3'DES-CBC (migration time X=3.2 yrs, data shelf-life Y=8.0 yrs, time to CRQC Z=7.0 yrs), the combined timeline X + Y (11.2 yrs) exceeds time to CRQC (7.0 yrs). This results in a 4.2-year Mosca deficit where sensitive data remains vulnerable to quantum decryption after projected 2033 CRQC arrival (source: USER_OVERRIDE), yielding a Mosca risk index of 0.2400.",
+          "migration_guidance": "P1 - HIGH PRIORITY: Allocate engineering resources to migrate 3'DES-CBC before 2030 deadline."
         }
       },
       "DISC-005": {

@@ -13,8 +13,8 @@ class HNDLValidator:
     Validates inputs and outputs for HNDL risk assessment pipeline.
     """
 
-    ALLOWED_URGENCY_TIERS = {"CRITICAL", "HIGH", "MEDIUM", "LOW", "NEGLIGIBLE"}
-    ALLOWED_HARVEST_TIERS = {"HIGH", "MEDIUM", "LOW"}
+    ALLOWED_URGENCY_TIERS = {"CRITICAL", "HIGH", "MEDIUM", "LOW", "NEGLIGIBLE", "INSUFFICIENT_CONTEXT", "NOT_ASSESSABLE", "UNKNOWN"}
+    ALLOWED_HARVEST_TIERS = {"HIGH", "MEDIUM", "LOW", "UNKNOWN", "NOT_ASSESSABLE"}
     SENSITIVITY_MAP = {"LOW": 2, "MEDIUM": 3, "HIGH": 4, "CRITICAL": 5}
 
     def validate_inputs(
@@ -99,6 +99,54 @@ class HNDLValidator:
                 errors.append(f"Invalid quantum_horizon_year '{horizon}': must be integer.")
 
         return len(errors) == 0, errors
+
+    def check_hndl_assessability(
+        self, cbom_asset: Dict[str, Any], risk_context: Optional[Dict[str, Any]] = None
+    ) -> Tuple[bool, str]:
+        """
+        Check if all required HNDL operational context inputs are present and explicitly labelled.
+        If data shelf-life, data sensitivity/types, or network exposure is missing or unlabelled,
+        HNDL is NOT_ASSESSABLE.
+        """
+        ctx = risk_context if isinstance(risk_context, dict) else {}
+        missing = []
+
+        # 1. Data Shelf-Life / Lifetime
+        data_ctx = ctx.get("data_context") if isinstance(ctx.get("data_context"), dict) else {}
+        lifetime = ctx.get("data_lifetime_years")
+        if lifetime is None:
+            lifetime = data_ctx.get("data_lifetime_years")
+        if lifetime is None:
+            missing.append("data shelf-life (missing)")
+
+        # 2. Data Sensitivity / Data Types
+        sensitivity = ctx.get("data_sensitivity")
+        if sensitivity is None:
+            sensitivity = data_ctx.get("sensitivity") or data_ctx.get("data_sensitivity")
+        data_types = ctx.get("data_types") or data_ctx.get("data_types")
+        if isinstance(data_types, list):
+            data_types = [t for t in data_types if t and str(t).lower() not in ("none labelled", "none", "unknown", "unlabelled")]
+        
+        if sensitivity is None and not data_types:
+            missing.append("data sensitivity/type (unlabelled or missing)")
+
+        # 3. Network Exposure
+        net_ctx = ctx.get("network_context") if isinstance(ctx.get("network_context"), dict) else {}
+        exposure = ctx.get("network_exposure") or net_ctx.get("exposure") or ctx.get("exposure")
+        internet_exp = ctx.get("internet_exposed")
+        if internet_exp is None:
+            internet_exp = net_ctx.get("internet_exposed")
+        if exposure is None and internet_exp is None:
+            missing.append("network exposure (missing)")
+
+        # 4. Explicit assessability flag from ThreatContext
+        if ctx.get("hndl_assessable") is False:
+            if not missing:
+                missing.append("insufficient operational threat context")
+
+        if missing:
+            return False, f"Required HNDL inputs missing or unlabelled: {', '.join(missing)}"
+        return True, "All required HNDL inputs present and valid."
 
     def validate_output(
         self,

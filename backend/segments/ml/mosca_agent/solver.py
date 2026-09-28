@@ -114,7 +114,7 @@ class MoscaSolver:
         # Symmetric Cryptography
         if canonical_fam == "symmetric":
             if is_deprecated or any(w in algo_str.upper() for w in ["DES", "3DES", "RC4", "BLOWFISH"]):
-                return 0.80, True
+                return 0.80, False
             if bits == 128 or "128" in algo_str:
                 return 0.15, False
             if bits == 192 or "192" in algo_str:

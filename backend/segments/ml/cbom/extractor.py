@@ -96,15 +96,14 @@ class DeterministicExtractor:
         ),
     ]
 
-    # Key size extraction patterns
+    # Key size extraction patterns (explicit key size assignments only)
     KEY_SIZE_PATTERNS = [
         re.compile(r"key_size\s*=\s*(\d+)", re.IGNORECASE),
         re.compile(r"keysize\s*=\s*(\d+)", re.IGNORECASE),
         re.compile(r"key_length\s*=\s*(\d+)", re.IGNORECASE),
-        re.compile(r"bits\s*=\s*(\d+)", re.IGNORECASE),
+        re.compile(r"key_bits\s*=\s*(\d+)", re.IGNORECASE),
         re.compile(r"generate_key\((\d+)\)", re.IGNORECASE),
         re.compile(r"generate_private_key\(.*?key_size\s*=\s*(\d+)", re.IGNORECASE | re.DOTALL),
-        re.compile(r"\b(1024|2048|3072|4096|8192|128|192|256|512)\b"),
     ]
 
     # Mode extraction patterns
@@ -242,8 +241,12 @@ class DeterministicExtractor:
             quantum_attack_type = catalog_entry["quantum_attack_type"]
             deprecated_or_disallowed = catalog_entry["deprecated_or_disallowed"]
             oid = catalog_entry["oid"]
+            # Only key-bearing cryptographic families may populate key_size from catalog
             if key_size is None and catalog_entry.get("key_or_hash_size_bits"):
-                key_size = catalog_entry["key_or_hash_size_bits"]
+                cat_fam = str(catalog_entry.get("family", "")).lower()
+                cat_role = str(catalog_entry.get("crypto_role", "")).lower()
+                if cat_fam in ("asymmetric", "symmetric", "rsa", "dsa", "dh", "ecc", "aes", "des", "3des", "des3") and cat_role not in ("hash", "mac", "message_digest"):
+                    key_size = catalog_entry["key_or_hash_size_bits"]
             if curve is None and catalog_entry.get("curve"):
                 curve = catalog_entry["curve"]
         else:
@@ -306,12 +309,23 @@ class DeterministicExtractor:
         return "algorithm"
 
     def _extract_key_size(self, text: str, family: str, detected: str) -> Optional[int]:
-        # Check explicit detection name (e.g., "AES-256", "RSA-4096", "SHA-512")
-        name_match = re.search(r"-(1024|2048|3072|4096|8192|128|192|256|384|512)\b", detected)
-        if name_match:
-            return int(name_match.group(1))
+        fam_lower = (family or "").lower()
+        det_lower = (detected or "").lower().replace("-", "").replace("_", "").replace(" ", "")
 
-        # Check code context
+        # Hashes, MACs, protocols, and indicators NEVER carry key_size
+        hash_prefixes = ("sha", "md5", "md4", "md2", "ripemd", "blake", "shake", "hash", "tls", "ssl", "crypto")
+        if fam_lower in ("hash", "mac", "protocol") or any(det_lower.startswith(h) for h in hash_prefixes):
+            return None
+        if det_lower in ("crypto", "key", "tls", "hash", "cipher", "openssl", "certificate"):
+            return None
+
+        # Check explicit detection name for key algorithms only (e.g. "AES-256", "RSA-4096")
+        if any(k in det_lower for k in ("rsa", "aes", "des", "3des", "mlkem", "mldsa")):
+            name_match = re.search(r"-(1024|2048|3072|4096|8192|128|192|256)\b", detected)
+            if name_match:
+                return int(name_match.group(1))
+
+        # Check explicit code context
         for pat in self.KEY_SIZE_PATTERNS:
             m = pat.search(text)
             if m:
@@ -321,19 +335,6 @@ class DeterministicExtractor:
                         return val
                 except (ValueError, IndexError):
                     continue
-
-        if "rsa" in text.lower():
-            return 2048
-        if "aes" in text.lower():
-            return 256
-        if "sha256" in text.lower() or "sha-256" in text.lower():
-            return 256
-        if "sha512" in text.lower() or "sha-512" in text.lower():
-            return 512
-        if "3des" in text.lower() or "des-ede3" in text.lower():
-            return 112
-        if "des" in text.lower():
-            return 56
 
         return None
 

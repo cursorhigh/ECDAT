@@ -46,7 +46,8 @@ def overview(request):
     for key, _label, _badge in risk:
         risk_counts[key] += 1
 
-    quantum_vuln = risk_counts["vulnerable"] + risk_counts["weak"]
+    quantum_vuln = risk_counts["vulnerable"]
+    weak_count = risk_counts["weak"]
     total = len(assets)
 
     vuln_priorities = _vulnerable_priorities(assets, risk)
@@ -250,70 +251,135 @@ def _asset_risk(asset: CryptoAsset) -> tuple[str, str, str]:
     """Classify an asset's quantum-readiness from its canonical fields.
 
     Returns ``(risk_key, label, badge)`` where risk_key is one of
-    ``vulnerable / weak / moderate / pqc / unknown``. Classical asymmetric
-    crypto (RSA/DSA/DH/ECC) breaks under Shor's algorithm regardless of key
-    size; weak hashes (MD5/SHA-1) are already broken; symmetric crypto is only
-    downgraded by Grover's search.
+    ``vulnerable / weak / moderate / pqc / unknown``.
+    - vulnerable: Classical asymmetric crypto (RSA/DSA/DH/ECC) vulnerable to Shor's algorithm.
+    - weak: Classically broken or deprecated primitives (MD5, SHA-1, DES, 3DES, RC4, Blowfish, RC2).
+    - moderate: Quantum-resilient symmetric/hash primitives evaluated for Grover safety margins or legacy review.
+    - pqc: Approved post-quantum mechanisms (ML-KEM, ML-DSA, SLH-DSA).
     """
-    family = asset.family
-    algo = (asset.algorithm or "").lower().replace("-", "").replace("_", "")
-    if family == NormalizedFinding.AlgorithmFamily.PQC:
+    family = str(getattr(asset, "family", "") or "").lower()
+    algo = str(getattr(asset, "algorithm", "") or "").lower().replace("-", "").replace("_", "")
+    name = str(getattr(asset, "name", "") or "").lower()
+    role = str(getattr(asset, "role", "") or "").lower()
+
+    if family == NormalizedFinding.AlgorithmFamily.PQC or "mlkem" in algo or "mldsa" in algo or "slhdsa" in algo:
         return ("pqc", "PQC-ready", "green")
     if family in (
         NormalizedFinding.AlgorithmFamily.RSA,
         NormalizedFinding.AlgorithmFamily.DSA,
         NormalizedFinding.AlgorithmFamily.DH,
         NormalizedFinding.AlgorithmFamily.ECC,
-    ):
-        return ("vulnerable", "Vulnerable", "red")
-    if family == NormalizedFinding.AlgorithmFamily.HASH:
-        if algo in ("md5", "sha1"):
-            return ("weak", "Weak", "red")
-        return ("moderate", "Moderate", "amber")
+        "rsa", "dsa", "dh", "ecc",
+    ) or any(k in algo for k in ["rsa", "ecdsa", "ecdh", "ed25519", "x25519", "dsa", "dh"]):
+        return ("vulnerable", "Vulnerable (Shor)", "red")
+    if any(k in algo for k in ["des", "3des", "desede", "rc4", "rc2", "blowfish"]):
+        return ("weak", "Weak (Classical)", "red")
+    if "hmacsha1" in algo or "hmac-sha1" in algo or "hmac-sha-1" in algo:
+        return ("moderate", "Legacy - Review", "amber")
+    if "md5" in algo or "sha1" in algo or algo == "sha1":
+        if role in ("checksum", "file_checksum", "non_security", "nonsecurity"):
+            return ("moderate", "Checksum / Non-Security", "amber")
+        return ("weak", "Weak (Classical)", "red")
+    if family in (NormalizedFinding.AlgorithmFamily.HASH, "hash"):
+        return ("moderate", "Moderate (Grover Margin)", "amber")
     if family in (
         NormalizedFinding.AlgorithmFamily.AES,
         NormalizedFinding.AlgorithmFamily.MAC,
-    ):
-        return ("moderate", "Moderate", "amber")
+        "aes", "mac", "symmetric",
+    ) or any(k in algo for k in ["aes", "chacha", "camellia", "hmac"]):
+        return ("moderate", "Moderate (Grover Margin)", "amber")
     return ("unknown", "Unknown", "gray")
 
 
 def _priority_score(asset: CryptoAsset, risk_key: str) -> int:
-    """Deterministic urgency score for ranking vulnerable assets."""
-    score = 0
-    if risk_key in ("vulnerable", "weak"):
-        score += 4
+    """Deterministic urgency score (0-100) for ranking cryptographic assets.
+    
+    Weak security-use algorithms receive a minimum priority score of 70 (HIGH).
+    Shor-vulnerable asymmetric keys receive a baseline score of 80 (HIGH/CRITICAL).
+    """
+    if risk_key == "vulnerable":
+        score = 80
+        bits = getattr(asset, "key_size", None)
+        family = str(getattr(asset, "family", "") or "").lower()
+        if bits:
+            if family in ("rsa", "dh", "dsa") and bits < 2048:
+                score = 95
+            elif family == "ecc" and bits < 256:
+                score = 90
+        return score
+    elif risk_key == "weak":
+        # Classical-weak security use has high priority floor
+        role = str(getattr(asset, "role", "") or "").lower()
+        if role in ("checksum", "file_checksum", "non_security", "nonsecurity"):
+            return 35
+        return 85
     elif risk_key == "moderate":
-        score += 1
-
-    bits = asset.key_size
-    if bits:
-        if asset.family in ("rsa", "dh", "dsa") and bits < 2048:
-            score += 2
-        elif asset.family == "ecc" and bits < 256:
-            score += 1
-    return score
+        algo = str(getattr(asset, "algorithm", "") or "").lower()
+        if "128" in algo:
+            return 45
+        if "hmacsha1" in algo:
+            return 40
+        return 30
+    elif risk_key == "pqc":
+        return 10
+    return 50
 
 
 def _pqc_replacement(asset: CryptoAsset) -> str:
-    """Suggested PQC / hardening replacement for an asset's algorithm."""
-    family = asset.family
-    algo = (asset.algorithm or "").lower().replace("-", "").replace("_", "")
-    if family == NormalizedFinding.AlgorithmFamily.RSA:
-        return "ML-KEM (key exchange) / ML-DSA (signature)"
-    if family in (
-        NormalizedFinding.AlgorithmFamily.DSA,
-        NormalizedFinding.AlgorithmFamily.DH,
-    ):
-        return "ML-KEM / ML-DSA"
-    if family == NormalizedFinding.AlgorithmFamily.ECC:
-        return "Hybrid X25519 + ML-KEM / ML-DSA"
-    if family == NormalizedFinding.AlgorithmFamily.AES:
-        return "AES-256-GCM (Grover headroom)"
-    if family == NormalizedFinding.AlgorithmFamily.HASH:
-        return "SHA-256 / SHA-3" if algo in ("md5", "sha1") else "SHA-3 (optional)"
-    if family == NormalizedFinding.AlgorithmFamily.MAC:
+    """Suggested PQC / hardening replacement for an asset's algorithm and role."""
+    family = str(getattr(asset, "family", "") or "").lower()
+    algo = str(getattr(asset, "algorithm", "") or "").lower().replace("-", "").replace("_", "")
+    name = str(getattr(asset, "name", "") or "").lower()
+    role = str(getattr(asset, "role", "") or "").lower()
+
+    if "ecdsa" in algo:
+        return "ML-DSA-65 / ML-DSA-87 (FIPS 204) / SLH-DSA"
+    if "ed25519" in algo or "eddsa" in algo:
+        return "ML-DSA-65 (FIPS 204) / SLH-DSA"
+    if "ecdh" in algo:
+        return "ML-KEM-768 / ML-KEM-1024 (FIPS 203) / Hybrid X25519MLKEM768"
+    if "x25519" in algo or "x448" in algo or family in (NormalizedFinding.AlgorithmFamily.DH, "dh"):
+        return "ML-KEM-768 (Hybrid X25519MLKEM768)"
+
+    if family in (NormalizedFinding.AlgorithmFamily.RSA, "rsa") or "rsa" in algo:
+        if any(w in role for w in ["enc", "key", "transport", "exchange", "kem", "agreement"]):
+            return "ML-KEM-768 / ML-KEM-1024 (FIPS 203)"
+        if any(w in role for w in ["sign", "cert", "auth", "verify"]):
+            return "ML-DSA-65 / ML-DSA-87 (FIPS 204) / SLH-DSA"
+        if any(w in name for w in ["enc", "key", "transport", "exchange", "kem", "agreement"]):
+            return "ML-KEM-768 / ML-KEM-1024 (FIPS 203)"
+        if any(w in name for w in ["sign", "cert", "auth", "verify"]):
+            return "ML-DSA-65 / ML-DSA-87 (FIPS 204) / SLH-DSA"
+        return "ML-KEM-768 (Key Exchange) / ML-DSA-65 (Signatures)"
+
+    if family in (NormalizedFinding.AlgorithmFamily.ECC, "ecc") or "ecc" in algo or algo == "ec":
+        if any(w in role for w in ["enc", "key", "transport", "exchange", "kem", "agreement"]):
+            return "ML-KEM-768 / ML-KEM-1024 (FIPS 203) / Hybrid X25519MLKEM768"
+        if any(w in role for w in ["sign", "cert", "auth", "verify"]):
+            return "ML-DSA-65 / ML-DSA-87 (FIPS 204) / SLH-DSA"
+        if any(w in name for w in ["enc", "key", "transport", "exchange", "kem", "agreement"]):
+            return "ML-KEM-768 / ML-KEM-1024 (FIPS 203) / Hybrid X25519MLKEM768"
+        if any(w in name for w in ["sign", "cert", "auth", "verify"]):
+            return "ML-DSA-65 / ML-DSA-87 (FIPS 204) / SLH-DSA"
+        return "ML-KEM-768 (Key Exchange) / ML-DSA-65 (Signatures)"
+
+    if any(k in algo for k in ["des", "3des", "rc4", "rc2", "blowfish"]):
+        return "AES-256-GCM / ChaCha20-Poly1305"
+    if "hmacsha1" in algo or "hmac-sha1" in algo:
         return "HMAC-SHA-256 / KMAC"
+    if family in (NormalizedFinding.AlgorithmFamily.AES, "aes", "symmetric") or "aes" in algo or "chacha" in algo:
+        key_size = getattr(asset, "key_size", None)
+        if key_size and key_size < 256:
+            return "AES-256-GCM (Grover 128-bit headroom)"
+        return "AES-256-GCM - Retain (Strong)"
+
+    if family in (NormalizedFinding.AlgorithmFamily.HASH, "hash") or any(k in algo for k in ["md5", "sha1", "sha256", "sha384", "sha512", "sha3"]):
+        if algo in ("md5", "sha1"):
+            return "SHA-256 / SHA-3"
+        return "SHA-256 / SHA-3 - Retain (Strong)"
+
+    if family in (NormalizedFinding.AlgorithmFamily.MAC, "mac"):
+        return "HMAC-SHA-256 / KMAC - Retain (Strong)"
     return "Reassess after discovery"
 
 

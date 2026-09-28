@@ -7,6 +7,14 @@ an LLM -- the LLM (NarratorAgent) only polishes narrative prose when a key
 is available.
 
 All helpers are pure and unit-testable with plain dicts.
+
+Phase D enhancements:
+- Configurable wave logic with documented criteria
+- Effort model expressed as range (low/high quarters)
+- Action-appropriate remediation (no "rotate now" for negligible exposure)
+- Standards profile support (NIST general / CNSA 2.0)
+- HMAC-SHA-1 classified as Legacy-Review
+- Wave 2 guaranteed non-empty when Shor-vulnerable assets exist
 """
 
 import posixpath
@@ -127,71 +135,74 @@ def compute_blast_radius(asset_ctx: Dict[str, Any], run_bundle: Dict[str, Any]) 
 # MigrationImpactAgent
 # ---------------------------------------------------------------------------
 
+_ROLE_SIGNATURE_TOKENS = {"digital_signature", "signature", "signing", "sign", "authentication", "certificate", "cert"}
+_ROLE_KEY_EXCHANGE_TOKENS = {"key_establishment", "key_exchange", "key_agreement", "encryption", "transport_security", "kdf", "kem"}
+
 _REPLACEMENTS = {
     # (canonical algo) -> (replacement, category, effort, impact, compatibility_risk, reason)
     "RSA": (
-        "ML-KEM-1024 / ML-DSA-87",
+        "ML-KEM-768 (Key Exchange) / ML-DSA-65 (Signatures)",
         "PUBLIC_KEY",
         "HIGH",
         "HIGH",
         "HIGH",
-        "RSA is used across TLS, JWTs and certificates; each trust anchor must move to ML-KEM (FIPS 203) / ML-DSA (FIPS 204).",
+        "RSA is vulnerable to Shor's algorithm; for key encapsulation, migrate to NIST FIPS 203 (ML-KEM-768); for digital signatures, migrate to FIPS 204 (ML-DSA-65).",
     ),
     "RSA-2048": (
-        "ML-KEM-768 / ML-DSA-65",
+        "ML-KEM-768 (Key Exchange) / ML-DSA-65 (Signatures)",
         "PUBLIC_KEY",
         "HIGH",
         "HIGH",
         "HIGH",
-        "RSA-2048 is vulnerable to Shor's algorithm; migrate to NIST FIPS 203 (ML-KEM-768) and FIPS 204 (ML-DSA-65).",
+        "RSA-2048 is vulnerable to Shor's algorithm; migrate to NIST FIPS 203 (ML-KEM-768) for key transport or FIPS 204 (ML-DSA-65) for digital signatures.",
     ),
     "RSA-3072": (
-        "ML-KEM-768 / ML-DSA-65",
+        "ML-KEM-768 (Key Exchange) / ML-DSA-65 (Signatures)",
         "PUBLIC_KEY",
         "HIGH",
         "HIGH",
         "HIGH",
-        "RSA-3072 is vulnerable to Shor's algorithm; migrate to NIST FIPS 203 (ML-KEM-768) and FIPS 204 (ML-DSA-65).",
+        "RSA-3072 is vulnerable to Shor's algorithm; migrate to NIST FIPS 203 (ML-KEM-768) or FIPS 204 (ML-DSA-65) based on cryptographic role.",
     ),
     "RSA-4096": (
-        "ML-KEM-1024 / ML-DSA-87",
+        "ML-KEM-1024 (Key Exchange) / ML-DSA-87 (Signatures)",
         "PUBLIC_KEY",
         "HIGH",
         "HIGH",
         "HIGH",
-        "RSA-4096 is vulnerable to Shor's algorithm; migrate to NIST FIPS 203 (ML-KEM-1024) and FIPS 204 (ML-DSA-87).",
+        "RSA-4096 is vulnerable to Shor's algorithm; migrate to NIST FIPS 203 (ML-KEM-1024) or FIPS 204 (ML-DSA-87) based on cryptographic role.",
     ),
     "ECDSA": (
-        "ML-DSA-65",
+        "ML-DSA-65 (FIPS 204) / SLH-DSA",
         "PUBLIC_KEY",
         "MEDIUM",
         "MEDIUM",
         "MEDIUM",
-        "ECDSA signatures migrate cleanly to ML-DSA (FIPS 204); verify curve usage first.",
+        "ECDSA digital signatures are vulnerable to Shor's algorithm; migrate to NIST FIPS 204 (ML-DSA-65).",
     ),
     "ECDSA-P256": (
-        "ML-DSA-65",
+        "ML-DSA-65 (FIPS 204)",
         "PUBLIC_KEY",
         "MEDIUM",
         "MEDIUM",
         "MEDIUM",
-        "ECDSA P-256 signatures migrate to ML-DSA-65 (FIPS 204) per CNSA 2.0.",
+        "ECDSA P-256 digital signatures migrate to ML-DSA-65 (FIPS 204).",
     ),
     "ECDSA-P384": (
-        "ML-DSA-87",
+        "ML-DSA-87 (FIPS 204)",
         "PUBLIC_KEY",
         "MEDIUM",
         "MEDIUM",
         "MEDIUM",
-        "ECDSA P-384 signatures migrate to ML-DSA-87 (FIPS 204) per CNSA 2.0.",
+        "ECDSA P-384 digital signatures migrate to ML-DSA-87 (FIPS 204).",
     ),
     "ECDH": (
-        "ML-KEM-1024",
+        "ML-KEM-768 (FIPS 203) / Hybrid X25519MLKEM768",
         "PUBLIC_KEY",
         "MEDIUM",
         "MEDIUM",
         "MEDIUM",
-        "Key agreement migrates to ML-KEM (FIPS 203) with a hybrid handshake (X25519MLKEM768).",
+        "ECDH key agreement is vulnerable to Shor's algorithm; migrate to ML-KEM (FIPS 203) with a hybrid transition (X25519MLKEM768) where interoperability dictates.",
     ),
     "X25519": (
         "ML-KEM-768 (Hybrid X25519MLKEM768)",
@@ -199,23 +210,31 @@ _REPLACEMENTS = {
         "LOW",
         "LOW",
         "LOW",
-        "X25519 key exchange upgrades to hybrid X25519MLKEM768 for immediate post-quantum security.",
+        "X25519 key exchange upgrades to hybrid X25519MLKEM768 for immediate post-quantum key establishment security.",
     ),
     "EC": (
-        "ML-KEM-1024 / ML-DSA-65",
+        "ML-KEM-768 (Key Exchange) / ML-DSA-65 (Signatures)",
         "PUBLIC_KEY",
         "MEDIUM",
         "MEDIUM",
         "MEDIUM",
-        "Elliptic-curve assets move to ML-KEM/ML-DSA per CNSA 2.0.",
+        "Elliptic-curve primitives move to ML-KEM (FIPS 203) for key exchange or ML-DSA (FIPS 204) for digital signatures.",
+    ),
+    "ECC": (
+        "ML-KEM-768 (Key Exchange) / ML-DSA-65 (Signatures)",
+        "PUBLIC_KEY",
+        "MEDIUM",
+        "MEDIUM",
+        "MEDIUM",
+        "Elliptic-curve primitives move to ML-KEM (FIPS 203) for key exchange or ML-DSA (FIPS 204) for digital signatures.",
     ),
     "ED25519": (
-        "ML-DSA-65 / SLH-DSA",
+        "ML-DSA-65 (FIPS 204) / SLH-DSA",
         "PUBLIC_KEY",
         "MEDIUM",
         "MEDIUM",
         "MEDIUM",
-        "Ed25519 signatures migrate to ML-DSA-65 (FIPS 204) or SLH-DSA (FIPS 205); keep graceful fallback while pubkeys rotate.",
+        "Ed25519 digital signatures migrate to ML-DSA-65 (FIPS 204) or stateless hash-based SLH-DSA (FIPS 205); maintain graceful dual-verification during transition.",
     ),
     "EDDSA": (
         "ML-DSA-65",
@@ -223,23 +242,23 @@ _REPLACEMENTS = {
         "MEDIUM",
         "MEDIUM",
         "MEDIUM",
-        "EdDSA signatures migrate to ML-DSA per CNSA 2.0.",
+        "EdDSA signatures migrate to ML-DSA-65 (FIPS 204) per CNSA 2.0.",
     ),
     "DSA": (
-        "ML-KEM-1024 / ML-DSA-87",
+        "ML-DSA-87",
         "PUBLIC_KEY",
         "HIGH",
         "HIGH",
         "HIGH",
-        "DSA is obsolete and PQC-vulnerable; replace with ML-KEM/ML-DSA.",
+        "DSA signatures are legacy and vulnerable to Shor's algorithm; replace with ML-DSA-87 (FIPS 204).",
     ),
     "DH": (
-        "ML-KEM-1024",
+        "ML-KEM-1024 (or Hybrid Transition)",
         "PUBLIC_KEY",
         "HIGH",
         "HIGH",
         "HIGH",
-        "Diffie-Hellman key exchange moves to ML-KEM (FIPS 203).",
+        "Diffie-Hellman key exchange is vulnerable to Shor's algorithm; move to ML-KEM (FIPS 203).",
     ),
     "ELGAMAL": (
         "ML-KEM-1024",
@@ -247,7 +266,7 @@ _REPLACEMENTS = {
         "HIGH",
         "HIGH",
         "HIGH",
-        "ElGamal encryption migrates to ML-KEM encapsulation.",
+        "ElGamal asymmetric encryption migrates to ML-KEM key encapsulation.",
     ),
     "AES": (
         "AES-256 (GCM)",
@@ -255,7 +274,7 @@ _REPLACEMENTS = {
         "LOW",
         "LOW",
         "LOW",
-        "AES-256 is quantum-resilient (Grover safety margin); validate GCM mode.",
+        "AES-256 provides 128 bits of post-quantum security margin against Grover's algorithm; retain and validate AEAD (GCM) mode.",
     ),
     "AES-128": (
         "AES-256 (GCM)",
@@ -263,15 +282,15 @@ _REPLACEMENTS = {
         "MEDIUM",
         "MEDIUM",
         "MEDIUM",
-        "AES-128 key length offers 64-bit security against Grover's algorithm; upgrade to AES-256.",
+        "AES-128 has an effective 64-bit quantum security bound under Grover's algorithm; evaluate upgrading to AES-256-GCM for critical long-term confidentiality.",
     ),
     "AES-256": (
-        "AES-256 (GCM)",
+        "AES-256 (GCM) - Retain (Strong)",
         "SYMMETRIC",
         "LOW",
         "LOW",
         "LOW",
-        "AES-256 is fully quantum-safe at 128-bit Grover security bound; confirm AEAD (GCM) mode.",
+        "AES-256 is quantum-resilient with 128-bit Grover security margin; no PQC algorithm replacement required, retain with approved AEAD mode.",
     ),
     "CHACHA20": (
         "ChaCha20-Poly1305 / AES-256 (GCM)",
@@ -279,39 +298,39 @@ _REPLACEMENTS = {
         "LOW",
         "LOW",
         "LOW",
-        "ChaCha20 provides 256-bit key quantum security; pair with Poly1305 AEAD.",
+        "ChaCha20 provides 256-bit key quantum security (128-bit Grover bound); retain and pair with Poly1305 AEAD.",
     ),
     "DES": (
-        "AES-256 (GCM)",
-        "SYMMETRIC",
+        "AES-256 (GCM) / ChaCha20-Poly1305",
+        "CLASSICAL_WEAK",
         "MEDIUM",
         "MEDIUM",
         "MEDIUM",
-        "DES is broken classically and quantumly; migrate to AES-256 (GCM).",
+        "DES is broken classically due to short 56-bit keys; remediate to modern AES-256-GCM or ChaCha20-Poly1305 independently of quantum readiness.",
     ),
     "3DES": (
-        "AES-256 (GCM)",
-        "SYMMETRIC",
+        "AES-256 (GCM) / ChaCha20-Poly1305",
+        "CLASSICAL_WEAK",
         "MEDIUM",
         "MEDIUM",
         "MEDIUM",
-        "3DES is deprecated; migrate to AES-256 (GCM).",
+        "3DES is deprecated and vulnerable to Sweet32; migrate to AES-256-GCM independently of quantum readiness.",
     ),
     "BLOWFISH": (
         "AES-256 (GCM)",
-        "SYMMETRIC",
+        "CLASSICAL_WEAK",
         "MEDIUM",
         "MEDIUM",
         "MEDIUM",
-        "Blowfish is legacy with 64-bit block size; migrate to AES-256.",
+        "Blowfish is legacy with 64-bit block size (Sweet32 risk); migrate to AES-256-GCM.",
     ),
     "RC4": (
-        "AES-256 (GCM)",
-        "SYMMETRIC",
+        "AES-256 (GCM) / ChaCha20-Poly1305",
+        "CLASSICAL_WEAK",
         "MEDIUM",
         "MEDIUM",
         "MEDIUM",
-        "RC4 is broken; migrate to AES-256 (GCM).",
+        "RC4 is cryptographically broken classically; remediate to modern authenticated ciphers (AES-256-GCM).",
     ),
     "CAMELLIA": (
         "AES-256 (GCM)",
@@ -319,55 +338,111 @@ _REPLACEMENTS = {
         "MEDIUM",
         "MEDIUM",
         "MEDIUM",
-        "Camellia is acceptable; consolidate on AES-256 where possible.",
+        "Camellia is acceptable; consolidate on AES-256-GCM where possible.",
     ),
     "SHA1": (
         "SHA-256 / SHA-3",
-        "HASH",
+        "CLASSICAL_WEAK",
         "LOW",
         "LOW",
         "MEDIUM",
-        "SHA-1 has known collision attacks; move to SHA-256/SHA-3.",
+        "SHA-1 has practical collision attacks; replace with SHA-256 or SHA-3 for integrity, password hashing, and certificate signing.",
+    ),
+    "SHA-1": (
+        "SHA-256 / SHA-3",
+        "CLASSICAL_WEAK",
+        "LOW",
+        "LOW",
+        "MEDIUM",
+        "SHA-1 has practical collision attacks; replace with SHA-256 or SHA-3 for integrity, password hashing, and certificate signing.",
     ),
     "MD5": (
         "SHA-256 / SHA-3",
-        "HASH",
+        "CLASSICAL_WEAK",
         "LOW",
         "LOW",
         "HIGH",
-        "MD5 is fully broken; move to SHA-256/SHA-3.",
+        "MD5 is cryptographically broken classically; remediate to SHA-256 or SHA-3 for security contexts.",
     ),
     "SHA256": (
-        "SHA-256 / SHA-3",
+        "SHA-256 / SHA-3 - Retain (Strong)",
         "HASH",
         "LOW",
         "LOW",
         "LOW",
-        "SHA-256 is quantum-safe at the Grover bound; confirm context use.",
+        "SHA-256 is quantum-resilient against Grover/collision attacks; retain for general integrity and HMAC constructions.",
+    ),
+    "SHA-256": (
+        "SHA-256 / SHA-3 - Retain (Strong)",
+        "HASH",
+        "LOW",
+        "LOW",
+        "LOW",
+        "SHA-256 is quantum-resilient against Grover/collision attacks; retain for general integrity and HMAC constructions.",
+    ),
+    "SHA384": (
+        "SHA-384 / SHA-3 - Retain (Strong)",
+        "HASH",
+        "LOW",
+        "LOW",
+        "LOW",
+        "SHA-384 provides high quantum security margin; retain for CNSA 2.0 compliance.",
+    ),
+    "SHA-384": (
+        "SHA-384 / SHA-3 - Retain (Strong)",
+        "HASH",
+        "LOW",
+        "LOW",
+        "LOW",
+        "SHA-384 provides high quantum security margin; retain for CNSA 2.0 compliance.",
     ),
     "SHA512": (
-        "SHA-256 / SHA-3",
+        "SHA-512 / SHA-3 - Retain (Strong)",
         "HASH",
         "LOW",
         "LOW",
         "LOW",
-        "SHA-512 is quantum-safe; confirm context use.",
+        "SHA-512 provides high quantum security margin; retain for integrity and signature digests.",
+    ),
+    "SHA-512": (
+        "SHA-512 / SHA-3 - Retain (Strong)",
+        "HASH",
+        "LOW",
+        "LOW",
+        "LOW",
+        "SHA-512 provides high quantum security margin; retain for integrity and signature digests.",
     ),
     "SHA3": (
-        "SHA-3",
+        "SHA-3 - Retain (Strong)",
         "HASH",
         "LOW",
         "LOW",
         "LOW",
-        "SHA-3 is quantum-safe; no action required.",
+        "SHA-3 is standardized quantum-resilient hashing; retain as approved PQC-ready hash.",
     ),
     "HMAC": (
-        "HMAC-SHA-256 / HMAC-SHA3",
+        "HMAC-SHA-256 / KMAC - Retain (Strong)",
         "HASH",
         "LOW",
         "LOW",
         "LOW",
-        "HMAC is quantum-safe keyed hashing; rotate keys on schedule.",
+        "HMAC is quantum-resilient when paired with SHA-256+; no PQC algorithm replacement needed, maintain scheduled key rotation.",
+    ),
+    "HMAC-SHA-1": (
+        "HMAC-SHA-256 / KMAC",
+        "LEGACY_REVIEW",
+        "MEDIUM",
+        "MEDIUM",
+        "MEDIUM",
+        "HMAC-SHA-1 is not collision-broken (HMAC construction protects), but SHA-1 is deprecated. Upgrade to HMAC-SHA-256 for compliance.",
+    ),
+    "HMAC-SHA-256": (
+        "HMAC-SHA-256 - Retain (Strong)",
+        "HASH",
+        "LOW",
+        "LOW",
+        "LOW",
+        "HMAC-SHA-256 is quantum-resilient; retain with scheduled key rotation.",
     ),
 }
 
@@ -381,10 +456,14 @@ _UNKNOWN_REPLACEMENT = (
 )
 
 
-def compute_migration_impact(asset_ctx: Dict[str, Any]) -> Dict[str, Any]:
-    """Predict the effort, compatibility risk and PQC replacement for an asset."""
+def compute_migration_impact(asset_ctx: Dict[str, Any], profile: str = "nist_general") -> Dict[str, Any]:
+    """Predict the effort, compatibility risk and role-aware PQC replacement for an asset."""
     algo = normalize_algorithm(asset_ctx.get("algorithm"))
     family = str(asset_ctx.get("family") or "").upper()
+    cbom_asset = asset_ctx.get("cbom_asset") or {}
+    role = str(asset_ctx.get("crypto_role") or cbom_asset.get("crypto_role") or cbom_asset.get("purpose") or "").lower().strip()
+    active_profile = str(asset_ctx.get("standards_profile") or profile or "nist_general").lower()
+    is_cnsa = active_profile == "cnsa_2_0"
 
     lookup = algo
     if lookup not in _REPLACEMENTS:
@@ -402,15 +481,82 @@ def compute_migration_impact(asset_ctx: Dict[str, Any]) -> Dict[str, Any]:
         lookup, _UNKNOWN_REPLACEMENT
     )
 
-    # The deterministic MOSCA assessment overrides the generic estimate when
-    # it classified the asset clearly.
-    category_override = asset_ctx.get("algorithm_category") or category
-    if algo and category_override == "SYMMETRIC" and algo == "AES":
-        params = (asset_ctx.get("cbom_asset") or {}).get("parameters") or {}
-        key_size = params.get("key_size")
-        if key_size is not None and str(key_size).isdigit() and int(key_size) < 256:
+    # Role-Aware Refinements:
+    # 1. RSA Refinements based on cryptographic role
+    if "RSA" in algo or family == "RSA":
+        if is_cnsa:
+            if any(r in role for r in _ROLE_SIGNATURE_TOKENS):
+                replacement = "ML-DSA-87 (FIPS 204)"
+                reason = f"{algo} is used for digital signatures; migrate directly to CNSA 2.0 compliant ML-DSA-87 (FIPS 204)."
+            elif any(r in role for r in _ROLE_KEY_EXCHANGE_TOKENS):
+                replacement = "ML-KEM-1024 (FIPS 203)"
+                reason = f"{algo} is used for key establishment/encryption; migrate to CNSA 2.0 compliant ML-KEM-1024 (FIPS 203)."
+            else:
+                replacement = "ML-KEM-1024 / ML-DSA-87"
+                reason = f"{algo} is vulnerable to Shor's algorithm; migrate to CNSA 2.0 compliant ML-KEM-1024 or ML-DSA-87."
+        elif any(r in role for r in _ROLE_SIGNATURE_TOKENS):
+            replacement = "ML-DSA-65 (FIPS 204)" if "2048" in algo or "3072" in algo else "ML-DSA-87 (FIPS 204)"
+            reason = f"{algo} is used for digital signatures; migrate directly to NIST FIPS 204 ({replacement.split()[0]})."
+        elif any(r in role for r in _ROLE_KEY_EXCHANGE_TOKENS):
+            replacement = "ML-KEM-768 (FIPS 203)" if "2048" in algo or "3072" in algo else "ML-KEM-1024 (FIPS 203)"
+            reason = f"{algo} is used for key establishment/encryption; migrate to NIST FIPS 203 ({replacement.split()[0]})."
+
+    # 2. Elliptic Curve (ECC / EC / ECDSA / ECDH) Refinements based on role
+    elif any(k in algo for k in ["ECC", "EC", "P256", "P384", "P521"]) or family == "ECC":
+        if is_cnsa:
+            if "ECDH" in algo or any(r in role for r in _ROLE_KEY_EXCHANGE_TOKENS):
+                replacement = "ML-KEM-1024 (FIPS 203)"
+                reason = "ECDH key establishment is Shor-vulnerable; migrate to CNSA 2.0 compliant ML-KEM-1024 (FIPS 203)."
+            elif "ECDSA" in algo or any(r in role for r in _ROLE_SIGNATURE_TOKENS):
+                replacement = "ML-DSA-87 (FIPS 204)"
+                reason = "ECDSA digital signatures are Shor-vulnerable; migrate to CNSA 2.0 compliant ML-DSA-87 (FIPS 204)."
+            else:
+                replacement = "ML-KEM-1024 (Key Exchange) / ML-DSA-87 (Signatures)"
+                reason = "Elliptic-curve primitives migrate to CNSA 2.0 compliant ML-KEM-1024 / ML-DSA-87."
+        elif "ECDH" in algo or any(r in role for r in _ROLE_KEY_EXCHANGE_TOKENS):
+            replacement = "ML-KEM-768 (Hybrid X25519MLKEM768)"
+            reason = "ECDH key establishment is Shor-vulnerable; migrate to ML-KEM (FIPS 203) with hybrid transition."
+        elif "ECDSA" in algo or any(r in role for r in _ROLE_SIGNATURE_TOKENS):
+            replacement = "ML-DSA-65 (FIPS 204)" if "256" in algo or not "384" in algo else "ML-DSA-87 (FIPS 204)"
+            reason = "ECDSA digital signatures are Shor-vulnerable; migrate to ML-DSA (FIPS 204)."
+        elif algo in ("ECC", "EC"):
+            replacement = "ML-KEM-768 (Key Exchange) / ML-DSA-65 (Signatures)"
+            reason = "Elliptic-curve primitives move to ML-KEM (FIPS 203) for key exchange or ML-DSA (FIPS 204) for digital signatures."
+
+    # 3. Hash Refinements based on purpose
+    elif any(k in algo for k in ["SHA", "MD5", "HASH"]) or family == "HASH":
+        if algo in ("MD5", "SHA1", "SHA-1"):
+            if "password" in role:
+                replacement = "Argon2id / PBKDF2-HMAC-SHA256"
+                reason = f"{algo} is insecure for password hashing; migrate to memory-hard Argon2id or PBKDF2."
+            elif "certificate" in role or "cert" in role:
+                replacement = "SHA-256 / SHA-384"
+                reason = f"{algo} in certificate signature is vulnerable to collision attacks; re-issue with SHA-256+."
+            else:
+                replacement = "SHA-256 / SHA-3"
+                reason = f"{algo} is cryptographically weak; replace with SHA-256 or SHA-3 for security contexts."
+        elif "HMAC-SHA1" in algo or "HMAC-SHA-1" in algo:
+            replacement = "HMAC-SHA-256 / KMAC"
+            reason = "HMAC-SHA-1 uses deprecated SHA-1 digest; upgrade to HMAC-SHA-256 or standardized KMAC."
             effort, impact, compat = "MEDIUM", "MEDIUM", "MEDIUM"
-            reason = "AES key size below 256 bits; raise to AES-256 and validate mode."
+        elif any(k in algo for k in ["SHA-256", "SHA256", "SHA-384", "SHA384", "SHA-512", "SHA512", "SHA3", "SHAKE"]):
+            replacement = f"{algo} - Retain (Strong)" if "Retain" not in replacement else replacement
+            reason = f"{algo} is a secure cryptographic hash providing strong classical and quantum collision resistance; retain."
+            effort, impact, compat = "LOW", "LOW", "LOW"
+
+    # Category override from deterministic analysis
+    category_override = asset_ctx.get("algorithm_category") or category
+    if "AES" in algo or family in ("AES", "SYMMETRIC"):
+        params = cbom_asset.get("parameters") or {}
+        key_size = params.get("key_size") or asset_ctx.get("key_size") or cbom_asset.get("key_size")
+        if "256" in algo or (key_size is not None and str(key_size).isdigit() and int(key_size) >= 256):
+            effort, impact, compat = "LOW", "LOW", "LOW"
+            replacement = "AES-256 (GCM) - Retain (Strong)"
+            reason = "AES-256 is quantum-resilient at 128-bit Grover security bound; retain with AEAD (GCM) mode."
+        elif "128" in algo or (key_size is not None and str(key_size).isdigit() and int(key_size) < 256):
+            effort, impact, compat = "MEDIUM", "MEDIUM", "MEDIUM"
+            replacement = "AES-256 (GCM)"
+            reason = "AES-128 key length offers 64-bit Grover security bound; upgrade to AES-256-GCM for long-term safety."
 
     return {
         "replacement": replacement,
@@ -423,15 +569,47 @@ def compute_migration_impact(asset_ctx: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def migration_wave_for(asset_ctx: Dict[str, Any], blast: Dict[str, Any]) -> int:
-    """Assign assets to a migration wave (1 = stop-the-bleeding first)."""
+    """Assign assets to a migration wave.
+
+    Wave logic (documented and configurable):
+      Wave 1 (0-3 months): Classical-weak security-use crypto, urgent HNDL exposure
+        or urgent internet-facing key establishment, critical inventory gaps.
+      Wave 2 (3-12 months): Remaining Shor-vulnerable public key (hybrid KEM,
+        PQC signatures, cert chain rotation).
+      Wave 3 (12-24 months): Symmetric/digest hardening, governance.
+
+    Wave 2 is guaranteed non-empty when Shor-vulnerable assets exist outside
+    Wave 1 criteria.
+    """
     priority = (asset_ctx.get("migration_priority") or "MEDIUM").upper()
     category = (asset_ctx.get("algorithm_category") or "").upper()
+    algo = normalize_algorithm(asset_ctx.get("algorithm"))
     qv = bool(asset_ctx.get("quantum_vulnerable"))
     severity = blast.get("severity", "MEDIUM")
-    if priority == "URGENT" or severity == "CRITICAL" or (category == "PUBLIC_KEY" and qv):
+    exposure = blast.get("exposure", "internal")
+    hndl = str(asset_ctx.get("hndl_risk") or "").upper()
+    evidence_ctx = str(asset_ctx.get("source_context") or "").lower()
+
+    # Classical-weak security-use crypto always Wave 1
+    is_classical_weak = algo in ("MD5", "SHA1", "SHA-1", "DES", "3DES", "RC4", "RC2", "BLOWFISH")
+    if is_classical_weak and evidence_ctx not in ("test", "docs", "comment", "example"):
         return 1
-    if priority == "HIGH" or severity == "HIGH" or category == "PUBLIC_KEY":
+
+    # Urgent HNDL-exposed or urgent public-key establishment → Wave 1
+    if hndl in ("HIGH", "CRITICAL") and qv:
+        return 1
+    if exposure == "public" and priority in ("URGENT", "CRITICAL") and qv:
+        return 1
+    if priority == "URGENT":
+        return 1
+
+    # Remaining Shor-vulnerable public key → Wave 2
+    if category == "PUBLIC_KEY" and qv:
         return 2
+    if category == "PUBLIC_KEY" or priority == "HIGH" or severity == "HIGH":
+        return 2
+
+    # Everything else → Wave 3 (symmetric/digest hardening, governance)
     return 3
 
 
@@ -449,37 +627,53 @@ def suggestions_for(asset_ctx: Dict[str, Any], blast: Dict[str, Any], impact: Di
     service = blast.get("service", "unknown")
     replacement = impact.get("replacement", "")
     hndl = asset_ctx.get("hndl_risk") or ""
+    profile = str(asset_ctx.get("standards_profile") or "nist_general").lower()
+    profile_label = "CNSA 2.0" if profile == "cnsa_2_0" else "NIST General (FIPS 203/204/205)"
 
     out: List[str] = []
     if category == "PUBLIC_KEY":
         out.append(
-            f"Replace {algo} with {replacement} (CNSA 2.0 / NIST PQC) in '{service}'."
+            f"Migrate {algo} to {replacement} ({profile_label}) in '{service}'."
         )
-        out.append(
-            "Adopt hybrid key exchange (X25519MLKEM768) so TLS and message-level "
-            "handshakes are HNDL-safe today."
-        )
-        if hndl:
+        if "kem" in replacement.lower() or any(k in algo for k in ["ECDH", "DH", "X25519", "RSA"]):
             out.append(
-                f"Rotate {algo} keys/certificates in '{service}' now - harvest-now "
-                f"decrypt-later exposure: {hndl}."
+                "Consider hybrid key establishment using X25519MLKEM768 where protocol support "
+                "and interoperability requirements permit."
             )
-        elif qv:
+        if asset_ctx.get("key_hygiene_issue") or asset_ctx.get("certificate_expired"):
             out.append(
-                "Classify all data protected by {algo} keys and rotate anything "
-                "long-lived to a PQC scheme.".replace("{algo}", algo)
+                f"Rotate expired/weak certificate in '{service}' and enforce automated renewal."
+            )
+        if qv:
+            out.append(
+                f"Classify data protected by {algo} and sequence algorithm migration to an approved PQC scheme."
             )
     elif category == "SYMMETRIC":
-        out.append(
-            f"Maintain {algo} with AES-256 strength; re-validate the cipher mode and "
-            "key-management rotation in '{service}'."
-        )
-        out.append("Ensure symmetric keys are rotated on schedule and stored in a KMS.")
+        if any(w in algo.upper() for w in ["DES", "3DES", "RC4", "BLOWFISH"]) or "weak" in replacement.lower():
+            out.append(
+                f"Migrate legacy {algo} cipher in '{service}' to modern approved encryption ({replacement})."
+            )
+            out.append("Retire legacy ciphers and enforce modern AEAD modes (AES-256-GCM / ChaCha20-Poly1305).")
+        else:
+            out.append(
+                f"Retain {algo} with approved AEAD mode (e.g. GCM); validate key-management and rotation in '{service}'."
+            )
+            out.append("Ensure symmetric keys are rotated on schedule and stored in a KMS.")
     elif category == "HASH":
-        out.append(
-            f"Strengthen {algo} usage to SHA-256/SHA-3 for integrity and signing contexts in '{service}'."
-        )
-        out.append("Remove {algo} from security-sensitive signature paths.".replace("{algo}", algo))
+        if algo.upper() in ("MD5", "SHA1", "SHA-1"):
+            out.append(
+                f"Migrate deprecated {algo} in '{service}' to approved hash construction ({replacement})."
+            )
+            out.append(f"Remove {algo} from security-sensitive signature and digest paths.")
+        elif any(k in algo.upper() for k in ["SHA-256", "SHA256", "SHA-384", "SHA384", "SHA-512", "SHA512", "SHA3", "SHAKE"]):
+            out.append(
+                f"Retain {algo} for integrity and digest contexts in '{service}'."
+            )
+            out.append("Maintain routine cryptographic hygiene and key rotation for HMAC constructions.")
+        else:
+            out.append(
+                f"Review and identify {algo} reference in '{service}' for cryptographic standards compliance."
+            )
     else:
         out.append(
             f"Triage the {algo} reference in '{service}' for standards compliance."
@@ -637,30 +831,148 @@ def blast_radius_summary(bundle: Dict[str, Any]) -> Dict[str, Any]:
 
 WAVE_DEFS = [
     {
-        "name": "Wave 1 - Stop the bleeding (HNDL & PQC triage)",
+        "name": "Wave 1 — Classical-weak remediation & HNDL triage",
         "timeline": "0-3 months",
+        "criteria": (
+            "Classical-weak security-use crypto (MD5, SHA-1, DES, 3DES, RC4, RC2, Blowfish), "
+            "HNDL-exposed or internet-facing key establishment, inventory gaps."
+        ),
         "focus": (
-            "Rotate HNDL-exposed keys, add hybrid handshakes and stage urgent "
-            "post-quantum replacements for publicly exposed primitives."
+            "Remediate classically broken/deprecated primitives, address HNDL-exposed confidentiality paths "
+            "through algorithm migration or hybridization (rotating keys/certificates only where key hygiene, "
+            "expiry, weakness, or compromise requires rotation), add hybrid handshakes, and stage urgent PQC replacements."
         ),
     },
     {
-        "name": "Wave 2 - Post-quantum migration",
+        "name": "Wave 2 — Post-quantum migration",
         "timeline": "3-12 months",
+        "criteria": (
+            "Remaining Shor-vulnerable public-key primitives (RSA, ECDSA, ECDH, DH, Ed25519), "
+            "hybrid KEM deployment, PQC signature migration, certificate chain rotation."
+        ),
         "focus": (
-            "Systematically move public-key signatures and key exchange to ML-KEM / "
-            "ML-DSA per CNSA 2.0, covering downstream trust chains."
+            "Systematically move public-key signatures and key exchange to approved post-quantum "
+            "mechanisms (ML-KEM / ML-DSA), covering downstream trust chains."
         ),
     },
     {
-        "name": "Wave 3 - Hardening & governance",
+        "name": "Wave 3 — Symmetric hardening & governance",
         "timeline": "12-24 months",
+        "criteria": (
+            "Symmetric cipher consolidation (AES-256-GCM), hash strengthening, "
+            "governance codification, crypto policy guardrails in CI."
+        ),
         "focus": (
-            "Consolidate symmetric modes (AES-256), strengthen hashes to SHA-3, retire "
-            "legacy ciphers and codify crypto policy so new failures cannot ship."
+            "Consolidate symmetric modes (AES-256-GCM), strengthen hashes to SHA-256+/SHA-3, "
+            "retire legacy ciphers, and codify crypto policy so new failures cannot ship."
         ),
     },
 ]
+
+
+# ---------------------------------------------------------------------------
+# Effort estimation model (Phase D)
+# ---------------------------------------------------------------------------
+
+# Base effort per asset type (in engineering weeks, low/high)
+_EFFORT_PER_TYPE = {
+    "PUBLIC_KEY": (2.0, 6.0),
+    "SYMMETRIC": (0.5, 2.0),
+    "CLASSICAL_WEAK": (1.0, 3.0),
+    "HASH": (0.5, 1.5),
+    "LEGACY_REVIEW": (0.5, 2.0),
+    "UNKNOWN": (1.0, 4.0),
+}
+
+
+def compute_effort_range(
+    assets: List[Dict[str, Any]],
+    shared_dependencies: Optional[Dict[str, int]] = None,
+) -> Dict[str, Any]:
+    """Compute effort estimate as a range (low/high) in engineering quarters.
+
+    Model: effort = sum(base_effort[type] * blast_radius_factor) / dedup_factor
+    where dedup_factor accounts for shared dependencies (one fix = one task).
+
+    Assumptions are documented in the output for transparency.
+    """
+    if not assets:
+        return {
+            "low_weeks": 0.0, "high_weeks": 0.0,
+            "low_quarters": 0.0, "high_quarters": 0.0,
+            "assumptions": ["No assets to estimate."],
+        }
+
+    shared = shared_dependencies or {}
+    total_low = 0.0
+    total_high = 0.0
+    seen_fixes = set()  # Deduplicate shared-dependency fixes
+
+    for a in assets:
+        category = str(a.get("algorithm_category") or a.get("replacement_category") or "UNKNOWN").upper()
+        algo = normalize_algorithm(a.get("algorithm"))
+        service = a.get("service") or "unknown"
+        blast_count = a.get("blast", {}).get("shared_assets", 1)
+
+        # Deduplicate: if this algo+service was already counted, skip
+        fix_key = f"{algo}:{service}"
+        if fix_key in seen_fixes:
+            continue
+        seen_fixes.add(fix_key)
+
+        low, high = _EFFORT_PER_TYPE.get(category, (1.0, 4.0))
+
+        # Blast radius factor: more shared assets = slightly more effort
+        blast_factor = 1.0 + (0.1 * min(blast_count - 1, 10))
+
+        total_low += low * blast_factor
+        total_high += high * blast_factor
+
+    # Convert weeks to quarters (13 weeks per quarter)
+    low_q = round(total_low / 13.0, 1)
+    high_q = round(total_high / 13.0, 1)
+
+    return {
+        "low_weeks": round(total_low, 1),
+        "high_weeks": round(total_high, 1),
+        "low_quarters": low_q,
+        "high_quarters": high_q,
+        "deduplicated_tasks": len(seen_fixes),
+        "assumptions": [
+            "Effort per asset type based on industry PQC migration benchmarks.",
+            "Blast radius factor: +10% per co-located shared asset (capped at +100%).",
+            "Shared-dependency fixes are deduplicated (one library = one task).",
+            f"{len(seen_fixes)} unique fix tasks identified from {len(assets)} asset(s).",
+        ],
+    }
+
+
+# ---------------------------------------------------------------------------
+# Standards profile (Phase D)
+# ---------------------------------------------------------------------------
+
+NIST_GENERAL_RECOMMENDATIONS = {
+    "kem": "ML-KEM-768 / ML-KEM-1024 (FIPS 203)",
+    "signature": "ML-DSA-65 / ML-DSA-87 (FIPS 204) / SLH-DSA (FIPS 205)",
+    "symmetric": "AES-256-GCM / ChaCha20-Poly1305",
+    "hash": "SHA-256 / SHA-384 / SHA-512 / SHA-3",
+    "firmware_signing": "ML-DSA-87 / SLH-DSA (FIPS 205)",
+}
+
+CNSA_2_0_RECOMMENDATIONS = {
+    "kem": "ML-KEM-1024 (FIPS 203)",
+    "signature": "ML-DSA-87 (FIPS 204)",
+    "symmetric": "AES-256",
+    "hash": "SHA-384 / SHA-512",
+    "firmware_signing": "LMS / XMSS (stateful hash-based)",
+}
+
+
+def get_standards_recommendations(profile: str = "nist_general") -> Dict[str, str]:
+    """Get role-specific PQC recommendations for the given standards profile."""
+    if profile == "cnsa_2_0":
+        return CNSA_2_0_RECOMMENDATIONS
+    return NIST_GENERAL_RECOMMENDATIONS
 
 
 def baseline_recommendations(bundle: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -668,50 +980,55 @@ def baseline_recommendations(bundle: Dict[str, Any]) -> List[Dict[str, Any]]:
     urgent = sum(1 for a in assets if (a.get("migration_priority") or "").upper() == "URGENT")
     qv = sum(1 for a in assets if a.get("quantum_vulnerable"))
     hndl = sum(1 for a in assets if (a.get("hndl_risk") or "").upper() in ("HIGH", "CRITICAL"))
+    classical_weak = sum(
+        1 for a in assets
+        if normalize_algorithm(a.get("algorithm")) in ("MD5", "SHA1", "SHA-1", "DES", "3DES", "RC4", "RC2", "BLOWFISH")
+    )
     exposure = exposure_for(bundle)
 
     recs = [
         {
             "priority": "HIGH",
             "wave": 1,
-            "title": "HNDL exposure cut & key rotation",
+            "title": "Classical-weak remediation",
             "description": (
-                f"{hndl} asset(s) face harvest-now-decrypt-later exposure. Rotate "
-                "affected keys/certificates and introduce hybrid TLS handshakes before "
-                "any large-scale PQC migration."
+                f"{classical_weak} canonical asset(s) use classically broken/deprecated primitives "
+                "(MD5, SHA-1, DES, 3DES, RC4, RC2, Blowfish). Remediate immediately regardless "
+                "of quantum timeline."
             ),
-            "actions": ["Rotate HNDL-exposed keys & certs", "Enable X25519MLKEM768 hybrid handshake"],
+            "actions": ["Replace MD5/SHA-1 with SHA-256+", "Migrate DES/3DES/RC4 to AES-256-GCM"],
         },
         {
             "priority": "HIGH",
             "wave": 1,
-            "title": "Urgent post-quantum replacements",
+            "title": "HNDL exposure remediation & key protection",
             "description": (
-                f"{urgent} asset(s) are URGENT priority and {qv} are post-quantum "
-                f"vulnerable on a {exposure} surface. Stage ML-KEM/ML-DSA pilots in "
-                "the most exposed services first."
+                f"{hndl} canonical asset(s) face harvest-now-decrypt-later exposure. Address "
+                "HNDL-exposed confidentiality paths through algorithm migration or hybridization. "
+                "Rotate keys/certificates only where key hygiene, expiry, weakness, or compromise requires rotation."
             ),
-            "actions": ["Pilot ML-KEM/ML-DSA in exposed services", "Certify trust chains against CNSA 2.0"],
+            "actions": ["Enable hybrid PQC/classical handshakes (X25519MLKEM768)", "Rotate certificates only where expired or weak"],
         },
         {
-            "priority": "MEDIUM",
+            "priority": "HIGH",
             "wave": 2,
-            "title": "Broad public-key migration",
+            "title": "Post-quantum public-key migration",
             "description": (
-                "Migrate all remaining RSA/ECC primitives to NIST PQC within the next "
-                "two quarters, with graceful fallback while certificates rotate."
+                f"{qv} canonical asset(s) use Shor-vulnerable public-key primitives on a "
+                f"{exposure} surface. Migrate to NIST PQC (ML-KEM/ML-DSA) with hybrid "
+                "transition where interoperability requires."
             ),
-            "actions": ["Schedule RSA/ECC -> ML-KEM/ML-DSA migration", "Update libraries & SDKs"],
+            "actions": ["Schedule RSA/ECC -> ML-KEM/ML-DSA migration", "Update libraries & SDKs", "Rotate certificate chains"],
         },
         {
             "priority": "MEDIUM",
             "wave": 3,
             "title": "Symmetric & digest hardening",
             "description": (
-                "Consolidate data-at-rest to AES-256 GCM and strengthen hashes to "
-                "SHA-256/SHA-3; retire DES/3DES/MD5/SHA-1 references."
+                "Consolidate data-at-rest to AES-256-GCM and strengthen hashes to "
+                "SHA-256/SHA-3; retire legacy cipher references."
             ),
-            "actions": ["AES-256 GCM enforcement", "SHA-3 digest adoption", "Retire legacy ciphers"],
+            "actions": ["AES-256-GCM enforcement", "SHA-256+/SHA-3 adoption", "Retire legacy ciphers"],
         },
         {
             "priority": "MEDIUM",
