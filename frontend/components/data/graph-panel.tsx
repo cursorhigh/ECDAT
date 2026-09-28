@@ -1,439 +1,515 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Boxes, GitBranch, Loader2, Network, Radar, RefreshCw, Share2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import dynamic from "next/dynamic";
+import {
+  AlertTriangle,
+  Compass,
+  Focus,
+  LayoutGrid,
+  Network,
+  RefreshCw,
+  Search,
+  Share2,
+  X
+} from "lucide-react";
+
 import { Button } from "@/components/ui/button";
-import { Tooltip } from "@/components/ui/tooltip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
 import { EmptyState, ErrorState, LoadingState } from "@/components/feedback/data-state";
 import { SectionLabel } from "@/components/data/page-header";
-import { useToast } from "@/components/feedback/toast";
+import { Tooltip } from "@/components/ui/tooltip";
 import { api } from "@/lib/api/client";
 import type { GraphImpact, GraphNodeRow } from "@/lib/api/types";
-import { cn, formatNumber, titleCase } from "@/lib/utils";
+import { formatNumber, truncate } from "@/lib/utils";
+import {
+  GROUP_LABEL,
+  GROUP_ORDER,
+  nodeStyleFor
+} from "@/components/data/graph-style";
+import type { GraphHandle } from "@/components/data/graph-canvas";
 
-/**
- * The unified relationship graph.
- *
- * The point of this view is not a pretty hairball; it is answering three
- * questions that no single table could answer before: what depends on this
- * library, which certificates does this application use, and what breaks if
- * this key goes away.
- */
+// Cytoscape touches `window` on import, so it must not be in the server bundle.
+const GraphCanvas = dynamic(
+  () => import("@/components/data/graph-canvas").then((mod) => mod.GraphCanvas),
+  { ssr: false, loading: () => <LoadingState label="Preparing the graph" /> }
+);
 
-const NODE_TONES: Record<string, string> = {
-  application: "border-primary/40 bg-primary/10 text-primary",
-  repository: "border-primary/30 bg-primary/5 text-primary",
-  container: "border-info/40 bg-info/10 text-info",
-  file: "border-border bg-muted/40 text-muted-foreground",
-  api: "border-info/40 bg-info/10 text-info",
-  library: "border-warning/40 bg-warning/10 text-warning",
-  dependency: "border-warning/40 bg-warning/10 text-warning",
-  algorithm: "border-destructive/40 bg-destructive/10 text-destructive",
-  key: "border-destructive/40 bg-destructive/10 text-destructive",
-  certificate: "border-success/40 bg-success/10 text-success",
-  protocol: "border-info/40 bg-info/10 text-info",
-  endpoint: "border-info/40 bg-info/10 text-info",
-  infrastructure: "border-border bg-muted/40 text-muted-foreground",
-};
+type Layout = "force" | "containment" | "by-type";
 
-const QUESTIONS: Array<{ value: string; label: string; hint: string }> = [
-  { value: "dependents", label: "What depends on this?", hint: "Walks depends_on edges backwards." },
-  { value: "certificates", label: "Which certificates does it use?", hint: "Follows contains and uses edges." },
-  { value: "blast-radius", label: "What breaks if this goes away?", hint: "Walks both directions." },
+const LAYOUTS: { value: Layout; label: string; icon: typeof Network; hint: string }[] = [
+  { value: "force", label: "Force", icon: Network, hint: "Spreads the graph so clusters are visible." },
+  { value: "containment", label: "Containment", icon: LayoutGrid, hint: "Trees the graph by what contains what." },
+  { value: "by-type", label: "By type", icon: Compass, hint: "Primitives in the middle, workloads around them." }
 ];
 
+const QUESTIONS: { value: string; label: string }[] = [
+  { value: "blast-radius", label: "What breaks if this goes away?" },
+  { value: "dependents", label: "What depends on this?" },
+  { value: "certificates", label: "Which certificates does this use?" }
+];
+
+/**
+ * The relationship graph for one scan.
+ *
+ * Everything shown is derived from the unified graph index, so each node is a
+ * real discovered entity and every edge carries the evidence that produced it.
+ * Nothing is inferred here for display: if an edge is on screen, discovery
+ * recorded why.
+ */
 export function GraphPanel({ scopeKey, ready }: { scopeKey: string; ready: boolean }) {
-  const { pushToast } = useToast();
-  const queryClient = useQueryClient();
-  const [typeFilter, setTypeFilter] = useState("");
+  const hasSession = ready;
+  const [layout, setLayout] = useState<Layout>("force");
+  const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<GraphNodeRow | null>(null);
-  const [question, setQuestion] = useState("blast-radius");
+  const [hovered, setHovered] = useState<GraphNodeRow | null>(null);
+  const [search, setSearch] = useState("");
+  const [showAllRelations, setShowAllRelations] = useState(false);
+  const [graphLimit] = useState(600);
+  const handleRef = useRef<GraphHandle | null>(null);
+  const searchRef = useRef<HTMLInputElement | null>(null);
 
   const graph = useQuery({
-    queryKey: ["graph-index", scopeKey, typeFilter],
-    queryFn: () =>
-      api.graphIndex(typeFilter ? { node_type: typeFilter, limit: 500 } : { limit: 500 }),
-    enabled: ready,
+    queryKey: ["graph-index", scopeKey, graphLimit],
+    queryFn: () => api.graphIndex({ limit: graphLimit }),
+    enabled: ready && hasSession
+  });
+
+  // One question at a time: the three are different traversals with different
+  // meanings, so showing all three at once invites reading one as another.
+  const question = "blast-radius";
+
+  // The index is derived data, so rebuilding is always safe to repeat. It is
+  // exposed because a scan that finished before the index existed would
+  // otherwise have no path to a graph short of re-scanning.
+  const rebuild = useMutation({
+    mutationFn: api.rebuildGraphIndex,
+    onSuccess: () => graph.refetch()
   });
 
   const impact = useQuery({
-    queryKey: ["graph-impact", scopeKey, selected?.id, question],
+    queryKey: ["graph-impact", selected?.id, question],
     queryFn: () => api.graphImpact(selected!.id, question),
-    enabled: ready && Boolean(selected),
+    enabled: Boolean(selected)
   });
 
-  const rebuild = useMutation({
-    mutationFn: api.rebuildGraphIndex,
-    onSuccess: async (result) => {
-      pushToast(
-        `Graph rebuilt: ${formatNumber(result.nodes_created + result.nodes_reused)} nodes, ` +
-          `${formatNumber(result.edges_created)} new edges.`,
-        "success",
-      );
-      if (result.unmapped_asset_types.length) {
-        // Surfaced, not swallowed: a new asset type with no node mapping would
-        // otherwise be invisible everywhere.
-        pushToast(
-          `Unmapped asset types: ${result.unmapped_asset_types.join(", ")}`,
-          "info",
-        );
-      }
-      await queryClient.invalidateQueries({ queryKey: ["graph-index"] });
-    },
-    onError: (error) =>
-      pushToast(error instanceof Error ? error.message : "The graph could not be rebuilt.", "error"),
-  });
+  const nodes = useMemo(() => graph.data?.nodes || [], [graph.data]);
+  const edges = useMemo(() => graph.data?.edges || [], [graph.data]);
 
-  const nodes = graph.data?.nodes || [];
-  const stats = graph.data?.stats;
-  const nodeTypes = useMemo(
-    () => Object.entries(stats?.nodes_by_type || {}).sort((a, b) => b[1] - a[1]),
-    [stats],
+  const visibleEdges = useMemo(
+    () => (showAllRelations ? edges : edges.filter((edge) => edge.kind !== "co_located" && edge.kind !== "relates_to")),
+    [edges, showAllRelations]
   );
+
+  const byType = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const node of nodes) map.set(node.node_type, (map.get(node.node_type) || 0) + 1);
+    return map;
+  }, [nodes]);
+
+  const byGroup = useMemo(() => {
+    const groups = new Map<string, Array<[string, number]>>();
+    for (const [type, count] of byType) {
+      const group = nodeStyleFor(type).group;
+      if (!groups.has(group)) groups.set(group, []);
+      groups.get(group)!.push([type, count]);
+    }
+    for (const entries of groups.values()) {
+      entries.sort((a, b) => b[1] - a[1]);
+    }
+    return groups;
+  }, [byType]);
+
+  const relationCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const edge of edges) map.set(edge.kind, (map.get(edge.kind) || 0) + 1);
+    return map;
+  }, [edges]);
+
+  const truncated = nodes.length >= graphLimit;
+
+  const toggleType = useCallback((type: string) => {
+    setHiddenTypes((previous) => {
+      const next = new Set(previous);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  }, []);
+
+  const matches = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return [];
+    return nodes
+      .filter((node) => (node.label || node.key).toLowerCase().includes(needle))
+      .slice(0, 8);
+  }, [nodes, search]);
+
+  // Escape clears the selection; "/" focuses search, so a graph can be driven
+  // without reaching for the mouse.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const typing = target && /^(INPUT|TEXTAREA)$/.test(target.tagName);
+      if (event.key === "Escape") {
+        setSelected(null);
+        handleRef.current?.clearFocus();
+        setSearch("");
+      } else if (event.key === "/" && !typing) {
+        event.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  if (graph.isLoading) return <LoadingState label="Reading the relationship graph" />;
+  if (graph.isError) {
+    const message = graph.error instanceof Error ? graph.error.message : undefined;
+    if (message?.includes("No scan is selected")) return null;
+    return <ErrorState message={message} onRetry={() => graph.refetch()} />;
+  }
+
+  const stats = graph.data?.stats;
+
+  if (!nodes.length) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Relationship graph</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EmptyState
+            title="No relationships recorded for this scan"
+            description="The graph is built from the scan's own findings, so it is empty until the scan has something to relate. Run a scan, or import findings from another tool."
+          />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader className="flex-row items-start justify-between">
+        <CardHeader className="flex-row flex-wrap items-start justify-between gap-3">
           <div>
-            <CardTitle className="flex items-center gap-2">
-              <Network className="h-4 w-4 text-primary" aria-hidden="true" />
-              Relationship graph
-            </CardTitle>
+            <CardTitle>Relationship graph</CardTitle>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              One graph across repositories, applications, files, libraries, algorithms, keys,
-              certificates and endpoints. Every link records why it exists.
+              Every discovered entity in this scan, and the relationships discovery recorded
+              between them. Select a node to see what depends on it.
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => rebuild.mutate()}
-            disabled={rebuild.isPending}
-          >
-            {rebuild.isPending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-            ) : (
-              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-            )}
-            Rebuild
-          </Button>
-        </CardHeader>
-        {graph.isLoading ? (
-          <CardContent className="p-5">
-            <LoadingState label="Loading the relationship graph" />
-          </CardContent>
-        ) : graph.isError ? (
-          <CardContent className="p-5">
-            <ErrorState
-              message={graph.error instanceof Error ? graph.error.message : undefined}
-              onRetry={() => void graph.refetch()}
-            />
-          </CardContent>
-        ) : !stats?.nodes ? (
-          <CardContent className="p-5">
-            <EmptyState
-              title="The graph is empty"
-              description="Run a discovery scan. The graph is built from what discovery records and can be rebuilt at any time."
-            />
-          </CardContent>
-        ) : (
-          <CardContent className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <Stat label="Nodes" value={stats.nodes} icon={Boxes} />
-              <Stat label="Relationships" value={stats.edges} icon={GitBranch} />
-              <Stat label="Entity types" value={nodeTypes.length} icon={Network} />
-            </div>
-
-            {nodeTypes.length ? (
-              <div>
-                <SectionLabel>Entities</SectionLabel>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  <TypeChip
-                    label="All"
-                    count={stats.nodes}
-                    active={typeFilter === ""}
-                    onClick={() => setTypeFilter("")}
-                  />
-                  {nodeTypes.map(([type, count]) => (
-                    <TypeChip
-                      key={type}
-                      label={titleCase(type)}
-                      count={count}
-                      active={typeFilter === type}
-                      tone={NODE_TONES[type]}
-                      onClick={() => setTypeFilter(typeFilter === type ? "" : type)}
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            <p className="text-[11px] leading-4 text-muted-foreground">
-              Select a node to see what depends on it, what it uses, and what it would break.
-            </p>
-          </CardContent>
-        )}
-      </Card>
-
-      {stats?.nodes ? (
-        <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">
-                {typeFilter ? `${titleCase(typeFilter)} nodes` : "All nodes"}
-                <span className="ml-2 font-mono text-[11px] font-normal text-muted-foreground">
-                  {formatNumber(nodes.length)}
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {nodes.length ? (
-                <div className="max-h-[520px] overflow-y-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Node</TableHead>
-                        <TableHead>Detail</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {nodes.map((node) => (
-                        <TableRow
-                          key={node.id}
-                          onClick={() => setSelected(node)}
-                          className={cn(
-                            "cursor-pointer",
-                            selected?.id === node.id && "bg-primary/5",
-                          )}
-                        >
-                          <TableCell>
-                            <span
-                              className={cn(
-                                "inline-block whitespace-nowrap border px-1.5 py-0.5 text-[10px] uppercase tracking-[0.08em]",
-                                NODE_TONES[node.node_type] || "border-border text-muted-foreground",
-                              )}
-                            >
-                              {node.node_type_display}
-                            </span>
-                          </TableCell>
-                          <TableCell className="min-w-0">
-                            <p className="truncate text-xs font-medium" title={node.label}>
-                              {node.label}
-                            </p>
-                            {node.location ? (
-                              <p
-                                className="truncate font-mono text-[11px] text-muted-foreground"
-                                title={node.location}
-                              >
-                                {node.location}
-                              </p>
-                            ) : null}
-                          </TableCell>
-                          <TableCell className="text-[11px] text-muted-foreground">
-                            {node.algorithm || node.family || "—"}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              ) : (
-                <div className="p-5">
-                  <EmptyState
-                    title="No nodes of this type"
-                    description="Choose a different entity type, or clear the filter."
-                  />
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Impact</CardTitle>
-              {selected ? (
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Asked about{" "}
-                  <span className="text-foreground">{selected.label}</span> (
-                  {selected.node_type_display})
-                </p>
-              ) : null}
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {!selected ? (
-                <EmptyState
-                  title="Nothing selected"
-                  description="Pick a node from the list to trace its relationships."
+          <div className="flex items-center gap-2">
+            <span className="tnum text-[11px] text-muted-foreground">
+              {formatNumber(stats?.nodes || 0)} nodes · {formatNumber(stats?.edges || 0)} edges
+            </span>
+            <Button variant="ghost" size="sm" onClick={() => handleRef.current?.fit()}>
+              <Focus className="h-3.5 w-3.5" aria-hidden="true" />
+              Fit
+            </Button>
+            <Tooltip msg="Recomputes the index from this scan's recorded data. Safe to repeat.">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => rebuild.mutate()}
+                disabled={rebuild.isPending}
+              >
+                <RefreshCw
+                  className={`h-3.5 w-3.5 ${rebuild.isPending ? "animate-spin" : ""}`}
+                  aria-hidden="true"
                 />
-              ) : (
-                <>
-                  <div className="flex flex-wrap gap-1.5">
-                    {QUESTIONS.map((item) => (
-                      <Tooltip key={item.value} msg={item.hint} placement="top" offset={8}>
+                {rebuild.isPending ? "Rebuilding" : "Rebuild"}
+              </Button>
+            </Tooltip>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative min-w-[220px] flex-1">
+              <Search className="pointer-events-none absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+              <Input
+                ref={searchRef}
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Find a node  (press / )"
+                className="pl-8"
+                aria-label="Find a node in the graph"
+              />
+              {matches.length ? (
+                <ul className="absolute left-0 right-0 top-11 z-30 max-h-56 overflow-y-auto border bg-popover p-1 text-popover-foreground shadow-2xl">
+                  {matches.map((node) => {
+                    const style = nodeStyleFor(node.node_type);
+                    return (
+                      <li key={node.id}>
                         <button
                           type="button"
-                          onClick={() => setQuestion(item.value)}
-                          aria-pressed={question === item.value}
-                          className={cn(
-                            "border px-2.5 py-1 text-[11px] transition-colors",
-                            question === item.value
-                              ? "border-primary bg-primary/10 text-primary"
-                              : "border-border text-muted-foreground hover:bg-muted",
-                          )}
+                          className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs hover:bg-secondary"
+                          onClick={() => {
+                            setSelected(node);
+                            handleRef.current?.focus(node.id);
+                            setSearch("");
+                          }}
                         >
-                          {item.label}
+                          <span
+                            className="inline-block h-2.5 w-2.5 shrink-0"
+                            style={{ backgroundColor: style.color }}
+                            aria-hidden="true"
+                          />
+                          <span className="min-w-0 flex-1 truncate">{node.label || node.key}</span>
+                          <span className="shrink-0 text-[10px] text-muted-foreground">
+                            {style.label}
+                          </span>
                         </button>
-                      </Tooltip>
-                    ))}
-                  </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : null}
+            </div>
 
-                  <ImpactResult impact={impact.data} loading={impact.isFetching} />
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function ImpactResult({ impact, loading }: { impact?: GraphImpact; loading: boolean }) {
-  if (loading) return <LoadingState label="Tracing relationships" />;
-  if (!impact) return null;
-
-  if (impact.truncated) {
-    return (
-      <div className="border border-warning/40 bg-warning/5 p-3 text-[11px] leading-4 text-warning">
-        This answer was capped to keep the query bounded. Narrow the starting node for the full
-        picture.
-      </div>
-    );
-  }
-
-  if (!impact.count) {
-    return (
-      <p className="text-xs text-muted-foreground">
-        Nothing is connected to this node by that relationship.
-      </p>
-    );
-  }
-
-  if (impact.by_type) {
-    return (
-      <div className="space-y-3">
-        <div className="flex flex-wrap gap-1.5">
-          {Object.entries(impact.by_type).map(([type, count]) => (
-            <span
-              key={type}
-              className={cn(
-                "border px-2 py-0.5 text-[11px]",
-                NODE_TONES[type] || "border-border text-muted-foreground",
-              )}
-            >
-              {titleCase(type)} <span className="tnum">{formatNumber(count)}</span>
-            </span>
-          ))}
-        </div>
-        <ul className="space-y-1">
-          {(impact.affected || []).slice(0, 40).map((node) => (
-            <li key={node.id} className="flex items-center gap-2 border-b pb-1 last:border-0">
-              <span className="shrink-0 text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
-                {node.node_type_display}
-              </span>
-              <span className="truncate text-xs" title={node.location || node.label}>
-                {node.label}
-              </span>
-            </li>
-          ))}
-        </ul>
-        {(impact.affected?.length || 0) > 40 ? (
-          <p className="text-[11px] text-muted-foreground">
-            Showing the first 40 of {formatNumber(impact.affected?.length || 0)}.
-          </p>
-        ) : null}
-      </div>
-    );
-  }
-
-  return (
-    <ul className="space-y-2">
-      {impact.paths.slice(0, 40).map((entry, index) => (
-        <li key={`${index}-${entry.length}`} className="border p-2">
-          <div className="flex flex-wrap items-center gap-1 text-[11px]">
-            {entry.path.map((hop, hopIndex) => (
-              <span key={`${hop.node.id}-${hopIndex}`} className="flex items-center gap-1">
-                {hopIndex > 0 ? (
-                  <span className="text-muted-foreground">
-                    <Share2 className="h-3 w-3" aria-hidden="true" />
-                  </span>
-                ) : null}
-                <span
-                  className={cn(
-                    "border px-1.5 py-0.5",
-                    NODE_TONES[hop.node.node_type] || "border-border text-muted-foreground",
-                  )}
-                  title={hop.why?.why ? String(hop.why.why) : undefined}
-                >
-                  {hop.node.label}
-                </span>
-              </span>
-            ))}
+            <div className="flex items-center gap-1" role="group" aria-label="Graph layout">
+              {LAYOUTS.map((option) => (
+                <Tooltip key={option.value} msg={option.hint}>
+                  <Button
+                    variant={layout === option.value ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => setLayout(option.value)}
+                    aria-pressed={layout === option.value}
+                  >
+                    <option.icon className="h-3.5 w-3.5" aria-hidden="true" />
+                    {option.label}
+                  </Button>
+                </Tooltip>
+              ))}
+            </div>
           </div>
-        </li>
-      ))}
-      {impact.paths.length > 40 ? (
-        <p className="text-[11px] text-muted-foreground">
-          Showing the first 40 of {formatNumber(impact.paths.length)} paths.
-        </p>
-      ) : null}
-    </ul>
-  );
-}
 
-function Stat({ label, value, icon: Icon }: { label: string; value: number; icon: typeof Boxes }) {
-  return (
-    <div className="border p-3">
-      <div className="flex items-center justify-between">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-          {label}
-        </p>
-        <Icon className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            {GROUP_ORDER.filter((group) => byGroup.has(group)).map((group) => (
+              <div key={group} className="flex items-center gap-1.5">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                  {GROUP_LABEL[group]}
+                </span>
+                {byGroup.get(group)!.map(([type, count]) => {
+                  const style = nodeStyleFor(type);
+                  const hidden = hiddenTypes.has(type);
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => toggleType(type)}
+                      aria-pressed={!hidden}
+                      className={`inline-flex items-center gap-1.5 border px-1.5 py-0.5 text-[11px] transition-opacity ${
+                        hidden ? "border-border text-muted-foreground opacity-40" : "border-border text-foreground"
+                      }`}
+                    >
+                      <span
+                        className="inline-block h-2 w-2"
+                        style={{ backgroundColor: style.color }}
+                        aria-hidden="true"
+                      />
+                      {style.label}
+                      <span className="tnum text-muted-foreground">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+
+            {relationCounts.has("co_located") || relationCounts.has("relates_to") ? (
+              <Button
+                variant={showAllRelations ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setShowAllRelations((value) => !value)}
+                aria-pressed={showAllRelations}
+                className="ml-auto"
+              >
+                <Share2 className="h-3.5 w-3.5" aria-hidden="true" />
+                {showAllRelations ? "Hiding weak links" : "Show weak links"}
+              </Button>
+            ) : null}
+          </div>
+
+          {truncated ? (
+            <p className="flex items-start gap-2 border border-amber-500/40 bg-amber-500/5 px-2.5 py-2 text-[11px] leading-4 text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span>
+                Showing the first {formatNumber(graphLimit)} of this scan&apos;s nodes. A larger scan
+                is drawn in part, so what is on screen is not the whole relationship set.
+              </span>
+            </p>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+        <Card className="overflow-hidden">
+          <CardContent className="p-0">
+            <div className="h-[560px] w-full">
+              <GraphCanvas
+                nodes={nodes}
+                edges={visibleEdges}
+                onSelect={setSelected}
+                onHover={setHovered}
+                hiddenTypes={hiddenTypes}
+                handleRef={handleRef}
+                layout={layout}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-4">
+          {hovered && !selected ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <span
+                    className="inline-block h-2.5 w-2.5"
+                    style={{ backgroundColor: nodeStyleFor(hovered.node_type).color }}
+                    aria-hidden="true"
+                  />
+                  {truncate(hovered.label || hovered.key, 44)}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-xs">
+                <p className="text-muted-foreground">
+                  {nodeStyleFor(hovered.node_type).label} · select to inspect its relationships
+                </p>
+                <DetailRows node={hovered} />
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {selected ? (
+            <NodeDetail
+              node={selected}
+              impact={impact.data}
+              loading={impact.isLoading}
+              onClose={() => {
+                setSelected(null);
+                handleRef.current?.clearFocus();
+              }}
+            />
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Impact</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <EmptyState
+                  title="Select a node"
+                  description="Click any node to see what discovery recorded about it, and what would be affected if it were removed."
+                />
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
-      <p className="tnum mt-2 text-2xl font-semibold">{formatNumber(value)}</p>
     </div>
   );
 }
 
-function TypeChip({
-  label,
-  count,
-  active,
-  tone,
-  onClick,
+function NodeDetail({
+  node,
+  impact,
+  loading,
+  onClose
 }: {
-  label: string;
-  count: number;
-  active: boolean;
-  tone?: string;
-  onClick: () => void;
+  node: GraphNodeRow;
+  impact?: GraphImpact;
+  loading: boolean;
+  onClose: () => void;
 }) {
+  const style = nodeStyleFor(node.node_type);
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        "border px-2 py-0.5 text-[11px] transition-colors",
-        active ? "border-primary bg-primary/10 text-primary" : tone || "border-border text-muted-foreground hover:bg-muted",
-      )}
-    >
-      {label} <span className="tnum">{formatNumber(count)}</span>
-    </button>
+    <Card>
+      <CardHeader className="flex-row items-start justify-between gap-3">
+        <div className="min-w-0">
+          <CardTitle className="flex items-center gap-2">
+            <span
+              className="inline-block h-2.5 w-2.5 shrink-0"
+              style={{ backgroundColor: style.color }}
+              aria-hidden="true"
+            />
+            <span className="truncate">{node.label || node.key}</span>
+          </CardTitle>
+          <p className="mt-1 text-[11px] text-muted-foreground">{style.label}</p>
+        </div>
+        <Button variant="ghost" size="icon" onClick={onClose} aria-label="Clear selection">
+          <X className="h-3.5 w-3.5" aria-hidden="true" />
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <DetailRows node={node} />
+
+        <div className="space-y-2 border-t pt-3">
+          <SectionLabel>What is affected</SectionLabel>
+          {loading ? (
+            <p className="text-[11px] text-muted-foreground">Walking the relationships…</p>
+          ) : !impact || !impact.count ? (
+            <p className="text-[11px] leading-4 text-muted-foreground">
+              Nothing else in this scan is recorded as depending on it. That is what the graph
+              says, not a claim that it has no impact.
+            </p>
+          ) : (
+            <>
+              <p className="text-[11px] text-muted-foreground">
+                {formatNumber(impact.count)} node{impact.count === 1 ? "" : "s"} reachable from here
+                {impact.truncated ? " (list truncated)" : ""}.
+              </p>
+              <ul className="space-y-1">
+                {(impact.affected || []).slice(0, 10).map((row) => (
+                  <li key={row.id} className="flex items-center gap-2 text-[11px]">
+                    <span
+                      className="inline-block h-2 w-2 shrink-0"
+                      style={{ backgroundColor: nodeStyleFor(row.node_type).color }}
+                      aria-hidden="true"
+                    />
+                    <span className="min-w-0 flex-1 truncate">{row.label || row.key}</span>
+                    <span className="shrink-0 text-muted-foreground">
+                      {nodeStyleFor(row.node_type).label}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DetailRows({ node }: { node: GraphNodeRow }) {
+  const detail = (node.detail || {}) as Record<string, unknown>;
+  const rows: Array<[string, unknown]> = [
+    ["Family", node.family],
+    ["Algorithm", node.algorithm || detail.algorithm],
+    ["Key size", detail.key_size],
+    ["Curve", detail.curve],
+    ["Protocol", detail.protocol],
+    ["Library", detail.library],
+    ["Owner", detail.owner],
+    ["Source", node.source_type],
+    ["Location", detail.location || detail.path || detail.root || node.location]
+  ];
+  const present = rows.filter(([, value]) => value !== undefined && value !== null && value !== "");
+  if (!present.length) {
+    return <p className="text-[11px] text-muted-foreground">No further detail was recorded.</p>;
+  }
+  return (
+    <dl className="space-y-1 text-[11px]">
+      {present.map(([label, value]) => (
+        <div key={label} className="flex gap-2">
+          <dt className="w-20 shrink-0 text-muted-foreground">{label}</dt>
+          <dd className="min-w-0 flex-1 break-words font-mono">{String(value)}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
