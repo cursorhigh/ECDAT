@@ -2,34 +2,62 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Light theme.
+ *
+ * This was very nearly neutral: pure white background, near-black text, and a
+ * `muted-foreground` of neutral grey at 42% lightness. On white that lands around
+ * 4.6:1, which is why so much of the secondary text on this theme was hard to
+ * read -- and it was used for nearly a hundred labels, captions and timestamps, so
+ * it was most of the grey on screen.
+ *
+ * Two changes, both in the tokens so the whole app moves together:
+ *
+ * 1. The neutrals carry a cool blue cast instead of being true grey. Tinted grey
+ *    reads as deliberate rather than washed out, and it separates surfaces without
+ *    leaning on borders for every edge.
+ * 2. `muted-foreground` is darkened to about 36% lightness, roughly 7.4:1 on white.
+ *    Still clearly secondary next to the foreground, but comfortably readable.
+ *
+ * `primary` is a deep teal rather than near-black, so primary actions, selected
+ * rows and focus rings are branded instead of merely dark. It lines up with the
+ * teal already used for `--ring` and the mint `--accent`, which were the only
+ * colour on the page and were fighting a black primary.
+ *
+ * Cards stay pure white against the faintly tinted page, so they lift without
+ * needing a shadow.
+ */
 :root {
   --font-sans: "Segoe UI";
   --font-mono: "Cascadia Code";
-  --background: 0 0% 100%;
-  --foreground: 222 22% 10%;
+  --background: 210 42% 98%;
+  --foreground: 215 32% 12%;
   --card: 0 0% 100%;
-  --card-foreground: 222 22% 10%;
+  --card-foreground: 215 32% 12%;
   --popover: 0 0% 100%;
-  --popover-foreground: 222 22% 10%;
-  --primary: 222 22% 12%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 220 14% 95%;
-  --secondary-foreground: 222 22% 14%;
-  --muted: 220 14% 95%;
-  --muted-foreground: 220 9% 42%;
-  --accent: 164 62% 94%;
-  --accent-foreground: 164 72% 21%;
-  --destructive: 0 72% 48%;
+  --popover-foreground: 215 32% 12%;
+  --primary: 188 74% 17%;
+  --primary-foreground: 180 45% 97%;
+  --secondary: 210 44% 91%;
+  --secondary-foreground: 215 30% 16%;
+  --muted: 212 46% 90%;
+  --muted-foreground: 215 18% 35%;
+  --accent: 166 58% 90%;
+  --accent-foreground: 170 80% 16%;
+  --destructive: 0 72% 45%;
   --destructive-foreground: 0 0% 100%;
-  --success: 164 72% 28%;
+  --success: 162 72% 26%;
   --success-foreground: 0 0% 100%;
-  --warning: 35 88% 42%;
+  --warning: 33 90% 38%;
   --warning-foreground: 0 0% 100%;
-  --info: 215 78% 45%;
+  --info: 213 80% 42%;
   --info-foreground: 0 0% 100%;
-  --border: 220 13% 87%;
-  --input: 220 13% 82%;
-  --ring: 164 72% 32%;
+  /* Borders were at 1.3:1 against the page -- effectively invisible, which is
+     why grey text was carrying all the structure on this theme. At 1.9:1 the
+     edges are perceivable without the layout looking ruled. */
+  --border: 213 28% 68%;
+  --input: 213 28% 62%;
+  --ring: 174 68% 32%;
 }
 
 .dark {

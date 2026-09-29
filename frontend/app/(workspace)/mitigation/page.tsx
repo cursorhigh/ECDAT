@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, AlertTriangle, ArrowRight, Clock3, GitBranch, Loader2, Map, Route, Shield, ShieldAlert, ShieldCheck, XCircle } from "lucide-react";
+import { AlertCircle, AlertTriangle, Clock3, Info, Loader2, Map, Route, Shield, ShieldAlert, ShieldCheck, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RefreshButton } from "@/components/ui/refresh-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { NavTooltip } from "@/components/ui/nav-tooltip";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EmptyState, ErrorState, LoadingState } from "@/components/feedback/data-state";
@@ -107,23 +108,33 @@ export default function MitigationPage() {
           ) : plans.isError ? (
             <div className="p-5"><ErrorState message={plans.error instanceof Error ? plans.error.message : undefined} onRetry={() => void plans.refetch()} /></div>
           ) : plans.data?.length ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Plan</TableHead>
-                  <TableHead>Target</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Progress</TableHead>
-                  <TableHead>Urgent</TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {plans.data.map((plan) => (
-                  <PlanRow key={plan.id} plan={plan} selected={plan.id === activePlanId} onSelect={() => setSelectedId(plan.id)} />
-                ))}
-              </TableBody>
-            </Table>
+            /*
+             * Bounded and scrollable, with a sticky header. This list grows by one
+             * row per plan ever generated for the scan, and nothing capped it, so
+             * the card pushed the whole plan detail -- waves, recommendations and
+             * remediation rows -- off the page. The heading is deliberately left
+             * outside the scroll so the scope line stays readable while you scroll
+             * through plans.
+             */
+            <div className="max-h-[28rem] overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="sticky top-0 z-10 bg-card" title="The plan, by number and name.">Plan</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card" title="What this plan covers.">Target</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card" title="Where the plan is in its own lifecycle.">Status</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card" title="How far through the plan's work it is.">Progress</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card" title="How many assets in this plan are marked urgent.">Urgent</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {plans.data.map((plan) => (
+                    <PlanRow key={plan.id} plan={plan} selected={plan.id === activePlanId} onSelect={() => setSelectedId(plan.id)} />
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           ) : (
             <div className="p-5"><EmptyState title="No mitigation plans" description="Generate a plan from a completed analysis run." /></div>
           )}
@@ -131,6 +142,171 @@ export default function MitigationPage() {
       </Card>
 
       {activePlanId ? <PlanDetail plan={selectedPlan} loading={detail.isLoading} error={detail.error instanceof Error ? detail.error.message : undefined} onCancel={() => cancel.mutate(activePlanId)} cancelling={cancel.isPending} /> : <Card><CardContent className="p-5"><EmptyState title="Select a plan" description="Choose a mitigation plan to inspect its plan document." /></CardContent></Card>}
+    </div>
+  );
+}
+
+/*
+ * Wave number and recommendation-to-wave matching.
+ *
+ * Lifted to module scope: both are pure functions of their argument, and the wave
+ * chevrons are their own component now. Reading the number out of the name is
+ * deliberate -- plans have been seen with the wave given only in prose, and an
+ * explicit field is preferred whenever one is present.
+ */
+function parseWaveNum(waveObj: JsonRecord, index: number): number {
+  if (typeof waveObj.wave === "number") return waveObj.wave;
+  if (typeof waveObj.wave_number === "number") return waveObj.wave_number;
+  const match = String(waveObj.name || "").match(/Wave\s*(\d+)/i);
+  if (match) return parseInt(match[1], 10);
+  return index + 1;
+}
+
+function parseRecWaveNum(recObj: JsonRecord): number | null {
+  if (typeof recObj.wave === "number") return recObj.wave;
+  if (typeof recObj.wave_number === "number") return recObj.wave_number;
+  const match = String(recObj.wave || "").match(/(\d+)/);
+  if (match) return parseInt(match[1], 10);
+  return null;
+}
+
+/*
+ * What each wave is for, in one line.
+ *
+ * This was the only thing the hardcoded "Execution Flow Architecture" box carried
+ * that the plan data did not, so it stays -- but as a tooltip instead of a second
+ * column of prose, and clearly marked as guidance rather than read off the plan.
+ * A plan with four waves therefore does not silently inherit a fourth phase that
+ * nobody wrote about.
+ */
+const PHASE_INTENT: Record<number, string> = {
+  1: "Remove classically weak primitives (MD5, DES, 3DES, RC4) and stage hybrid handshakes for long-shelf-life data.",
+  2: "Move vulnerable public-key use (RSA, ECC) to FIPS 203 ML-KEM key exchange and FIPS 204 ML-DSA signatures.",
+  3: "Consolidate to AES-256-GCM / SHA-384 and put automated CBOM linting into the build pipeline.",
+};
+
+/*
+ * Notched top and bottom, flat sides: the horizontal chevron turned on its side.
+ *
+ * The horizontal version read left-to-right, which fought a column that is only a
+ * fifth of the page wide -- three wide arrows in a narrow strip looked like three
+ * unrelated buttons. Pointed down they read as a path falling through time, which
+ * is what a migration wave is, and they stack without needing the width that made
+ * them look wrong.
+ *
+ * `(50% 0)` and `(50% 100%)` are the points; the `16px` / `calc(100% - 20px)` insets
+ * are the notch, so consecutive waves interlock instead of leaving a gap.
+ */
+const WAVE_CHEVRON =
+  "polygon(100% 16px, 100% calc(100% - 20px), 50% 100%, 0 calc(100% - 20px), 0 16px, 50% 0)";
+
+const WAVE_SURFACE: Record<number, string> = {
+  1: "border-purple-500/40 bg-purple-500/10 text-purple-700 dark:text-purple-300",
+  2: "border-primary/40 bg-primary/10 text-primary",
+  3: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+};
+
+function WaveStrip({
+  waves,
+  recommendations,
+  hoveredWave,
+  onHover,
+}: {
+  waves: unknown[];
+  recommendations: unknown[];
+  hoveredWave: number | null;
+  onHover: (wave: number | null) => void;
+}) {
+  if (!waves.length) {
+    return <p className="text-xs text-muted-foreground">This plan has no migration waves.</p>;
+  }
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="mb-2 flex shrink-0 items-center justify-between">
+        <SectionLabel>Migration waves</SectionLabel>
+        <span className="tnum text-[11px] text-muted-foreground">
+          {waves.length} wave{waves.length === 1 ? "" : "s"}
+        </span>
+      </div>
+
+      {/*
+       * Stacked, with each wave pulled up over the one below it. The overlap is
+       * what turns three separate shapes into one continuous ribbon: the downward
+       * point of a wave seats into the upward notch of the next. The first one is
+       * pushed down by half a notch so the column starts flush with the label
+       * above rather than hanging a point into it.
+       */}
+      <div className="flex flex-1 flex-col">
+        {waves.map((value, index) => {
+          const wave = record(value);
+          const waveNum = parseWaveNum(wave, index);
+          const isHovered = hoveredWave === waveNum;
+          const recCount = recommendations.filter((r) => parseRecWaveNum(record(r)) === waveNum).length;
+          const timeline = text(wave.timeline);
+          const name = text(wave.name || wave.description);
+          const intent = PHASE_INTENT[waveNum];
+
+          return (
+            <button
+              key={index}
+              type="button"
+              onMouseEnter={() => onHover(waveNum)}
+              onMouseLeave={() => onHover(null)}
+              onFocus={() => onHover(waveNum)}
+              onBlur={() => onHover(null)}
+              aria-label={`Wave ${waveNum}${timeline ? `, ${timeline}` : ""}, ${recCount} linked recommendations`}
+              style={{ clipPath: WAVE_CHEVRON }}
+              className={cn(
+                "group flex min-h-[4.5rem] w-full flex-1 items-center gap-2.5 border-x px-4 text-left transition-all duration-150",
+                WAVE_SURFACE[waveNum] || "border-border bg-muted/40 text-foreground",
+                isHovered ? "brightness-110" : "opacity-75 hover:opacity-100",
+                // The clip-path swallows the horizontal borders at the points, so
+                // the notch would show through as a gap. An inset ring redraws the
+                // outline the clip cuts away.
+                "ring-1 ring-inset ring-background",
+                // Seat each wave into the notch of the one below it. The first is
+                // offset by half a notch so the ribbon starts level.
+                index === 0 ? "mt-2" : "-mt-2.5"
+              )}
+            >
+              <span className="shrink-0 font-mono text-xl font-semibold leading-none tabular-nums">
+                {waveNum}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[10px] font-semibold uppercase tracking-[0.12em] opacity-70">
+                  Wave {waveNum}
+                </span>
+                <span className="tnum mt-0.5 block font-mono text-[11px]">{timeline || "—"}</span>
+              </span>
+              <span
+                className="tnum shrink-0 rounded-full border border-current/40 px-1.5 text-[10px] leading-4"
+                title={`${recCount} linked recommendation${recCount === 1 ? "" : "s"}`}
+              >
+                {recCount}
+              </span>
+              {name || intent ? (
+                <NavTooltip
+                  title={name || `Wave ${waveNum}`}
+                  description={
+                    <>
+                      {intent ? <span className="block">{intent}</span> : null}
+                      <span className="mt-1 block">
+                        {recCount} linked recommendation{recCount === 1 ? "" : "s"}
+                      </span>
+                    </>
+                  }
+                  side="bottom"
+                >
+                  <span className="block">
+                    <Info className="h-3.5 w-3.5 opacity-60" aria-hidden="true" />
+                  </span>
+                </NavTooltip>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -199,22 +375,6 @@ function PlanDetail({ plan, loading, error, onCancel, cancelling }: { plan?: Mit
   const rows = array(document.rows);
   const waves = array(document.waves);
   const recommendations = array(document.recommendations);
-
-  const parseWaveNum = (waveObj: JsonRecord, index: number): number => {
-    if (typeof waveObj.wave === "number") return waveObj.wave;
-    if (typeof waveObj.wave_number === "number") return waveObj.wave_number;
-    const match = String(waveObj.name || "").match(/Wave\s*(\d+)/i);
-    if (match) return parseInt(match[1], 10);
-    return index + 1;
-  };
-
-  const parseRecWaveNum = (recObj: JsonRecord): number | null => {
-    if (typeof recObj.wave === "number") return recObj.wave;
-    if (typeof recObj.wave_number === "number") return recObj.wave_number;
-    const match = String(recObj.wave || "").match(/(\d+)/);
-    if (match) return parseInt(match[1], 10);
-    return null;
-  };
 
   const getPriorityBorder = (priority?: unknown) => {
     const p = String(priority || "").toLowerCase();
@@ -306,17 +466,25 @@ function PlanDetail({ plan, loading, error, onCancel, cancelling }: { plan?: Mit
         </div>
         <div>
           <SectionLabel>Asset remediation rows</SectionLabel>
+          {/*
+           * Bounded on both axes. This table has one row per asset in the plan and
+           * only `overflow-x-auto`, so a plan covering a few hundred assets grew
+           * the page until the section heading and the wave strip above it were
+           * scrolled out of reach. Capping the height keeps the heading visible
+           * and lets the list scroll inside its own panel, with the header sticky
+           * so the six columns stay named while you read down.
+           */}
           {rows.length ? (
-            <div className="mt-3 overflow-x-auto border">
+            <div className="mt-3 max-h-[32rem] overflow-auto border">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Asset</TableHead>
-                    <TableHead>Risk</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Expected quantum time</TableHead>
-                    <TableHead>Replacement</TableHead>
-                    <TableHead>Action</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card" title="The asset this remediation row applies to, by id or name.">Asset</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card" title="The risk this asset currently carries, as assessed by the analysis.">Risk</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card" title="How urgently it should be remediated, relative to the other assets in the plan.">Priority</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card" title="When this asset is expected to become harvestable by a quantum attacker. Shown from the plan where recorded, otherwise derived from its migration wave.">Expected quantum time</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card" title="What this asset should move to.">Replacement</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card" title="The concrete change to make, as written by the analysis.">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -368,163 +536,38 @@ function PlanDetail({ plan, loading, error, onCancel, cancelling }: { plan?: Mit
             </div>
           )}
         </div>
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <SectionLabel>Migration waves</SectionLabel>
-              {hoveredWave !== null ? (
-                <span className="text-[11px] font-medium text-primary animate-pulse">
-                  Inspecting Wave {hoveredWave}
-                </span>
-              ) : (
-                <span className="text-[11px] text-muted-foreground">Hover to trace pathway</span>
-              )}
-            </div>
-
-            {waves.length ? (
-              <div className="relative pl-6 space-y-3 before:absolute before:left-2.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-gradient-to-b before:from-purple-500 before:via-primary before:to-emerald-500/70">
-                {waves.map((value, index) => {
-                  const wave = record(value);
-                  const waveNum = parseWaveNum(wave, index);
-                  const isHovered = hoveredWave === waveNum;
-                  const waveRecsCount = recommendations.filter((r) => parseRecWaveNum(record(r)) === waveNum).length;
-
-                  const nodeColor =
-                    waveNum === 1
-                      ? "bg-purple-500 text-white ring-purple-500/30"
-                      : waveNum === 2
-                      ? "bg-primary text-primary-foreground ring-primary/30"
-                      : "bg-emerald-500 text-white ring-emerald-500/30";
-
-                  return (
-                    <div key={index} className="relative group">
-                      {/* Luminous Node Bubble on Timeline Spine */}
-                      <span
-                        className={cn(
-                          "absolute -left-6 top-3.5 h-5 w-5 rounded-full flex items-center justify-center font-mono text-[10px] font-bold ring-4 transition-all duration-300 z-10",
-                          nodeColor,
-                          isHovered ? "scale-125 ring-8 ring-primary/40 shadow-lg" : "scale-100 ring-2"
-                        )}
-                      >
-                        {waveNum}
-                      </span>
-
-                      <div
-                        onMouseEnter={() => setHoveredWave(waveNum)}
-                        onMouseLeave={() => setHoveredWave(null)}
-                        className={cn(
-                          "flex flex-col gap-2 border p-3.5 text-sm transition-all duration-200 cursor-pointer rounded-md relative overflow-hidden",
-                          isHovered
-                            ? "border-primary bg-primary/10 shadow-md ring-1 ring-primary/40 -translate-y-0.5"
-                            : "border-border/70 bg-card hover:border-border hover:bg-muted/30"
-                        )}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="font-semibold text-xs text-foreground tracking-tight">
-                              Wave {waveNum}
-                            </span>
-                            <span className="truncate text-xs text-muted-foreground font-medium" title={text(wave.name || wave.description)}>
-                              {text(wave.name || wave.description)}
-                            </span>
-                          </div>
-                          {wave.timeline ? (
-                            <span className="text-[11px] font-mono font-medium text-foreground px-2 py-0.5 rounded bg-muted/80 border border-border/50 shrink-0">
-                              {String(wave.timeline)}
-                            </span>
-                          ) : null}
-                        </div>
-
-                        <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/30">
-                          <span className="flex items-center gap-1">
-                            <Route className="h-3 w-3 text-primary" aria-hidden="true" />
-                            {waveRecsCount} Linked Recommendation{waveRecsCount === 1 ? "" : "s"}
-                          </span>
-                          <span className={cn("inline-flex items-center gap-1 font-medium transition-colors", isHovered ? "text-primary" : "text-muted-foreground")}>
-                            Trace Wave <ArrowRight className={cn("h-3 w-3 transition-transform", isHovered ? "translate-x-1" : "")} aria-hidden="true" />
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="mt-3 text-xs text-muted-foreground">No waves returned.</p>
-            )}
-
-            {/* Visual Connected Milestone Execution Topology Card */}
-            <div className="border rounded-md bg-muted/10 p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <GitBranch className="h-4 w-4 text-primary" aria-hidden="true" />
-                  <span className="text-xs font-semibold uppercase tracking-wider text-foreground">Execution Flow Architecture</span>
-                </div>
-                <span className="text-[10px] font-mono font-medium text-primary px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20">
-                  Target 2033 Horizon
-                </span>
-              </div>
-
-              <div className="space-y-2 text-xs">
-                <div
-                  onMouseEnter={() => setHoveredWave(1)}
-                  onMouseLeave={() => setHoveredWave(null)}
-                  className={cn(
-                    "flex items-start gap-3 p-2.5 rounded border transition-all duration-200 cursor-pointer",
-                    hoveredWave === 1
-                      ? "bg-purple-500/15 border-purple-500/60 ring-1 ring-purple-500/30 -translate-x-0.5"
-                      : "bg-background/60 border-border/40 hover:bg-muted/40"
-                  )}
-                >
-                  <span className="h-2 w-2 rounded-full bg-purple-500 mt-1.5 shrink-0 shadow-sm" />
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-foreground text-[11px]">Phase 1: Urgent Triage &amp; HNDL Isolation (0–3m)</p>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed mt-0.5">
-                      Eliminate classically weak primitives (MD5, DES, 3DES, RC4) and stage immediate hybrid handshakes for long-shelf-life data paths.
-                    </p>
-                  </div>
-                </div>
-
-                <div
-                  onMouseEnter={() => setHoveredWave(2)}
-                  onMouseLeave={() => setHoveredWave(null)}
-                  className={cn(
-                    "flex items-start gap-3 p-2.5 rounded border transition-all duration-200 cursor-pointer",
-                    hoveredWave === 2
-                      ? "bg-primary/15 border-primary/60 ring-1 ring-primary/30 -translate-x-0.5"
-                      : "bg-background/60 border-border/40 hover:bg-muted/40"
-                  )}
-                >
-                  <span className="h-2 w-2 rounded-full bg-primary mt-1.5 shrink-0 shadow-sm" />
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-foreground text-[11px]">Phase 2: Post-Quantum Standard Transition (3–12m)</p>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed mt-0.5">
-                      Upgrade vulnerable public-key architectures (RSA, ECC) to NIST FIPS 203 (ML-KEM) key exchange and FIPS 204 (ML-DSA) signatures.
-                    </p>
-                  </div>
-                </div>
-
-                <div
-                  onMouseEnter={() => setHoveredWave(3)}
-                  onMouseLeave={() => setHoveredWave(null)}
-                  className={cn(
-                    "flex items-start gap-3 p-2.5 rounded border transition-all duration-200 cursor-pointer",
-                    hoveredWave === 3
-                      ? "bg-emerald-500/15 border-emerald-500/60 ring-1 ring-emerald-500/30 -translate-x-0.5"
-                      : "bg-background/60 border-border/40 hover:bg-muted/40"
-                  )}
-                >
-                  <span className="h-2 w-2 rounded-full bg-emerald-500 mt-1.5 shrink-0 shadow-sm" />
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-foreground text-[11px]">Phase 3: Symmetric Hardening &amp; CI/CD Guardrails (12–24m)</p>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed mt-0.5">
-                      Consolidate to AES-256-GCM / SHA-384 and embed automated ECDAT CBOM cryptographic linting into build pipelines to prevent regressions.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+        {/*
+         * 20/80, not 50/50.
+         *
+         * The waves column is a single narrow strip and the recommendations list
+         * beside it is a full table, so an even split gave the chevrons half the
+         * page to say three numbers and starved the list of the room it needed.
+         * 1fr/4fr is the 20/80 the layout wants. `items-start` stops the shorter
+         * column stretching to match the taller one, which was the other half of
+         * "equal width, unequal height": equal boxes with one of them mostly air.
+         */}
+        <div className="grid gap-6 lg:grid-cols-[1fr_4fr]">
+          {/*
+           * The three waves, as three arrow heads.
+           *
+           * This replaces two blocks that said the same thing twice: a timeline
+           * of wave cards built from the plan data, and an "Execution Flow
+           * Architecture" box whose three phases were hardcoded prose describing
+           * the same waves. The second was the larger of the two and could not
+           * disagree with the data because it was not reading any -- it would
+           * happily claim a plan had three phases whatever the plan said. So it is
+           * gone, and what it uniquely carried -- the intent of each phase -- is
+           * now in the chevron's tooltip, where it was already being skimmed past.
+           *
+           * Shape carries the sequence: they interlock left to right, and the
+           * notch means a wave begins where the previous one ended.
+           */}
+          <WaveStrip
+            waves={waves}
+            recommendations={recommendations}
+            hoveredWave={hoveredWave}
+            onHover={setHoveredWave}
+          />
 
           <div>
             <div className="flex items-center justify-between">
