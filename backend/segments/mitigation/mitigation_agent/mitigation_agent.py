@@ -239,13 +239,20 @@ class MitigationAgent:
         effort_med = sum(1 for r in rows if (r.get("migration_impact") or {}).get("effort") == "MEDIUM")
         effort_quarters = effort_range.get("high_quarters") or max(1, effort_high + (effort_med + 1) // 2)
 
+        crit_cnt = by_priority["URGENT"] + by_risk["CRITICAL"]
+        high_cnt = by_risk["HIGH"]
+        med_cnt = by_risk["MEDIUM"]
+        low_cnt = max(0, len(rows) - crit_cnt - high_cnt - med_cnt)
+
         return {
             "assets": len(rows),
             "by_priority": by_priority,
             "by_risk": by_risk,
             "urgent": by_priority["URGENT"],
-            "critical_risk": by_risk["CRITICAL"],
-            "high_risk": by_risk["HIGH"],
+            "critical_risk": crit_cnt,
+            "high_risk": high_cnt,
+            "medium_risk": med_cnt,
+            "low_risk": low_cnt,
             "quantum_vulnerable": qv,
             "hndl_exposed": hndl,
             "wave1": sum(1 for r in rows if r.get("migration_wave") == 1),

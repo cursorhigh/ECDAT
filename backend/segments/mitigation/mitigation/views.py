@@ -33,6 +33,7 @@ def _plan_public(plan, include_document=True):
     run = plan.run
     document = plan.document or {}
     summary = document.get("summary") or {}
+    by_risk = summary.get("by_risk") or {}
     data = {
         "id": plan.pk,
         "run_id": run.pk,
@@ -46,6 +47,10 @@ def _plan_public(plan, include_document=True):
         "summary": {
             "assets": summary.get("assets", 0),
             "urgent": summary.get("urgent", 0),
+            "critical_risk": summary.get("critical_risk", by_risk.get("CRITICAL", 0)),
+            "high_risk": summary.get("high_risk", by_risk.get("HIGH", 0)),
+            "medium_risk": summary.get("medium_risk", by_risk.get("MEDIUM", 0)),
+            "low_risk": summary.get("low_risk", by_risk.get("LOW", 0)),
             "quantum_vulnerable": summary.get("quantum_vulnerable", 0),
             "hndl_exposed": summary.get("hndl_exposed", 0),
             "blast_severity": (document.get("blast_radius") or {}).get("severity"),
@@ -130,11 +135,24 @@ def plan_overview(request):
         .select_related("run__scan_job")
         .order_by("-created_at")[:50]
     )
-    totals = {"plans": len(plans), "assets": 0, "urgent": 0, "quantum_vulnerable": 0, "hndl_exposed": 0}
+    totals = {
+        "plans": len(plans),
+        "assets": 0,
+        "urgent": 0,
+        "high": 0,
+        "medium": 0,
+        "low": 0,
+        "quantum_vulnerable": 0,
+        "hndl_exposed": 0,
+    }
     for p in plans:
         summary = (p.document or {}).get("summary") or {}
+        by_risk = summary.get("by_risk") or {}
         totals["assets"] += summary.get("assets", 0)
         totals["urgent"] += summary.get("urgent", 0)
+        totals["high"] += summary.get("high_risk", by_risk.get("HIGH", 0))
+        totals["medium"] += summary.get("medium_risk", by_risk.get("MEDIUM", 0))
+        totals["low"] += summary.get("low_risk", by_risk.get("LOW", 0))
         totals["quantum_vulnerable"] += summary.get("quantum_vulnerable", 0)
         totals["hndl_exposed"] += summary.get("hndl_exposed", 0)
 
