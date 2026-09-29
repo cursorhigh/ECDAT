@@ -143,7 +143,6 @@ class ScannerRunTests(TestCase):
             scanner.run(ctx)
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class EndToEndScanTests(TestCase):
     """POST /api/start-scan/ runs the full pipeline on a real folder."""
 
@@ -226,13 +225,11 @@ def _fake_job(target: str, scan_type: str = "", config: dict | None = None):
 
 def ScanJobStub():
     """Minimal stand-in for a ScanJob when exercising a scanner in isolation."""
-    from core.models import Mode
 
     return SimpleNamespace(
         target="/opt/app",
         config={},
-        mode=Mode.ACTUAL,
-        session_id=None,
+                session_id=None,
         findings_count=0,
         _state=SimpleNamespace(db="default"),
         save=lambda **kw: None,
@@ -356,7 +353,6 @@ class KeyMaterialRuleTests(TestCase):
         self.assertTrue(all("~/.ssh" in f["location"] for f in findings))
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class AutoSessionTests(TestCase):
     """A new scan automatically creates + switches to its own work session."""
 
@@ -375,8 +371,7 @@ class AutoSessionTests(TestCase):
             job = ScanJob.objects.using("default").create(
                 source_type=kw["source_type"],
                 target=kw["target"],
-                mode="actual",
-                status=ScanJob.Status.COMPLETED,
+                                status=ScanJob.Status.COMPLETED,
                 session_id=kw["session_id"],
             )
             produced["session_id"] = kw["session_id"]
@@ -453,18 +448,16 @@ class AutoSessionTests(TestCase):
         self.assertEqual(r.json()["data"]["results"], [])
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class AutoAnalysisTests(TestCase):
     """A finished scan automatically stages analysis (pending a context choice)."""
 
-    def _job(self, mode="actual", findings_count=1, **kw):
+    def _job(self, findings_count=1, **kw):
         from segments.scraping.discovery.models import ScanJob
 
         return ScanJob.objects.using("default").create(
             source_type="source_code",
             target="auto-q",
-            mode=mode,
-            status=ScanJob.Status.COMPLETED,
+                        status=ScanJob.Status.COMPLETED,
             findings_count=findings_count,
             **kw,
         )
@@ -492,16 +485,8 @@ class AutoAnalysisTests(TestCase):
 
         job = self._job()
         AnalysisRun.objects.using("default").create(
-            scan_job=job, mode="actual", status=AnalysisRun.Status.QUEUED
+            scan_job=job, status=AnalysisRun.Status.QUEUED
         )
-
-        discovery_services._auto_analyze(job)
-
-        mock_pending.assert_not_called()
-
-    @mock.patch("segments.ml.analysis.runner.pending_analysis")
-    def test_auto_analyze_skips_demo(self, mock_pending):
-        job = self._job(mode="demo")
 
         discovery_services._auto_analyze(job)
 
@@ -517,7 +502,6 @@ class AutoAnalysisTests(TestCase):
         mock_pending.assert_not_called()
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class GraphDataTests(TestCase):
     """GET /api/graph/ returns assets + findings across ALL categories + correlations."""
 
@@ -688,7 +672,7 @@ class FamilyClassificationTests(TestCase):
         from .normalizer import normalize_finding
 
         job = ScanJob.objects.using("default").create(
-            source_type=ScanJob.SourceType.SOURCE_CODE, target="demo:3des"
+            source_type=ScanJob.SourceType.SOURCE_CODE, target="legacy:3des"
         )
         raw = RawFinding.objects.using("default").create(
             scan_job=job,
@@ -703,7 +687,6 @@ class FamilyClassificationTests(TestCase):
         self.assertEqual(norm.key_size, 168)
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class ScannerRegistryTests(TestCase):
     """Discovery must describe itself from the registry, not hard-coded UI."""
 
@@ -771,11 +754,10 @@ class ScannerRegistryTests(TestCase):
 
         with self.assertRaises(discovery_services.ScanInspectionError):
             discovery_services.create_and_run_scan(
-                source_type=ScanJob.SourceType.HSM, target="demo:x", scan_type="quick"
+                source_type=ScanJob.SourceType.HSM, target="legacy:x", scan_type="quick"
             )
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class ScanJobLifecycleTests(TestCase):
     """Lifecycle states, cancellation races, and partial-coverage reporting."""
 
@@ -785,7 +767,6 @@ class ScanJobLifecycleTests(TestCase):
         fields = {
             "source_type": ScanJob.SourceType.SOURCE_CODE,
             "target": "t",
-            "mode": "actual",
             "session_id": None,
         }
         fields.update(kw)
@@ -988,7 +969,6 @@ class ScanJobLifecycleTests(TestCase):
                 self.assertIn(key, data)
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class ScannerContractTests(TestCase):
     """Milestone 2: the scanner owns target/config rules and its output shape."""
 
@@ -1006,7 +986,7 @@ class ScannerContractTests(TestCase):
         from .scanners import SCANNER_REGISTRY
 
         job = ScanJob.objects.using("default").create(
-            source_type=ScanJob.SourceType.SOURCE_CODE, target="/opt/app", mode="actual"
+            source_type=ScanJob.SourceType.SOURCE_CODE, target="/opt/app"
         )
         scanner = SCANNER_REGISTRY["source_code"](job)
         scanner.ingest(
@@ -1030,7 +1010,7 @@ class ScannerContractTests(TestCase):
         from .scanners import SCANNER_REGISTRY
 
         job = ScanJob.objects.using("default").create(
-            source_type=ScanJob.SourceType.SOURCE_CODE, target="/opt/app", mode="actual"
+            source_type=ScanJob.SourceType.SOURCE_CODE, target="/opt/app"
         )
         scanner = SCANNER_REGISTRY["source_code"](job)
         with self.assertRaises(ValueError) as ctx:
@@ -1122,7 +1102,6 @@ class ScannerContractTests(TestCase):
         self.assertEqual(_source_label(""), "")
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class ImportContractTests(TestCase):
     """Imported findings are validated against the shared handoff contract."""
 
@@ -1205,8 +1184,15 @@ class ImportContractTests(TestCase):
         self._post({"source_type": "source_code", "findings": ["bad"]})
         self.assertEqual(WorkSession.objects.using("default").count(), before)
 
-    def test_mode_in_payload_is_not_honoured(self):
-        """The data boundary is chosen by the service, never the caller."""
+    def test_a_stray_mode_key_in_the_payload_is_ignored(self):
+        """Demo mode is gone, so a caller-supplied `mode` is just an unknown key.
+
+        This used to assert `job.mode == "actual"`, i.e. that the service
+        overrode a caller trying to pick the data boundary. There is no boundary
+        left to pick -- one database, no mode column -- so the guarantee is now
+        structural rather than enforced. What is still worth pinning is that the
+        stray key does not break the import.
+        """
         from .models import ScanJob
 
         r = self._post(
@@ -1218,7 +1204,7 @@ class ImportContractTests(TestCase):
         )
         self.assertEqual(r.status_code, 201, msg=r.content[:400])
         job = ScanJob.objects.using("default").get(pk=r.json()["data"]["id"])
-        self.assertEqual(job.mode, "actual")
+        self.assertFalse(hasattr(job, "mode"))
 
     def test_extra_scanner_fields_are_preserved(self):
         from .models import RawFinding
@@ -1244,7 +1230,6 @@ class ImportContractTests(TestCase):
         self.assertEqual(r.status_code, 400)
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class AssetSessionScopingTests(TestCase):
     """Identical findings in different workspaces must not share one asset."""
 
@@ -1396,7 +1381,7 @@ class CertificateParsingTests(TestCase):
             handle.write(self._self_signed_pem())
 
         job = ScanJob.objects.using("default").create(
-            source_type=ScanJob.SourceType.SOURCE_CODE, target=root, mode="actual"
+            source_type=ScanJob.SourceType.SOURCE_CODE, target=root
         )
         scanner = SCANNER_REGISTRY["source_code"](job)
         findings = scanner.run()
@@ -1424,7 +1409,7 @@ class KeyMaterialSafetyTests(TestCase):
             handle.write(OPENSSH_PRIVATE_KEY)
 
         job = ScanJob.objects.using("default").create(
-            source_type=ScanJob.SourceType.SOURCE_CODE, target=root, mode="actual"
+            source_type=ScanJob.SourceType.SOURCE_CODE, target=root
         )
         findings = SCANNER_REGISTRY["source_code"](job).run()
 
@@ -1570,7 +1555,6 @@ class KeyManagementReferenceTests(TestCase):
         self.assertTrue(found)
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class EvidencePersistenceTests(TestCase):
     """Every finding keeps its provenance through normalisation."""
 
@@ -1579,7 +1563,7 @@ class EvidencePersistenceTests(TestCase):
         from .normalizer import normalize_finding
 
         job = ScanJob.objects.using("default").create(
-            source_type=ScanJob.SourceType.SOURCE_CODE, target="t", mode="actual"
+            source_type=ScanJob.SourceType.SOURCE_CODE, target="t"
         )
         raw = RawFinding.objects.using("default").create(
             scan_job=job,
@@ -1608,7 +1592,7 @@ class EvidencePersistenceTests(TestCase):
         from .normalizer import normalize_finding
 
         job = ScanJob.objects.using("default").create(
-            source_type=ScanJob.SourceType.SOURCE_CODE, target="t", mode="actual"
+            source_type=ScanJob.SourceType.SOURCE_CODE, target="t"
         )
         raw = RawFinding.objects.using("default").create(
             scan_job=job, source_type=ScanJob.SourceType.SOURCE_CODE, location="x",
@@ -1783,7 +1767,6 @@ class DependencyParsingTests(TestCase):
         self.assertEqual(dep.classify_dependency(_D())["system"], "aws")
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class DependencyPersistenceTests(TestCase):
     """Dependencies are recorded as rows, and crypto ones as findings."""
 
@@ -1806,7 +1789,7 @@ class DependencyPersistenceTests(TestCase):
             "package.json", _json.dumps({"dependencies": {"crypto-js": "^4.1.1", "left-pad": "^1.0.0"}})
         )
         job = ScanJob.objects.using("default").create(
-            source_type=ScanJob.SourceType.SOURCE_CODE, target=root, mode="actual"
+            source_type=ScanJob.SourceType.SOURCE_CODE, target=root
         )
         findings = SCANNER_REGISTRY["source_code"](job).run()
 
@@ -1827,7 +1810,7 @@ class DependencyPersistenceTests(TestCase):
             _json.dumps({"dependencies": {"crypto-js": "^4.1.1", "left-pad": "^1.0.0"}}),
         )
         job = ScanJob.objects.using("default").create(
-            source_type=ScanJob.SourceType.SOURCE_CODE, target=root, mode="actual"
+            source_type=ScanJob.SourceType.SOURCE_CODE, target=root
         )
         RawFinding.objects.using("default").create(
             scan_job=job, source_type=ScanJob.SourceType.SOURCE_CODE,
@@ -1857,15 +1840,15 @@ class DependencyPersistenceTests(TestCase):
 
         root = self._root_with_manifest(
             "package.json",
-            _json.dumps({"name": "demo-app", "dependencies": {"crypto-js": "^4.1.1"}}),
+            _json.dumps({"name": "sample-app", "dependencies": {"crypto-js": "^4.1.1"}}),
         )
         with open(os.path.join(root, "package-lock.json"), "w", encoding="utf-8") as handle:
             _json.dump(
                 {
-                    "name": "demo-app",
+                    "name": "sample-app",
                     "lockfileVersion": 2,
                     "packages": {
-                        "": {"name": "demo-app", "dependencies": {"crypto-js": "^4.1.1"}},
+                        "": {"name": "sample-app", "dependencies": {"crypto-js": "^4.1.1"}},
                         "node_modules/crypto-js": {"version": "4.1.1"},
                     },
                     "dependencies": {"crypto-js": {"version": "4.1.1"}},
@@ -1874,7 +1857,7 @@ class DependencyPersistenceTests(TestCase):
             )
 
         job = ScanJob.objects.using("default").create(
-            source_type=ScanJob.SourceType.SOURCE_CODE, target=root, mode="actual"
+            source_type=ScanJob.SourceType.SOURCE_CODE, target=root
         )
         RawFinding.objects.using("default").create(
             scan_job=job,
@@ -1888,7 +1871,7 @@ class DependencyPersistenceTests(TestCase):
 
         self.assertGreater(created, 0, msg="no depends_on edge was created")
         self.assertTrue(
-            Dependency.objects.using("default").filter(package="demo-app").exists(),
+            Dependency.objects.using("default").filter(package="sample-app").exists(),
             msg="the requesting project was never recorded as a node",
         )
         self.assertTrue(
@@ -1905,12 +1888,12 @@ class DependencyPersistenceTests(TestCase):
 
         root = self._root_with_manifest(
             "package.json",
-            _json.dumps({"name": "demo-app", "dependencies": {"crypto-js": "^4.1.1"}}),
+            _json.dumps({"name": "sample-app", "dependencies": {"crypto-js": "^4.1.1"}}),
         )
         with open(os.path.join(root, "package-lock.json"), "w", encoding="utf-8") as handle:
             _json.dump(
                 {
-                    "name": "demo-app",
+                    "name": "sample-app",
                     "lockfileVersion": 2,
                     "packages": {"node_modules/crypto-js": {"version": "4.1.1"}},
                     "dependencies": {"crypto-js": {"version": "4.1.1"}},
@@ -1918,7 +1901,7 @@ class DependencyPersistenceTests(TestCase):
                 handle,
             )
         job = ScanJob.objects.using("default").create(
-            source_type=ScanJob.SourceType.SOURCE_CODE, target=root, mode="actual"
+            source_type=ScanJob.SourceType.SOURCE_CODE, target=root
         )
         RawFinding.objects.using("default").create(
             scan_job=job,
@@ -1965,8 +1948,7 @@ class DependencyPersistenceTests(TestCase):
         job = ScanJob.objects.using("default").create(
             source_type=ScanJob.SourceType.SOURCE_CODE,
             target="quick",
-            mode="actual",
-            config={"scan_type": "quick"},
+                        config={"scan_type": "quick"},
         )
         RawFinding.objects.using("default").create(
             scan_job=job,
@@ -2022,8 +2004,7 @@ class DependencyPersistenceTests(TestCase):
         job = ScanJob.objects.using("default").create(
             source_type=ScanJob.SourceType.SOURCE_CODE,
             target="quick",
-            mode="actual",
-            config={"scan_type": "quick"},
+                        config={"scan_type": "quick"},
         )
         # Exactly what the quick profile produces: a profile label, not a path.
         RawFinding.objects.using("default").create(
@@ -2051,7 +2032,7 @@ class DependencyPersistenceTests(TestCase):
             with open(os.path.join(root, "package.json"), "w") as handle:
                 handle.write(_json.dumps({"dependencies": {"crypto-js": version}}))
             job = ScanJob.objects.using("default").create(
-                source_type=ScanJob.SourceType.SOURCE_CODE, target=root, mode="actual"
+                source_type=ScanJob.SourceType.SOURCE_CODE, target=root
             )
             RawFinding.objects.using("default").create(
                 scan_job=job, source_type=ScanJob.SourceType.SOURCE_CODE,
@@ -2186,7 +2167,6 @@ urllib3 = "*"
         self.assertEqual(lockfiles.parse_lockfile("random.lock", "x")["packages"], [])
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class DependencyGraphTests(TestCase):
     """Transitive requires plus library->asset links are persisted."""
 
@@ -2221,7 +2201,7 @@ class DependencyGraphTests(TestCase):
         })
 
         job = ScanJob.objects.using("default").create(
-            source_type=ScanJob.SourceType.SOURCE_CODE, target=root, mode="actual"
+            source_type=ScanJob.SourceType.SOURCE_CODE, target=root
         )
         RawFinding.objects.using("default").create(
             scan_job=job, source_type=ScanJob.SourceType.SOURCE_CODE,
@@ -2249,7 +2229,7 @@ class DependencyGraphTests(TestCase):
             "package.json": _json.dumps({"dependencies": {"cryptography": "^42.0.5"}}),
         })
         job = ScanJob.objects.using("default").create(
-            source_type=ScanJob.SourceType.SOURCE_CODE, target=root, mode="actual"
+            source_type=ScanJob.SourceType.SOURCE_CODE, target=root
         )
         RawFinding.objects.using("default").create(
             scan_job=job, source_type=ScanJob.SourceType.SOURCE_CODE,
@@ -2257,8 +2237,7 @@ class DependencyGraphTests(TestCase):
         )
         asset = CryptoAsset.objects.using("default").create(
             name="RSA 2048 - Source Code Repos", family="rsa", algorithm="RSA",
-            key_size=2048, location=os.path.join(root, "app", "sign.py"), mode="actual",
-        )
+            key_size=2048, location=os.path.join(root, "app", "sign.py"),         )
 
         discovery_services.record_dependencies(job, "default")
         discovery_services.record_dependency_graph(job, "default")
@@ -2279,7 +2258,7 @@ class DependencyGraphTests(TestCase):
             "package.json": _json.dumps({"dependencies": {"cryptography": "^42.0.5"}}),
         })
         job = ScanJob.objects.using("default").create(
-            source_type=ScanJob.SourceType.SOURCE_CODE, target=root, mode="actual"
+            source_type=ScanJob.SourceType.SOURCE_CODE, target=root
         )
         RawFinding.objects.using("default").create(
             scan_job=job, source_type=ScanJob.SourceType.SOURCE_CODE,
@@ -2287,8 +2266,7 @@ class DependencyGraphTests(TestCase):
         )
         CryptoAsset.objects.using("default").create(
             name="Elsewhere", family="rsa", algorithm="RSA",
-            location="/some/other/repo/sign.py", mode="actual",
-        )
+            location="/some/other/repo/sign.py",         )
 
         discovery_services.record_dependencies(job, "default")
         discovery_services.record_dependency_graph(job, "default")
@@ -2317,7 +2295,7 @@ class DependencyGraphTests(TestCase):
             }),
         })
         job = ScanJob.objects.using("default").create(
-            source_type=ScanJob.SourceType.SOURCE_CODE, target=root, mode="actual"
+            source_type=ScanJob.SourceType.SOURCE_CODE, target=root
         )
         RawFinding.objects.using("default").create(
             scan_job=job, source_type=ScanJob.SourceType.SOURCE_CODE,
@@ -2342,8 +2320,7 @@ class DependencyGraphTests(TestCase):
             ecosystem="pypi", is_crypto=True, relevance="core",
         )
         asset = CryptoAsset.objects.using("default").create(
-            session_id=workspace.pk, name="RSA", family="rsa", algorithm="RSA", mode="actual",
-        )
+            session_id=workspace.pk, name="RSA", family="rsa", algorithm="RSA",         )
         DependencyRelation.objects.using("default").create(
             from_dependency=dependency, to_asset=asset, session_id=workspace.pk,
             relation_type=DependencyRelation.RelationType.PROVIDES, detail="same project",
@@ -2474,7 +2451,6 @@ class BinaryInspectionTests(TestCase):
                 self.assertNotIn(dangerous, source)
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class BinaryScannerTests(TestCase):
     """The binary scanner is a real registry entry, not page-specific code."""
 
@@ -2525,7 +2501,6 @@ class BinaryScannerTests(TestCase):
         self.assertTrue(all(a.identifier for a in assets))
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class AssetIdentityTests(TestCase):
     """Identity, occurrences, and the asset taxonomy."""
 
@@ -2534,7 +2509,7 @@ class AssetIdentityTests(TestCase):
         from .normalizer import normalize_finding
 
         job = ScanJob.objects.using("default").create(
-            source_type=ScanJob.SourceType.SOURCE_CODE, target="t", mode="actual"
+            source_type=ScanJob.SourceType.SOURCE_CODE, target="t"
         )
         raw = RawFinding.objects.using("default").create(
             scan_job=job, source_type=ScanJob.SourceType.SOURCE_CODE, location=location,
@@ -2574,7 +2549,7 @@ class AssetIdentityTests(TestCase):
         ]:
             with self.subTest(kind=kind, source=source_type):
                 job = ScanJob.objects.using("default").create(
-                    source_type=source_type, target="t", mode="actual"
+                    source_type=source_type, target="t"
                 )
                 raw = RawFinding.objects.using("default").create(
                     scan_job=job, source_type=source_type, location="x",
@@ -2625,7 +2600,7 @@ class AssetIdentityTests(TestCase):
         original_location = asset.location
 
         job2 = ScanJob.objects.using("default").create(
-            source_type=ScanJob.SourceType.SOURCE_CODE, target="t", mode="actual"
+            source_type=ScanJob.SourceType.SOURCE_CODE, target="t"
         )
         raw2 = RawFinding.objects.using("default").create(
             scan_job=job2, source_type=ScanJob.SourceType.SOURCE_CODE,
@@ -2716,8 +2691,7 @@ class AssetIdentityTests(TestCase):
         workspace = WorkSession.objects.using("default").create(name="filter-scope")
         CryptoAsset.objects.using("default").create(
             session_id=workspace.pk, name="bin", asset_type=CryptoAsset.AssetType.BINARY,
-            family="rsa", algorithm="RSA", source_type="binary", mode="actual",
-        )
+            family="rsa", algorithm="RSA", source_type="binary",         )
         norm, _ = self._finding("payments/api.py")
         classify_asset(norm, using="default", session_id=workspace.pk)
 
@@ -2728,7 +2702,6 @@ class AssetIdentityTests(TestCase):
         self.assertEqual(rows[0]["name"], "bin")
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class CoverageHonestyTests(TestCase):
     """A scan must never claim full coverage it did not achieve.
 
@@ -2743,7 +2716,6 @@ class CoverageHonestyTests(TestCase):
         defaults = {
             "source_type": ScanJob.SourceType.SOURCE_CODE,
             "target": "unused",
-            "mode": "actual",
             "status": ScanJob.Status.QUEUED,
         }
         defaults.update(kwargs)
@@ -2944,7 +2916,6 @@ class _FakeRequest:
         self.POST = {}
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class ArtefactKindClassificationTests(TestCase):
     """Discovery must classify what it found, not flatten everything to algorithm."""
 
@@ -2964,14 +2935,12 @@ class ArtefactKindClassificationTests(TestCase):
         job = ScanJob.objects.using("default").create(
             source_type=ScanJob.SourceType.SOURCE_CODE,
             target="work",
-            mode="actual",
-            status=ScanJob.Status.COMPLETED,
+                        status=ScanJob.Status.COMPLETED,
             session_id=self.workspace.pk,
         )
         raw = RawFinding.objects.using("default").create(
             scan_job=job,
-            mode="actual",
-            source_type=ScanJob.SourceType.SOURCE_CODE,
+                        source_type=ScanJob.SourceType.SOURCE_CODE,
             location=location,
             raw_json={
                 "location": location,
@@ -3055,12 +3024,11 @@ class ArtefactKindClassificationTests(TestCase):
         job = ScanJob.objects.using("default").create(
             source_type=ScanJob.SourceType.SOURCE_CODE,
             target="other",
-            mode="actual",
-            status=ScanJob.Status.COMPLETED,
+                        status=ScanJob.Status.COMPLETED,
             session_id=other.pk,
         )
         raw = RawFinding.objects.using("default").create(
-            scan_job=job, mode="actual", source_type=ScanJob.SourceType.SOURCE_CODE,
+            scan_job=job, source_type=ScanJob.SourceType.SOURCE_CODE,
             location="x.pem", session_id=other.pk,
             raw_json={"location": "x.pem", "kind": "certificate", "confidence": 0.9},
         )
@@ -3077,7 +3045,6 @@ class ArtefactKindClassificationTests(TestCase):
         self.assertEqual(r.json()["data"]["results"], [])
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class MultiSourceScanTests(TestCase):
     """One user action can run several discovery sources."""
 
@@ -3094,8 +3061,7 @@ class MultiSourceScanTests(TestCase):
             target=scan_job.target,
             scan_type="specified",
             source_types=[scan_job.source_type],
-            mode=scan_job.mode,
-            session_id=scan_job.session_id,
+                        session_id=scan_job.session_id,
         )
         ScanJob.objects.using(db).filter(pk=scan_job.pk).update(batch_id=batch.pk)
         return refresh_batch_status(batch, db)
@@ -3322,7 +3288,6 @@ class MultiSourceScanTests(TestCase):
         self.assertEqual(r.status_code, 404)
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class ContainerImageDiscoveryTests(TestCase):
     """Container images are read as archives; nothing is unpacked or executed."""
 
@@ -3518,7 +3483,6 @@ class ContainerImageDiscoveryTests(TestCase):
         self.assertTrue(all(a.identifier for a in assets))
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class CertificateStoreDiscoveryTests(TestCase):
     """The certificate scanner identifies every format without exposing keys."""
 
@@ -3795,7 +3759,6 @@ class CertificateStoreDiscoveryTests(TestCase):
         self.assertTrue(stores)
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class UnifiedGraphTests(TestCase):
     """Milestone 10: one navigable graph across every kind of entity."""
 
@@ -3829,15 +3792,15 @@ class UnifiedGraphTests(TestCase):
 
         with open(os.path.join(self.root, "package.json"), "w", encoding="utf-8") as handle:
             _json.dump(
-                {"name": "demo-app", "dependencies": {"crypto-js": "^4.1.1"}}, handle
+                {"name": "sample-app", "dependencies": {"crypto-js": "^4.1.1"}}, handle
             )
         if with_lockfile:
             with open(os.path.join(self.root, "package-lock.json"), "w", encoding="utf-8") as handle:
                 _json.dump(
                     {
-                        "name": "demo-app", "lockfileVersion": 2,
+                        "name": "sample-app", "lockfileVersion": 2,
                         "packages": {
-                            "": {"name": "demo-app", "dependencies": {"crypto-js": "^4.1.1"}},
+                            "": {"name": "sample-app", "dependencies": {"crypto-js": "^4.1.1"}},
                             "node_modules/crypto-js": {"version": "4.1.1"},
                         },
                         "dependencies": {"crypto-js": {"version": "4.1.1"}},
@@ -3846,7 +3809,7 @@ class UnifiedGraphTests(TestCase):
                 )
 
         key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-        name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "demo.internal")])
+        name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "sample.internal")])
         now = datetime.datetime.now(datetime.timezone.utc)
         cert = (
             x509.CertificateBuilder().subject_name(name).issuer_name(name)
@@ -3861,7 +3824,7 @@ class UnifiedGraphTests(TestCase):
 
         job = ScanJob.objects.using("default").create(
             source_type=ScanJob.SourceType.SOURCE_CODE,
-            target=self.root, mode="actual", status=ScanJob.Status.COMPLETED,
+            target=self.root, status=ScanJob.Status.COMPLETED,
             session_id=self.workspace.pk, config={"scan_type": "specified"},
         )
 
@@ -3878,8 +3841,8 @@ class UnifiedGraphTests(TestCase):
                 "key_size": 2048,
                 "evidence": {
                     "type": "x509",
-                    "subject": "CN=demo.internal",
-                    "issuer": "CN=demo.internal",
+                    "subject": "CN=sample.internal",
+                    "issuer": "CN=sample.internal",
                     "sha256_fingerprint": "f" * 64,
                     "is_ca": False,
                 },
@@ -3990,9 +3953,9 @@ class UnifiedGraphTests(TestCase):
         )
         result = dependents("default", self.workspace.pk, lib.pk)
         self.assertGreaterEqual(result["count"], 1)
-        # demo-app requires crypto-js, so it must appear as a dependent.
+        # sample-app requires crypto-js, so it must appear as a dependent.
         names = {entry["path"][-1]["node"]["label"] for entry in result["paths"]}
-        self.assertIn("demo-app", names)
+        self.assertIn("sample-app", names)
 
     def test_every_query_returns_the_same_path_shape(self):
         """A consumer must not special-case which question it asked."""
@@ -4102,7 +4065,6 @@ class UnifiedGraphTests(TestCase):
 
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class HandoffContractTests(TestCase):
     """Milestone 12: Discover -> Understand is a checked contract, not a hope.
 
@@ -4140,7 +4102,7 @@ class HandoffContractTests(TestCase):
             handle.write("const C = require('crypto-js');\nconst h = C.SHA256;\n")
         if with_manifest:
             with open(os.path.join(self.root, "package.json"), "w", encoding="utf-8") as handle:
-                _json.dump({"name": "demo", "dependencies": {"crypto-js": "^4.1.1"}}, handle)
+                _json.dump({"name": "sample-app", "dependencies": {"crypto-js": "^4.1.1"}}, handle)
         if with_certificate:
             key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
             name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "handoff.test")])

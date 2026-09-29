@@ -14,6 +14,7 @@ import hashlib
 
 from .models import AssetOccurrence, CryptoAsset, NormalizedFinding, ScanJob
 from core.models import log_action
+from core.modes import active_mode
 
 # Kinds that identify the artefact regardless of how it was found: a
 # certificate is a certificate whether it sits in a .pem file or inside an
@@ -180,7 +181,6 @@ def classify_asset(norm: NormalizedFinding, using=None, session_id=None) -> Cryp
         session_id=session_id,
         identifier=identifier,
         defaults={
-            "mode": norm.mode,
             "name": name,
             "asset_type": asset_type,
             "family": norm.family,
@@ -198,8 +198,7 @@ def classify_asset(norm: NormalizedFinding, using=None, session_id=None) -> Cryp
     )
 
     if created:
-        log_action("system", f"Created crypto asset {name}", "cryptoasset", asset.pk,
-                   mode=norm.mode, session_id=session_id)
+        log_action("system", f"Created crypto asset {name}", "cryptoasset", asset.pk, session_id=session_id)
     else:
         # Fill in detail a previous sighting did not have, without overwriting
         # good data with blanks.

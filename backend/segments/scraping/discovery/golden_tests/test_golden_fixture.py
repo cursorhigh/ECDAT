@@ -834,7 +834,6 @@ class TestECDSAvsECDHNonCollapsing(TestCase):
             library="cryptography",
             evidence={},
             session_id="test_sess",
-            mode="DEMO",
         )
         norm_ecdh = MagicMock(
             raw_finding=raw_ecdh,
@@ -846,7 +845,6 @@ class TestECDSAvsECDHNonCollapsing(TestCase):
             library="cryptography",
             evidence={},
             session_id="test_sess",
-            mode="DEMO",
         )
 
         name_ecdsa = asset_name(norm_ecdsa, "source_code", "source_code")

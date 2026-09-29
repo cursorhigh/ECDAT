@@ -14,13 +14,11 @@ from .payload_builder import (
 )
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class PayloadBuilderTests(TestCase):
     def _make_job(self, target="work/app"):
         return ScanJob.objects.using("default").create(
             source_type="source_code",
             target=target,
-            mode="actual",
             status="completed",
             config={"scan_type": "specified"},
         )
@@ -30,7 +28,6 @@ class PayloadBuilderTests(TestCase):
             location = raw_json.get("location", "")
         raw = RawFinding.objects.using("default").create(
             scan_job=job,
-            mode="actual",
             source_type="source_code",
             location=location,
             raw_json=raw_json,
@@ -118,6 +115,50 @@ class PayloadBuilderTests(TestCase):
             )
         payload = build_analysis_payload(job, max_findings=2)
         self.assertEqual(len(payload["findings"]), 2)
+        self.assertTrue(payload["truncation"]["truncated"])
+        self.assertEqual(payload["truncation"]["available"], 3)
+
+    def test_max_findings_none_means_no_cap(self):
+        """The cap was removed, so an absent limit must analyse everything.
+
+        Guards the None/0 confusion: coercing None to 0 would silently drop
+        every finding and produce a confident, completely empty assessment.
+        """
+        job = self._make_job()
+        for i in range(12):
+            self._seed_raw(
+                job,
+                {
+                    "location": f"file_{i}.java",
+                    "family": "rsa",
+                    "algorithm": "RSA",
+                    "raw": {"strings": [f"key {i}"]},
+                },
+            )
+        payload = build_analysis_payload(job, max_findings=None)
+        self.assertEqual(len(payload["findings"]), 12)
+        self.assertNotIn("truncation", payload)
+
+    def test_limit_landing_exactly_on_available_is_not_truncated(self):
+        """available == limit means nothing was dropped.
+
+        Comparing `len(findings) >= max_findings` would flag this run as
+        truncated and show a false "analysed N of N" shortfall banner.
+        """
+        job = self._make_job()
+        for i in range(4):
+            self._seed_raw(
+                job,
+                {
+                    "location": f"file_{i}.java",
+                    "family": "rsa",
+                    "algorithm": "RSA",
+                    "raw": {"strings": [f"key {i}"]},
+                },
+            )
+        payload = build_analysis_payload(job, max_findings=4)
+        self.assertEqual(len(payload["findings"]), 4)
+        self.assertNotIn("truncation", payload)
 
     def test_empty_scan_yields_no_findings(self):
         job = self._make_job()

@@ -1,27 +1,33 @@
-"""ECDAT mode helpers.
+"""ECDAT data-boundary helpers.
 
-A 'mode' separates demo (synthetic) data from actual (real) data at the
-database level. Each mode maps to its own database alias; the active mode
-is a config flag (ECDAT_ACTIVE_MODE) so the two are a hard boundary.
+Demo mode is gone. Previously a 'mode' separated synthetic (demo) data from real
+(actual) data at the database level, with each mode mapped to its own alias and
+`ECDAT_ACTIVE_MODE` choosing between them. There is one database now, so these
+helpers exist only to keep the ~200 existing `using=db` call sites working
+without a risky, wide-reaching rewrite of every query.
+
+They deliberately keep their old signatures. `db_alias_for_mode(mode)` still
+accepts an argument and ignores it, so callers that thread a mode through
+`log_action(...` or a `Mode.ACTUAL` value keep working while that
+plumbing is removed separately.
 """
 
-MODES = ("demo", "actual")
-
-DEMO_DB = "demo"
 ACTUAL_DB = "default"
 
-
-def db_alias_for_mode(mode: str) -> str:
-    """Return the database alias a mode lives in."""
-    return DEMO_DB if mode == "demo" else ACTUAL_DB
-
-
-def active_mode():
-    from django.conf import settings
-
-    return settings.ECDAT.get("ACTIVE_MODE", "demo")
+# The single data boundary. Kept as a one-tuple so command-line sweeps that
+# iterate MODES still run -- they just make a single pass now.
+MODES = ("actual",)
 
 
-def active_db():
-    """Return the database alias for the currently active mode."""
-    return db_alias_for_mode(active_mode())
+def db_alias_for_mode(mode: str = ACTUAL_DB) -> str:
+    """Return the database alias. There is only one, whatever `mode` says."""
+    return ACTUAL_DB
+
+
+def active_mode() -> str:
+    return "actual"
+
+
+def active_db() -> str:
+    """Return the database alias in use. Always `default`."""
+    return ACTUAL_DB

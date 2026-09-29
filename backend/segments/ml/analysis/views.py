@@ -9,12 +9,21 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
 from core.api import require_scan_scope
-from core.modes import active_db, db_alias_for_mode
+from core.modes import active_db, active_mode, db_alias_for_mode
 from core.sessions import scope, thread_session_id
 from segments.scraping.discovery.models import ScanJob
 
 from .models import AnalysisRun, AssetAssessment
-from .runner import _auto_continue, cancel_run, continue_pending, start_analysis
+from .runner import (
+    _auto_continue,
+    _context_timeout,
+    cancel_run,
+    continue_pending,
+    pause_run,
+    resume_run,
+    pending_analysis,
+    start_analysis,
+)
 
 
 _PRIORITY_RANK = {"URGENT": 0, "CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
@@ -28,15 +37,17 @@ def _priority_rank(value):
 
 
 def _load_run(run_id):
-    """Return (run, db) for a run, resolved from the run's own mode database."""
+    """Return (run, db) for a run.
+
+    There is one database, so this is a single lookup. It previously fell
+    back to the *other* mode's database when a run was not in the active one,
+    which is meaningless now: the fallback queried the same alias and then
+    re-queried it a third time, so a genuine "not found" cost two extra
+    round trips before raising.
+    """
     db = active_db()
-    try:
-        run = AnalysisRun.objects.using(db).get(pk=run_id)
-    except AnalysisRun.DoesNotExist:
-        fallback = "demo" if db != "demo" else "default"
-        run = AnalysisRun.objects.using(fallback).get(pk=run_id)
-    db = db_alias_for_mode(run.mode)
-    return AnalysisRun.objects.using(db).select_related("scan_job").get(pk=run_id), db
+    run = AnalysisRun.objects.using(db).select_related("scan_job").get(pk=run_id)
+    return run, db
 
 
 def _assessment_summary(a):
@@ -104,7 +115,7 @@ def analysis_awaiting(request):
         # The fallback timer may have missed its deadline (server restart while
         # it slept); a run past `await_until` continues with the default now.
         if r.await_until and r.await_until <= now:
-            _auto_continue(r.pk, r.mode, db, 0)
+            _auto_continue(r.pk, active_mode(), db, 0)
             continue
         seconds_left = 0
         if r.await_until:
@@ -158,17 +169,33 @@ def analysis_start(request):
             status=400,
         )
 
+    # No artificial cap. `max_findings` is optional and an absent value means
+    # "analyse every discovered finding"; a caller that does pass one still gets
+    # its number honoured. The only rejection is a non-positive count, which
+    # would silently produce an empty assessment.
     max_findings = payload.get("max_findings")
     if max_findings is not None:
         try:
-            max_findings = max(1, min(500, int(max_findings)))
+            max_findings = int(max_findings)
         except (TypeError, ValueError):
             return JsonResponse(
-                {"detail": "`max_findings` must be an integer between 1 and 500."},
+                {"detail": "`max_findings` must be a positive integer."},
+                status=400,
+            )
+        if max_findings < 1:
+            return JsonResponse(
+                {"detail": "`max_findings` must be a positive integer."},
                 status=400,
             )
 
     raw_context = payload.get("raw_system_context")
+    # `defer` starts the run but parks it in AWAITING_CONTEXT instead of
+    # dispatching it, so the user is prompted for MOSCA/HNDL parameters while
+    # the run already exists. If they never answer, the deadline created by
+    # `pending_analysis` queues it with the conservative defaults. The frontend
+    # sends this when the button is pressed, and follows up with the user's
+    # answers as a second call, which lands on the same run.
+    defer = bool(payload.get("defer"))
     existing = (
         scope(AnalysisRun.objects.using(db), thread_session_id())
         .filter(scan_job=scan_job, status=AnalysisRun.Status.AWAITING_CONTEXT)
@@ -190,11 +217,12 @@ def analysis_start(request):
                 "progress": run.progress,
                 "created_at": run.created_at,
                 "assets": 0,
+                "context_deadline_seconds": _context_timeout() if run.status == AnalysisRun.Status.AWAITING_CONTEXT else 0,
             },
             status=200,
         )
 
-    # No awaiting run: the 30s timer may already have queued it. Reuse the
+    # No awaiting run: the context timer may already have queued it. Reuse the
     # active run instead of starting a duplicate (and apply a queued run's
     # custom context before it executes, if handed one).
     active = (
@@ -223,8 +251,24 @@ def analysis_start(request):
                 "progress": active.progress,
                 "created_at": active.created_at,
                 "assets": 0,
+            "context_deadline_seconds": _context_timeout() if active.status == AnalysisRun.Status.AWAITING_CONTEXT else 0,
             },
             status=200,
+        )
+
+    if defer:
+        run = pending_analysis(scan_job, raw_context, max_findings=max_findings)
+        return JsonResponse(
+            {
+                "id": run.pk,
+                "scan_job_id": run.scan_job_id,
+                "status": run.status,
+                "progress": run.progress,
+                "created_at": run.created_at,
+                "assets": 0,
+                "context_deadline_seconds": _context_timeout(),
+            },
+            status=201,
         )
 
     run = start_analysis(scan_job, raw_context, max_findings=max_findings)
@@ -267,6 +311,54 @@ def analysis_cancel(request, run_id):
 
 
 @csrf_exempt
+@require_POST
+def analysis_pause(request, run_id):
+    """Pause a queued or running analysis (POST /api/analysis/<id>/pause/).
+
+    The worker stops at its next asset checkpoint and keeps the assessments it
+    has already written, so resuming re-uses them rather than redoing the run.
+    A paused run is never auto-advanced to mitigation.
+    """
+    try:
+        run, db = _load_run(run_id)
+    except AnalysisRun.DoesNotExist:
+        return JsonResponse({"detail": f"Analysis run {run_id} not found."}, status=400)
+
+    if thread_session_id() and run.session_id != thread_session_id():
+        return JsonResponse({"detail": "not found"}, status=404)
+
+    if not pause_run(run, db):
+        return JsonResponse(
+            {"detail": f"Analysis run {run_id} is not pausable (status: {run.status})."},
+            status=400,
+        )
+    return JsonResponse({"id": run.pk, "status": run.status, "progress": run.progress})
+
+
+@csrf_exempt
+@require_POST
+def analysis_resume(request, run_id):
+    """Resume a paused analysis (POST /api/analysis/<id>/resume/).
+
+    Re-queues the run and skips the assets that already have an assessment.
+    """
+    try:
+        run, db = _load_run(run_id)
+    except AnalysisRun.DoesNotExist:
+        return JsonResponse({"detail": f"Analysis run {run_id} not found."}, status=400)
+
+    if thread_session_id() and run.session_id != thread_session_id():
+        return JsonResponse({"detail": "not found"}, status=404)
+
+    if not resume_run(run, db):
+        return JsonResponse(
+            {"detail": f"Analysis run {run_id} is not resumable (status: {run.status})."},
+            status=400,
+        )
+    return JsonResponse({"id": run.pk, "status": run.status, "progress": run.progress})
+
+
+@csrf_exempt
 def analysis_detail(request, run_id):
     """Return full details for one analysis run (GET /api/analysis/<id>/)."""
     if request.method != "GET":
@@ -306,7 +398,6 @@ def analysis_detail(request, run_id):
         "id": run.pk,
         "scan_job_id": run.scan_job_id,
         "target": run.scan_job.target,
-        "mode": run.mode,
         "status": run.status,
         "progress": run.progress,
         "error": run.error,

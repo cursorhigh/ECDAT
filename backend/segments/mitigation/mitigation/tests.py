@@ -234,7 +234,6 @@ class MitigationAgentTests(TestCase):
         self.assertIsNone(invalid)
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class MitigationPlannerTests(TestCase):
     """Planner + API endpoints using deterministic fallbacks only."""
 
@@ -261,14 +260,12 @@ class MitigationPlannerTests(TestCase):
             session=self.session,
             source_type="source_code",
             target="work/app",
-            mode="actual",
             status="completed",
             findings_count=2,
         )
         run = AnalysisRun.objects.using("default").create(
             scan_job=job,
             session=self.session,
-            mode="actual",
             status=AnalysisRun.Status.COMPLETED,
             progress=100,
             repository={"name": "work/app", "url": ""},
@@ -350,13 +347,11 @@ class MitigationPlannerTests(TestCase):
         job = ScanJob.objects.using("default").create(
             source_type="source_code",
             target="pending/app",
-            mode="actual",
             status="completed",
             findings_count=0,
         )
         queued = AnalysisRun.objects.using("default").create(
             scan_job=job,
-            mode="actual",
             status=AnalysisRun.Status.QUEUED,
             input_payload={"repository": {"name": "x"}, "findings": []},
             raw_system_context={"network": {}},

@@ -11,18 +11,12 @@ from .binary_scanner import BinaryArtefactScanner
 from .certificate_scanner import CertificateArtefactScanner
 from .container_scanner import ContainerImageScanner
 from .crypto_artefact import CryptoArtefactScanner
-from .demo import DemoScreenshotScanner
 
 SCANNER_REGISTRY = {
     ScanJob.SourceType.SOURCE_CODE: CryptoArtefactScanner,
     ScanJob.SourceType.BINARY: BinaryArtefactScanner,
     ScanJob.SourceType.CERTIFICATE: CertificateArtefactScanner,
     ScanJob.SourceType.CONTAINER: ContainerImageScanner,
-}
-
-# Demo scanners can extend the registry at runtime.
-DEMO_SCANNER_REGISTRY = {
-    ScanJob.SourceType.SOURCE_CODE: DemoScreenshotScanner,
 }
 
 # Source types the product recognises but has no implementation for yet. They
@@ -65,13 +59,7 @@ _assert_planned_sources_are_unimplemented()
 
 def get_scanner(scan_job: ScanJob) -> BaseScanner:
     """Return the appropriate scanner instance for a ScanJob."""
-    from django.conf import settings
-
     source_type = scan_job.source_type
-
-    if settings.ECDAT.get("DEMO_MODE") and source_type in DEMO_SCANNER_REGISTRY:
-        if scan_job.target.lower().startswith("demo:"):
-            return DEMO_SCANNER_REGISTRY[source_type](scan_job)
 
     cls = SCANNER_REGISTRY.get(source_type)
     if cls is None:
@@ -88,9 +76,6 @@ def list_scanners() -> list[dict]:
     metadata; unimplemented ones as `planned` with no capabilities, so callers
     can name them without implying they work.
     """
-    from django.conf import settings
-
-    demo_mode = bool(settings.ECDAT.get("DEMO_MODE"))
     described: list[dict] = []
 
     known = {*SCANNER_REGISTRY, *PLANNED_SOURCES}
@@ -102,7 +87,6 @@ def list_scanners() -> list[dict]:
         if cls is not None:
             entry = cls.describe()
             entry["status"] = "available"
-            entry["demo_supported"] = demo_mode and source_type in DEMO_SCANNER_REGISTRY
             described.append(entry)
             continue
 
@@ -119,7 +103,6 @@ def list_scanners() -> list[dict]:
                 "capabilities": [],
                 "configuration_schema": {},
                 "status": "planned",
-                "demo_supported": False,
             }
         )
 

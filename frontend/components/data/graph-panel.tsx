@@ -24,6 +24,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { api } from "@/lib/api/client";
 import type { GraphImpact, GraphNodeRow } from "@/lib/api/types";
 import { formatNumber, truncate } from "@/lib/utils";
+import { useDismissOnOutside } from "@/lib/use-dismiss";
 import {
   GROUP_LABEL,
   GROUP_ORDER,
@@ -70,6 +71,7 @@ export function GraphPanel({ scopeKey, ready }: { scopeKey: string; ready: boole
   const [graphLimit] = useState(600);
   const handleRef = useRef<GraphHandle | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
+  const searchWrapRef = useRef<HTMLDivElement | null>(null);
 
   const graph = useQuery({
     queryKey: ["graph-index", scopeKey, graphLimit],
@@ -146,6 +148,16 @@ export function GraphPanel({ scopeKey, ready }: { scopeKey: string; ready: boole
       .filter((node) => (node.label || node.key).toLowerCase().includes(needle))
       .slice(0, 8);
   }, [nodes, search]);
+
+  // The node search list is a popover with no outside-click dismissal. Escape is
+  // already handled below (it clears the selection and the query), so this only
+  // adds the missing case rather than double-firing with that handler.
+  useDismissOnOutside({
+    active: matches.length > 0,
+    ref: searchWrapRef,
+    onDismiss: () => setSearch(""),
+    closeOnEscape: false
+  });
 
   // Escape clears the selection; "/" focuses search, so a graph can be driven
   // without reaching for the mouse.
@@ -229,7 +241,7 @@ export function GraphPanel({ scopeKey, ready }: { scopeKey: string; ready: boole
 
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
-            <div className="relative min-w-[220px] flex-1">
+            <div className="relative min-w-[220px] flex-1" ref={searchWrapRef}>
               <Search className="pointer-events-none absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
               <Input
                 ref={searchRef}
@@ -346,7 +358,12 @@ export function GraphPanel({ scopeKey, ready }: { scopeKey: string; ready: boole
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+      {/* `items-start` is load-bearing. A grid row stretches to its tallest
+          column by default, so selecting a node with a long impact list grew the
+          row and the graph card grew with it -- the canvas kept its 560px but
+          the frame around it visibly resized. Pinning both columns to the top
+          decouples them; the detail column scrolls on its own instead. */}
+      <div className="grid items-start gap-4 lg:grid-cols-[1.6fr_1fr]">
         <Card className="overflow-hidden">
           <CardContent className="p-0">
             <div className="h-[560px] w-full">
@@ -363,7 +380,7 @@ export function GraphPanel({ scopeKey, ready }: { scopeKey: string; ready: boole
           </CardContent>
         </Card>
 
-        <div className="space-y-4">
+        <div className="scrollbar-thin space-y-4 lg:max-h-[620px] lg:overflow-y-auto lg:pr-1">
           {hovered && !selected ? (
             <Card>
               <CardHeader>

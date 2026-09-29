@@ -13,6 +13,7 @@ from django.test import TestCase, override_settings
 from segments.scraping.discovery.models import ScanJob
 
 from .runner import execute_analysis, start_analysis
+from core.modes import active_mode
 
 _SQLITE_HUEY = {
     "name": "t",
@@ -28,13 +29,11 @@ def _make_job(target="dispatch/app"):
     return ScanJob.objects.create(
         source_type="source_code",
         target=target,
-        mode="actual",
         status="completed",
         config={"scan_type": "specified"},
     )
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 @override_settings(HUEY={**_SQLITE_HUEY, "immediate": False})
 class StartAnalysisThreadDispatchTests(TestCase):
     """Plain conditions (no env var, non-immediate) run in-process on a thread."""
@@ -51,7 +50,7 @@ class StartAnalysisThreadDispatchTests(TestCase):
         call = thread.call_args
         self.assertIs(call.kwargs["target"], execute_analysis)
         self.assertIs(call.kwargs["daemon"], True)
-        self.assertEqual(call.kwargs["args"], (run.pk, run.mode))
+        self.assertEqual(call.kwargs["args"], (run.pk, active_mode()))
         thread.return_value.start.assert_called_once()
         self.assertEqual(run.status, "queued")
         self.assertEqual(run.session_id, job.session_id)
@@ -63,11 +62,10 @@ class StartAnalysisThreadDispatchTests(TestCase):
                     job = _make_job()
                     run = start_analysis(job)
 
-        enqueue.assert_called_once_with(run.pk, run.mode)
+        enqueue.assert_called_once_with(run.pk, active_mode())
         thread.assert_not_called()
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 @override_settings(HUEY={**_SQLITE_HUEY, "immediate": True})
 class StartAnalysisImmediateDispatchTests(TestCase):
     """Immediate huey mode runs the task inline via the wrapper, never a thread."""
@@ -79,7 +77,7 @@ class StartAnalysisImmediateDispatchTests(TestCase):
                     job = _make_job()
                     run = start_analysis(job)
 
-        enqueue.assert_called_once_with(run.pk, run.mode)
+        enqueue.assert_called_once_with(run.pk, active_mode())
         thread.assert_not_called()
         self.assertEqual(run.status, "queued")
         self.assertEqual(run.session_id, job.session_id)

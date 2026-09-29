@@ -14,9 +14,8 @@ When an async Scan completes, its aggregated findings are forwarded into the
 `discovery` pipeline via `discovery.services.ingest_external_findings(...)` so
 real async scans populate the crypto asset inventory (the dashboard's source).
 
-Mode note: the `crypto_scan` app is exempt from the demo/actual split (the DB
-router always routes crypto_scan models to `default`), so real async scan data
-belongs in the `actual` mode. We therefore always ingest with mode="actual".
+There is one database, so async scan findings land in the same inventory as
+every other source and need no routing decision.
 
 Idempotency: `_scan_complete_check` can re-fire (task path + crash sweep).
 The `Scan.ingested_at` guard ensures we forward aggregated findings only once.
@@ -211,7 +210,6 @@ def _forward_to_inventory(scan_id: int) -> None:
             source_type="source_code",
             findings=adapted,
             target=scan.path or f"scan-{scan.pk}",
-            mode="actual",
             session_id=scan.session_id,
         )
         logger.info("scan %s forwarded %s finding(s) into discovery inventory",

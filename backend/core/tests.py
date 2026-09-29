@@ -1,17 +1,20 @@
 """Tests for work-session scoping helpers and session endpoints."""
 
 import json
+import os
+import sqlite3
+import tempfile
 
+from django.db import connection, transaction
 from django.test import Client, TestCase, override_settings
 
 from segments.scraping.discovery.models import ScanJob
 
 from .api import create_api_key
-from .models import ApiKey, WorkSession
+from .models import ApiKey, AuditLog, WorkSession, log_action
 from .sessions import clear_thread_session, create_scan_session, scope, thread_session_id
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class WorkSessionTests(TestCase):
     """Session endpoints, the scope() helper and reset isolation."""
 
@@ -22,7 +25,6 @@ class WorkSessionTests(TestCase):
         return ScanJob.objects.using("default").create(
             source_type="source_code",
             target=target,
-            mode="actual",
             status="queued",
             session_id=session.pk if session else None,
         )
@@ -131,7 +133,7 @@ class WorkSessionTests(TestCase):
         self.assertEqual(thread_session_id(), ws.pk)
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual", "REQUIRE_API_KEY": True})
+@override_settings(ECDAT={"REQUIRE_API_KEY": True})
 class ApiKeyAuthTests(TestCase):
     """API-key enforcement on /api/ routes."""
 
@@ -175,11 +177,10 @@ class ApiKeyAuthTests(TestCase):
         self.assertIsNotNone(ApiKey.objects.using("default").get(pk=self.key.pk).last_used_at)
 
     def test_auth_disabled_allows_anonymous(self):
-        with override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual", "REQUIRE_API_KEY": False}):
+        with override_settings(ECDAT={"REQUIRE_API_KEY": False}):
             r = self.client.get("/api/scans/")
         self.assertEqual(r.status_code, 200)
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class ScanHistoryTests(TestCase):
     """Audit is the one place that spans sessions, so it has to be trustworthy.
 
@@ -253,7 +254,6 @@ class ScanHistoryTests(TestCase):
     def test_history_requires_get(self):
         self.assertEqual(self.client.post("/api/session/scan-history/").status_code, 405)
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class NoSessionLeakTests(TestCase):
     """With no scan selected, every tab must show nothing.
 
@@ -341,7 +341,6 @@ class NoSessionLeakTests(TestCase):
         self.assertEqual(scoped["count"], 1, "a selected session sees its own finding only")
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class ViewExceptionEnvelopeTests(TestCase):
     """A view that raises must produce its own error, not a bare 500.
 
@@ -387,7 +386,6 @@ class ViewExceptionEnvelopeTests(TestCase):
         self.assertTrue(self.response.json()["meta"]["request_id"])
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class NoScanSelectedTests(TestCase):
     """Actions that belong to a scan are refused when none is selected.
 
@@ -434,3 +432,247 @@ class NoScanSelectedTests(TestCase):
         """Validation runs before the scope check, so a typo stays a typo."""
         r = self.client.get("/api/graph-index/1/impact/?question=nonsense")
         self.assertEqual(r.status_code, 400)
+
+
+class AuditImmutabilityTests(TestCase):
+    """The audit trail must survive every attempt to rewrite or remove it.
+
+    Three independent layers are asserted here, because any one of them alone
+    is bypassable: the model refuses writes, the application no longer issues
+    deletes, and the database has triggers that reject raw SQL.
+    """
+
+    def setUp(self):
+        self.session = WorkSession.objects.create(name="audit-probe")
+        self.sid = self.session.pk
+        log_action("scan_created", "probe entry", "worksession", str(self.sid), session_id=self.sid)
+        self.entry = AuditLog.objects.filter(session_name="audit-probe").order_by("-id").first()
+
+    # --- model layer -----------------------------------------------------
+
+    def test_saving_an_existing_entry_is_refused(self):
+        self.entry.message = "rewritten"
+        with self.assertRaises(ValueError):
+            self.entry.save()
+        self.assertEqual(AuditLog.objects.get(pk=self.entry.pk).message, "probe entry")
+
+    def test_instance_delete_is_refused(self):
+        with self.assertRaises(ValueError):
+            self.entry.delete()
+        self.assertTrue(AuditLog.objects.filter(pk=self.entry.pk).exists())
+
+    # --- database layer --------------------------------------------------
+
+    def test_queryset_update_is_blocked_by_the_trigger(self):
+        """QuerySet.update() skips save(), so only the trigger can stop this."""
+        with transaction.atomic():
+            with self.assertRaises(Exception):
+                AuditLog.objects.filter(pk=self.entry.pk).update(message="rewritten")
+        self.assertEqual(AuditLog.objects.get(pk=self.entry.pk).message, "probe entry")
+
+    def test_queryset_delete_is_blocked_by_the_trigger(self):
+        with transaction.atomic():
+            with self.assertRaises(Exception):
+                AuditLog.objects.filter(pk=self.entry.pk).delete()
+        self.assertTrue(AuditLog.objects.filter(pk=self.entry.pk).exists())
+
+    def test_raw_sql_update_is_blocked(self):
+        with transaction.atomic():
+            with self.assertRaises(Exception):
+                with connection.cursor() as cur:
+                    cur.execute(
+                        "UPDATE core_auditlog SET message = 'rewritten' WHERE id = %s",
+                        [self.entry.pk],
+                    )
+        self.assertEqual(AuditLog.objects.get(pk=self.entry.pk).message, "probe entry")
+
+    def test_raw_sql_delete_is_blocked(self):
+        with transaction.atomic():
+            with self.assertRaises(Exception):
+                with connection.cursor() as cur:
+                    cur.execute("DELETE FROM core_auditlog WHERE id = %s", [self.entry.pk])
+        self.assertTrue(AuditLog.objects.filter(pk=self.entry.pk).exists())
+
+    def test_bulk_delete_of_every_entry_is_blocked(self):
+        with transaction.atomic():
+            with self.assertRaises(Exception):
+                AuditLog.objects.all().delete()
+        self.assertTrue(AuditLog.objects.filter(pk=self.entry.pk).exists())
+
+    # --- deletion of the audited thing -----------------------------------
+
+    def test_deleting_the_session_does_not_delete_its_audit_rows(self):
+        """The FK is SET_NULL, so evidence outlives the object it describes."""
+        self.session.delete()
+        rows = AuditLog.objects.filter(session_name="audit-probe")
+        self.assertTrue(rows.exists(), "audit rows must survive session deletion")
+        self.assertTrue(all(row.session_id is None for row in rows))
+
+    def test_delete_scan_history_endpoint_preserves_audit(self):
+        log_action("scan_completed", "second probe entry", "scanjob", "1", session_id=self.sid)
+        before = AuditLog.objects.filter(session_name="audit-probe").count()
+        r = self.client.post(f"/api/session/scan-history/{self.sid}/delete/")
+        self.assertEqual(r.status_code, 200)
+        after = AuditLog.objects.filter(session_name="audit-probe")
+        self.assertEqual(after.count(), before + 1, "only the deletion entry should be new")
+        self.assertTrue(after.filter(action="scan_deleted").exists())
+
+    def test_clear_all_endpoint_preserves_audit(self):
+        before = AuditLog.objects.count()
+        r = self.client.post("/api/session/scan-history/clear/")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(AuditLog.objects.count(), before + 1)
+        self.assertTrue(AuditLog.objects.filter(action="scan_deleted").exists())
+
+    def test_delete_scan_job_endpoint_records_the_deletion(self):
+        job = ScanJob.objects.create(source_type="source_code", target="probe", session_id=self.sid)
+        before = AuditLog.objects.count()
+        r = self.client.post(f"/api/session/scans/{job.pk}/delete/")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(AuditLog.objects.count(), before + 1)
+        self.assertTrue(AuditLog.objects.filter(action="scan_deleted").exists())
+
+    def test_reset_endpoint_preserves_audit(self):
+        before = AuditLog.objects.count()
+        r = self.client.post("/api/session/reset/")
+        self.assertEqual(r.status_code, 200)
+        self.assertGreaterEqual(AuditLog.objects.count(), before)
+
+    # --- the preserved history is reachable ------------------------------
+
+    def test_audit_scope_all_includes_orphaned_entries(self):
+        """A deleted scan's history must be viewable, not merely retained."""
+        self.session.delete()
+        r = self.client.get("/api/session/audit/?scope=all")
+        self.assertEqual(r.status_code, 200)
+        # Responses go through the JSON envelope, so the payload is under `data`.
+        entries = r.json()["data"]["entries"]
+        self.assertTrue(
+            any(e["orphaned"] and e["session_name"] == "audit-probe" for e in entries),
+            "orphaned entries must be returned and flagged",
+        )
+
+    def test_audit_scope_session_hides_orphaned_entries(self):
+        """Another scan's view must not resurrect a deleted scan's entries."""
+        self.session.delete()
+        # A different, still-live session is now the active one.
+        other = WorkSession.objects.create(name="audit-probe-other")
+        log_action("scan_created", "other scan entry", "worksession", str(other.pk), session_id=other.pk)
+
+        r = self.client.get("/api/session/audit/", headers={"x-ecdat-session": str(other.pk)})
+        self.assertEqual(r.status_code, 200)
+        entries = r.json()["data"]["entries"]
+        self.assertFalse(
+            any(e["session_name"] == "audit-probe" for e in entries),
+            "orphaned entries belong behind the all-scopes view",
+        )
+        self.assertTrue(any(e["session_name"] == "audit-probe-other" for e in entries))
+
+    def test_admin_denies_every_write_path(self):
+        """readonly_fields alone still leaves Save and delete_selected."""
+        from django.contrib import admin
+        from django.contrib.auth.models import User
+        from django.test import RequestFactory
+
+        model_admin = admin.site._registry[AuditLog]
+        request = RequestFactory().get("/admin/core/auditlog/")
+        request.user = User.objects.create_superuser("audit-admin", "a@b.c", "pw")
+
+        self.assertFalse(model_admin.has_add_permission(request))
+        self.assertFalse(model_admin.has_change_permission(request))
+        self.assertFalse(model_admin.has_delete_permission(request))
+        self.assertNotIn("delete_selected", model_admin.get_actions(request))
+
+
+def _make_queue_file() -> str:
+    """A throwaway SqliteHuey-shaped file: kv/task/schedule, nothing else."""
+    handle, path = tempfile.mkstemp(suffix=".sqlite3", prefix="ecdat-queue-")
+    os.close(handle)
+    with sqlite3.connect(path) as conn:
+        conn.execute("CREATE TABLE kv (queue TEXT, key TEXT, value TEXT, PRIMARY KEY (queue, key))")
+        conn.execute("CREATE TABLE task (id INTEGER PRIMARY KEY, queue TEXT, data TEXT, priority INTEGER)")
+        conn.execute("CREATE TABLE schedule (id INTEGER PRIMARY KEY, queue TEXT, data TEXT, timestamp REAL)")
+    return path
+
+
+QUEUE_PATH = _make_queue_file()
+
+
+def _drop_heartbeat() -> None:
+    from core.worker_status import HEARTBEAT_KEY
+
+    with sqlite3.connect(QUEUE_PATH) as conn:
+        conn.execute("DELETE FROM kv WHERE key = ?", (HEARTBEAT_KEY,))
+
+
+class WorkerStatusTests(TestCase):
+    """Worker liveness must be measured, not hardcoded.
+
+    The settings page used to render a literal "Unavailable" because
+    /api/health/ carried no worker data at all. These tests pin the contract so
+    the badge cannot silently go back to being decorative.
+    """
+
+    def test_health_payload_carries_worker_state(self):
+        r = self.client.get("/api/health/")
+        self.assertIn(r.status_code, (200, 503))
+        worker = r.json()["data"]["worker"] if r.status_code == 200 else r.json()["worker"]
+        for key in ("mode", "running", "state", "pending", "scheduled", "detail"):
+            self.assertIn(key, worker, f"health payload must expose {key}")
+
+    def test_health_reports_database_up_flag(self):
+        r = self.client.get("/api/health/")
+        self.assertIn("database_up", r.json()["data"])
+
+    @override_settings(HUEY={"immediate": True, "connection": {"filename": ""}})
+    def test_inline_mode_needs_no_worker(self):
+        from core.worker_status import worker_status
+
+        status = worker_status()
+        self.assertEqual(status["mode"], "inline")
+        self.assertTrue(status["running"])
+        self.assertEqual(status["state"], "inline")
+
+    def test_missing_queue_file_is_reported_not_crashed(self):
+        from core.worker_status import worker_status
+
+        with override_settings(
+            HUEY={"immediate": False, "connection": {"filename": "no-such-queue.sqlite3"}}
+        ):
+            status = worker_status()
+        self.assertFalse(status["running"])
+        self.assertEqual(status["state"], "unknown")
+
+    def test_heartbeat_flips_state_to_online(self):
+        from core.worker_status import HEARTBEAT_KEY, worker_status, write_heartbeat
+
+        with override_settings(
+            HUEY={"immediate": False, "connection": {"filename": QUEUE_PATH}, "consumer": {"workers": 2}}
+        ):
+            self.assertFalse(worker_status()["running"])
+            self.assertTrue(write_heartbeat(detail="test", workers=2))
+            status = worker_status()
+            self.assertTrue(status["running"])
+            self.assertIn(status["state"], ("online", "idle"))
+            self.assertEqual(status["workers"], 2)
+        _drop_heartbeat()
+
+    def test_stale_heartbeat_is_not_treated_as_running(self):
+        import json
+        import time
+
+        from core.worker_status import HEARTBEAT_KEY, worker_status
+
+        with override_settings(
+            HUEY={"immediate": False, "connection": {"filename": QUEUE_PATH}, "consumer": {"workers": 1}}
+        ):
+            # A stamp far in the past is what a killed worker leaves behind.
+            with sqlite3.connect(QUEUE_PATH) as connection:
+                connection.execute(
+                    "INSERT OR REPLACE INTO kv (queue, key, value) VALUES ('', ?, ?)",
+                    (HEARTBEAT_KEY, json.dumps({"at": time.time() - 600, "pid": 1})),
+                )
+            status = worker_status()
+            self.assertFalse(status["running"])
+            self.assertEqual(status["state"], "stale")
+        _drop_heartbeat()

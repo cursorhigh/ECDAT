@@ -556,8 +556,7 @@ def run_scan(scan_job: ScanJob) -> ScanJob:
         f"Starting {scan_job.source_type} scan on {scan_job.target}",
         "scanjob",
         scan_job.pk,
-        mode=scan_job.mode,
-    )
+            )
 
     def publish(stage: str, scanned: int, total: int | None) -> None:
         # Inspection is 0-80% of the run; persistence and correlation own the
@@ -666,15 +665,13 @@ def run_scan(scan_job: ScanJob) -> ScanJob:
             f"{ingested} raw findings",
             "scanjob",
             scan_job.pk,
-            mode=scan_job.mode,
-        )
+                    )
         log_action(
             "findings_ingested",
             f"Ingested {ingested} raw findings",
             "scanjob",
             scan_job.pk,
-            mode=scan_job.mode,
-        )
+                    )
 
         # Normalization, classification, correlation and the dependency graph
         # have already run above. Re-running them here would duplicate every
@@ -696,7 +693,7 @@ def run_scan(scan_job: ScanJob) -> ScanJob:
         scan_job.refresh_from_db(using=db)
         _refresh_parent_batch(scan_job, db)
         log_action("scan_cancelled", f"Scan {scan_job.source_type} cancelled",
-                   "scanjob", scan_job.pk, mode=scan_job.mode)
+                   "scanjob", scan_job.pk)
     except Exception as exc:  # noqa: BLE001
         ScanJob.objects.using(db).filter(pk=scan_job.pk).update(
             status=ScanJob.Status.FAILED,
@@ -710,28 +707,9 @@ def run_scan(scan_job: ScanJob) -> ScanJob:
         )
         scan_job.refresh_from_db(using=db)
         _refresh_parent_batch(scan_job, db)
-        log_action("system", f"Scan failed: {exc}", "scanjob", scan_job.pk, mode=scan_job.mode)
+        log_action("system", f"Scan failed: {exc}", "scanjob", scan_job.pk)
 
     return scan_job
-
-
-def run_demo_scan() -> ScanJob:
-    """Create and run the demo-mode source-code scan in the demo database."""
-    from django.conf import settings
-    from core import modes
-    from core.models import Mode
-
-    if not settings.ECDAT.get("DEMO_MODE"):
-        raise RuntimeError("Demo mode is disabled.")
-
-    job = ScanJob.objects.using(modes.DEMO_DB).create(
-        source_type=ScanJob.SourceType.SOURCE_CODE,
-        target="demo:enterprise-encryption",
-        mode=Mode.DEMO,
-        status=ScanJob.Status.QUEUED,
-    )
-    log_action("demo_seeded", "Running demo enterprise crypto scan", "scanjob", job.pk, mode=Mode.DEMO)
-    return run_scan(job)
 
 
 # ---------------------------------------------------------------------------
@@ -745,7 +723,9 @@ def _dispatch_scan(scan_job: ScanJob, db: str) -> ScanJob:
     Daemon thread by default (plain runserver); ECDAT_QUEUE_ASYNC=1 routes
     through huey for the dedicated worker. Returns the job unchanged.
     """
-    mode = scan_job.mode
+    from core.modes import active_mode
+
+    mode = active_mode()
     if os.environ.get("ECDAT_QUEUE_ASYNC") == "1":
         run_scan_task(scan_job.pk, mode)
     elif settings.HUEY.get("immediate"):
@@ -775,7 +755,7 @@ def run_scan_by_pk(scan_job_id: int, mode: str) -> ScanJob | None:
     Retries a lock-contention failure rather than failing the job: another
     source in the same batch may simply have been mid-write.
     """
-    from core.modes import db_alias_for_mode
+    from core.modes import active_mode, db_alias_for_mode
 
     db = db_alias_for_mode(mode)
     job = ScanJob.objects.using(db).filter(pk=scan_job_id).first()
@@ -838,7 +818,7 @@ def run_scan_task(scan_job_id: int, mode: str):
         import logging
 
         logging.getLogger("discovery").exception(
-            "run_scan_task: scan %s (mode=%s) crashed: %s", scan_job_id, mode, exc
+            "run_scan_task: scan %s crashed: %s", scan_job_id, exc
         )
 
 
@@ -884,7 +864,7 @@ def cancel_scan_job(scan_job: ScanJob) -> bool:
 
     scan_job.refresh_from_db(using=db)
     log_action("scan_cancelled", f"Cancellation requested for {scan_job.source_type} scan",
-               "scanjob", scan_job.pk, mode=scan_job.mode)
+               "scanjob", scan_job.pk)
     return True
 
 
@@ -945,11 +925,11 @@ def _requeue_scan(job: ScanJob, db: str) -> None:
     job.save(using=db, update_fields=["status", "progress", "error", "started_at",
                                       "finished_at", "findings_count"])
     log_action("scan_requeued", f"Re-queued stuck scan {job.pk} to complete it",
-               "scanjob", job.pk, mode=job.mode)
+               "scanjob", job.pk)
     # Enqueue on the persistent huey queue (like the analysis/plan sweeps) so
     # the worker survives; `_dispatch_scan`'s thread branch would be killed
     # when this CLI command exits and the scan would stay queued forever.
-    run_scan_task(job.pk, job.mode)
+    run_scan_task(job.pk, active_mode())
 
 
 class ScanInspectionError(ValueError):
@@ -966,12 +946,10 @@ def create_and_run_scan(source_type: str, target: str = "", config: dict | None 
       - "whole"     -> scan the entire system
       - "specified" -> scan the folder given in `target`
 
-    The ScanJob is created inside `mode`'s database (defaults to the active
-    mode) so the demo/actual data boundary is preserved. `session_id`
+    The ScanJob is created in the single database. `session_id`
     scopes the whole scan (job, findings, assets) to a work session.
     """
     from core import modes as modes_mod
-    from core.models import Mode
 
     source_type = (source_type or "").strip()
     target = (target or "").strip()
@@ -1008,20 +986,18 @@ def create_and_run_scan(source_type: str, target: str = "", config: dict | None 
     except ValueError as exc:
         raise ScanInspectionError(str(exc)) from None
 
-    chosen_mode = mode or modes_mod.active_mode()
-    db = modes_mod.db_alias_for_mode(chosen_mode)
+    db = modes_mod.active_db()
 
     scan_config = dict(config or {})
     scan_config["scan_type"] = scan_type
     job = ScanJob.objects.using(db).create(
         source_type=source_type,
         target=target,
-        mode=chosen_mode,
-        config=scan_config,
+                config=scan_config,
         status=ScanJob.Status.QUEUED,
         session_id=session_id,
     )
-    log_action("scan_created", f"Queued {source_type} scan on {target}", "scanjob", job.pk, mode=chosen_mode)
+    log_action("scan_created", f"Queued {source_type} scan on {target}", "scanjob", job.pk)
     return _dispatch_scan(job, db)
 
 
@@ -1076,7 +1052,7 @@ def plan_sources(source_types: list[str], target: str, scan_type: str) -> tuple[
 
 
 def create_batch_scan(source_types: list[str] | None = None, target: str = "",
-                     scan_type: str = "specified", mode: str | None = None,
+                     scan_type: str = "specified",
                      session_id: int | None = None) -> ScanBatch:
     """Run one discovery pass across several sources.
 
@@ -1087,8 +1063,7 @@ def create_batch_scan(source_types: list[str] | None = None, target: str = "",
     from core import modes as modes_mod
     from .models import ScanBatch
 
-    chosen_mode = mode or modes_mod.active_mode()
-    db = modes_mod.db_alias_for_mode(chosen_mode)
+    db = modes_mod.active_db()
 
     requested = [s for s in (source_types or []) if s in ScanJob.SourceType.values]
     if not requested:
@@ -1113,8 +1088,7 @@ def create_batch_scan(source_types: list[str] | None = None, target: str = "",
         source_types=requested,
         excluded=excluded,
         status=ScanJob.Status.QUEUED,
-        mode=chosen_mode,
-        session_id=session_id,
+                session_id=session_id,
     )
 
     # One source failing to start must not abandon the others, so each is
@@ -1125,8 +1099,7 @@ def create_batch_scan(source_types: list[str] | None = None, target: str = "",
                 source_type=source,
                 target=target,
                 scan_type=scan_type,
-                mode=chosen_mode,
-                session_id=session_id,
+                                session_id=session_id,
             )
         except ScanInspectionError as exc:
             excluded.append({"source": source, "reason": str(exc)})
@@ -1141,8 +1114,7 @@ def create_batch_scan(source_types: list[str] | None = None, target: str = "",
         f"Queued discovery across {len(runnable)} source(s) on {target}",
         "scanbatch",
         batch.pk,
-        mode=chosen_mode,
-    )
+            )
     return batch
 
 
@@ -1301,18 +1273,16 @@ def ingest_external_findings(source_type: str, findings: list[dict], target: str
     if not isinstance(findings, list):
         raise ScanInspectionError("`findings` must be a list of raw finding objects.")
 
-    chosen_mode = mode or modes_mod.active_mode()
-    db = modes_mod.db_alias_for_mode(chosen_mode)
+    db = modes_mod.active_db()
     job = ScanJob.objects.using(db).create(
         source_type=source_type,
         target=(target or "").strip() or "external-data",
-        mode=chosen_mode,
-        config={"external": True},
+                config={"external": True},
         status=ScanJob.Status.QUEUED,
         session_id=session_id,
     )
     log_action("scan_created", f"Ingesting {len(findings)} external findings ({source_type})",
-               "scanjob", job.pk, mode=chosen_mode)
+               "scanjob", job.pk)
 
     # Persist the raw findings (same behaviour as a scanner's ingest()).
     job.status = ScanJob.Status.RUNNING
@@ -1335,12 +1305,11 @@ def ingest_external_findings(source_type: str, findings: list[dict], target: str
             )
             job.refresh_from_db(using=db)
             log_action("scan_cancelled", f"External ingest ({source_type}) cancelled",
-                       "scanjob", job.pk, mode=chosen_mode)
+                       "scanjob", job.pk)
             return job
         RawFinding.objects.using(db).create(
             scan_job=job,
-            mode=chosen_mode,
-            source_type=source_type,
+                        source_type=source_type,
             location=item.get("location", ""),
             raw_json=item,
             session_id=session_id,
@@ -1376,7 +1345,7 @@ def _post_ingest(scan_job: ScanJob, db: str, source_type: str,
             scan_job.finished_at = timezone.now()
             scan_job.save(using=db, update_fields=["status", "error", "finished_at"])
             log_action("scan_cancelled", f"Scan {source_type} cancelled",
-                       "scanjob", scan_job.pk, mode=scan_job.mode)
+                       "scanjob", scan_job.pk)
             return
         norm = normalize_finding(raw, using=db, session_id=session_id)
         classify_asset(norm, using=db, session_id=session_id)
@@ -1398,7 +1367,7 @@ def _post_ingest(scan_job: ScanJob, db: str, source_type: str,
     scan_job.save(using=db, update_fields=["status", "progress", "finished_at"])
     log_action("scan_completed",
                f"Scan {source_type} complete: {scan_job.findings_count} raw findings",
-               "scanjob", scan_job.pk, mode=scan_job.mode)
+               "scanjob", scan_job.pk)
 
     _auto_analyze(scan_job)
 
@@ -1413,11 +1382,6 @@ def _auto_analyze(scan_job) -> None:
     import os
 
     if os.environ.get("ECDAT_AUTO_ANALYSE", "1") == "0":
-        return
-
-    from core.models import Mode
-
-    if scan_job.mode == Mode.DEMO:
         return
 
     from segments.scraping.discovery.models import NormalizedFinding

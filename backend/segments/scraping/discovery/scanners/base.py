@@ -174,7 +174,6 @@ class BaseScanner(ABC):
             payload = item.model_dump()
             RawFinding.objects.using(db).create(
                 scan_job=self.scan_job,
-                mode=self.scan_job.mode,
                 source_type=self.source_type,
                 location=payload.get("location", ""),
                 # Kept separate from the display label so later stages can

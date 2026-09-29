@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from core.modes import active_db, db_alias_for_mode
+from core.modes import active_db, active_mode, db_alias_for_mode
 from core.sessions import scope, thread_session_id
 from segments.ml.analysis.models import AnalysisRun
 
@@ -14,20 +14,19 @@ from .planner import cancel_plan, trigger_mitigation
 
 
 def _load_plan(plan_id):
-    """Return (plan, db) for a plan, resolved from the run's own mode database."""
+    """Return (plan, db) for a plan.
+
+    One database, so a single lookup. The previous version fell back to the
+    other mode's database on a miss, which is meaningless now and cost two extra
+    queries before raising a genuine "not found".
+    """
     db = active_db()
-    try:
-        plan = MitigationPlan.objects.using(db).get(pk=plan_id)
-    except MitigationPlan.DoesNotExist:
-        fallback = "demo" if db != "demo" else "default"
-        plan = MitigationPlan.objects.using(fallback).get(pk=plan_id)
-    db = db_alias_for_mode(plan.mode)
-    return (
+    plan = (
         MitigationPlan.objects.using(db)
         .select_related("run__scan_job")
-        .get(pk=plan_id),
-        db,
+        .get(pk=plan_id)
     )
+    return plan, db
 
 
 def _plan_public(plan, include_document=True):

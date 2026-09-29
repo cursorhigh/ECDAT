@@ -50,7 +50,6 @@ class WorkflowBuilderTests(TestCase):
         self.assertEqual(steps[-1]["api"], "/api/reports/full.json")
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class OverviewEndpointTests(TestCase):
     def setUp(self):
         from core.models import WorkSession
@@ -132,7 +131,6 @@ class OverviewEndpointTests(TestCase):
         self.assertTrue(all(workflow.values()))
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class ReportingEndpointTests(TestCase):
     def setUp(self):
         from core.models import WorkSession

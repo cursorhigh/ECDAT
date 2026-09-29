@@ -229,12 +229,10 @@ Provide two workflows.
 
 API:
 - `POST /api/start-scan/`
-- `POST /api/run-demo-scan/`
 - `POST /api/scan-data/`
 - `GET /api/scans/{id}/`
 - `GET /api/scans/?ordering=created_at`
 
-The demo scan must be clearly labeled as demo data.
 
 ### 7.3 Cryptographic Assets
 
@@ -362,7 +360,6 @@ Documented endpoints:
 
 ### Discovery
 - `POST /api/start-scan/`
-- `POST /api/run-demo-scan/`
 - `POST /api/scan-data/`
 - `GET /api/scans/{id}/`
 - `GET /api/scans/?ordering=created_at`

@@ -70,7 +70,6 @@ def build_correlations(assets=None, using=None) -> int:
                     to_asset=b,
                     relation_type=AssetRelation.RelationType.RELATE,
                     defaults={
-                        "mode": a.mode,
                         "session_id": edge_session(a, b),
                         "description": f"Shared algorithm family {family}",
                     },
@@ -100,7 +99,6 @@ def build_correlations(assets=None, using=None) -> int:
                     to_asset=b,
                     relation_type=AssetRelation.RelationType.CONTEXT,
                     defaults={
-                        "mode": a.mode,
                         "session_id": edge_session(a, b),
                         "description": "Share a deployment/context",
                     },

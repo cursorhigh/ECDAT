@@ -107,5 +107,23 @@ class Command(BaseCommand):
         else:
             self.stdout.write("Crash recovery: no pending items to reset.")
 
-        consumer = HUEY.create_consumer(**self._consumer_kwargs(workers, worker_type))
-        consumer.run()
+        consumer_kwargs = self._consumer_kwargs(workers, worker_type)
+        consumer = HUEY.create_consumer(**consumer_kwargs)
+
+        # Publish a liveness heartbeat for as long as the consumer runs, so
+        # /api/health/ can distinguish "queue is empty" from "no worker is
+        # draining it". Without it the settings page can only say
+        # "Unavailable", which is what it used to show.
+        from core.worker_status import HeartbeatThread
+
+        heartbeat = HeartbeatThread(workers=consumer_kwargs.get("workers"))
+        heartbeat.start()
+        self.stdout.write(
+            self.style.SUCCESS("Worker heartbeat published to the queue file.")
+        )
+
+        try:
+            consumer.run()
+        finally:
+            heartbeat.stop()
+            self.stdout.write(self.style.WARNING("Worker stopped; heartbeat withdrawn."))

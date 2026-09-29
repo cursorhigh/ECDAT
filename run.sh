@@ -118,10 +118,29 @@ print_menu() {
   echo "${BOLD}Which UI / frontend mode should ECDAT run in?${RESET}"
   echo "  1) browser-dev      Browser UI + live Next.js dev server (HMR) + local backend"
   echo "  2) browser-preview  Browser UI, production build served locally + backend"
-  echo "  3) desktop          Offline desktop shell (Tauri) + bundled backend"
-  echo "  4) backend-only     Backend API + worker, no UI"
-  if [ -n "$DESKTOP_NOTE" ]; then echo "     ${YELLOW}desktop not available: $DESKTOP_NOTE${RESET}"; fi
+  # The Tauri shell is only listed when it actually exists. Offering a numbered
+  # option that can only fail is worse than not offering it, and it made the
+  # launcher look broken on a repo where desktop/ was never built.
+  if [ "$DESKTOP_AVAILABLE" = "1" ]; then
+    echo "  3) desktop          Offline desktop shell (Tauri) + bundled backend"
+    echo "  4) backend-only     Backend API + worker, no UI"
+  else
+    echo "  3) backend-only     Backend API + worker, no UI"
+  fi
+  if [ "$DESKTOP_AVAILABLE" != "1" ]; then
+    echo "     ${CYAN}desktop shell not built in this checkout — using the browser UI instead${RESET}"
+  fi
 }
+
+# Choice numbers shift when desktop is absent, so the prompt and the case arms
+# are derived from the same condition as the menu.
+if [ "$DESKTOP_AVAILABLE" = "1" ]; then
+  BACKEND_ONLY_CHOICE=4
+  CHOICE_RANGE="1-4"
+else
+  BACKEND_ONLY_CHOICE=3
+  CHOICE_RANGE="1-3"
+fi
 
 if [ -z "$MODE" ]; then
   if [ ! -t 0 ]; then
@@ -130,15 +149,21 @@ if [ -z "$MODE" ]; then
   fi
   print_menu
   while true; do
-    printf "Enter choice [1-4] (default 1): "
+    printf "Enter choice [${CHOICE_RANGE}] (default 1): "
     read -r CHOICE
     CHOICE="${CHOICE:-1}"
     case "$CHOICE" in
       1) MODE="browser-dev"; break ;;
       2) MODE="browser-preview"; break ;;
-      3) MODE="desktop"; break ;;
-      4) MODE="backend-only"; break ;;
-      *) warn "invalid choice '$CHOICE' (1-4)"; ;;
+      3)
+        if [ "$DESKTOP_AVAILABLE" = "1" ]; then MODE="desktop"; else MODE="backend-only"; fi
+        break
+        ;;
+      4)
+        if [ "$DESKTOP_AVAILABLE" = "1" ]; then MODE="backend-only"; break; fi
+        warn "invalid choice '$CHOICE' (${CHOICE_RANGE})"
+        ;;
+      *) warn "invalid choice '$CHOICE' (${CHOICE_RANGE})" ;;
     esac
   done
 fi
@@ -150,7 +175,7 @@ esac
 
 if [ "$MODE" = "desktop" ]; then
   if [ "$DESKTOP_AVAILABLE" != "1" ]; then
-    fail "desktop mode is not available on this machine${DESKTOP_NOTE:+: $DESKTOP_NOTE}."
+    fail "desktop mode is not available: ${DESKTOP_NOTE:-the Tauri shell is not built in this checkout}."
     fail "Use 'browser-dev' or 'browser-preview' instead — the same frontend build runs in a browser."
     exit 1
   fi
@@ -193,8 +218,14 @@ if curl --silent --max-time 2 "$HEALTH_URL" >/dev/null 2>&1; then
     y|Y|yes)
       info "stopping the existing backend + worker..."
       if command -v powershell.exe >/dev/null 2>&1; then
-        powershell.exe -NoProfile -Command "Get-NetTCPConnection -LocalPort $PORT -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { cmd.exe /c 'taskkill /PID \$_ /T /F' | Out-Null }"
-        powershell.exe -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { \$_.Name -like 'python*' -and \$_.CommandLine -like '*run_huey*' } | Select-Object -ExpandProperty ProcessId | ForEach-Object { cmd.exe /c 'taskkill /PID \$_ /T /F' | Out-Null }"
+        # Kill via PowerShell's own cmdlets rather than shelling out to
+        # `cmd.exe /c 'taskkill /PID $_ ...'`. That nesting was the bug: the
+        # `$_` sat inside a single-quoted string handed to cmd.exe, so cmd.exe
+        # received the literal text `$_` and every kill failed with
+        # 'The process "$_" not found' -- leaving the old backend running and
+        # the script to then start a second one on the same port.
+        powershell.exe -NoProfile -Command "Get-NetTCPConnection -LocalPort $PORT -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id \$_ -Force -ErrorAction SilentlyContinue }"
+        powershell.exe -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { \$_.Name -like 'python*' -and \$_.CommandLine -like '*run_huey*' } | ForEach-Object { Stop-Process -Id \$_.ProcessId -Force -ErrorAction SilentlyContinue }"
       else
         lsof -ti tcp:"$PORT" 2>/dev/null | xargs -r kill 2>/dev/null || true
         pkill -f run_huey 2>/dev/null || true
@@ -232,9 +263,8 @@ trap cleanup INT TERM EXIT
 if [ "$EXISTING" = "1" ]; then
   info "skipping migrations/worker — external backend is already serving this port."
 elif [ "$DO_MIGRATE" = "1" ]; then
-  step "Applying migrations (default + demo databases)"
+  step "Applying migrations"
   "$PYTHON" manage.py migrate --noinput
-  "$PYTHON" manage.py migrate --noinput --database=demo
   ok "migrations applied"
 else
   warn "migrations skipped (--skip-migrate)"
@@ -323,7 +353,22 @@ case "$MODE" in
       cd "$FRONTEND"
       npm run build
     else
-      info "using existing frontend/.next — pass --rebuild to rebuild."
+      # A build that exists is not the same as a build that is current. Preview
+      # mode serves the compiled output verbatim, so edits made after the last
+      # `next build` are invisible and look like a broken change. Compare the
+      # newest source against BUILD_ID rather than trusting the file's presence.
+      STALE=$(find "$FRONTEND/app" "$FRONTEND/components" "$FRONTEND/lib" \
+                -newer "$FRONTEND/.next/BUILD_ID" \
+                \( -name '*.ts' -o -name '*.tsx' -o -name '*.css' \) 2>/dev/null | wc -l)
+      if [ "$STALE" -gt 0 ]; then
+        warn "frontend sources changed since the last build ($STALE file(s) newer than .next/BUILD_ID)."
+        warn "this preview would show the OLD code. rebuilding now."
+        step "Rebuilding production frontend..."
+        cd "$FRONTEND"
+        npm run build
+      else
+        info "using existing frontend/.next — pass --rebuild to force a rebuild."
+      fi
     fi
     step "Serving built frontend on port $FRONTEND_PORT (Django API: $API_TARGET)"
     cd "$FRONTEND"

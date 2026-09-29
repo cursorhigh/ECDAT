@@ -141,6 +141,44 @@
     to { opacity: 1; transform: translateX(0); }
   }
 
+  /* Exit half of the dialog transition. The panel has to stay mounted for the
+     length of this animation, so DIALOG_EXIT_MS in dialog.tsx must match. */
+  @keyframes dialog-overlay-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+
+  @keyframes dialog-panel-out {
+    from { opacity: 1; transform: translateY(0) scale(1); }
+    to { opacity: 0; transform: translateY(8px) scale(0.98); }
+  }
+
+  /* Top-bar tooltips. `tailwindcss-animate` is not a dependency here, so the
+     entrance is declared by hand alongside the dialog keyframes above. The
+     transform origin follows the side the bubble opened on, which is why the
+     two variants exist. */
+  @keyframes nav-tooltip-in-top {
+    from { opacity: 0; transform: translateY(4px) scale(0.97); }
+    to { opacity: 1; transform: none; }
+  }
+
+  @keyframes nav-tooltip-in-bottom {
+    from { opacity: 0; transform: translateY(-4px) scale(0.97); }
+    to { opacity: 1; transform: none; }
+  }
+
+  .nav-tooltip {
+    will-change: transform, opacity;
+  }
+
+  .nav-tooltip[data-side="top"] {
+    animation: nav-tooltip-in-top 120ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .nav-tooltip[data-side="bottom"] {
+    animation: nav-tooltip-in-bottom 120ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
   .dialog-overlay {
     animation: dialog-overlay-in 160ms ease-out both;
   }
@@ -151,6 +189,14 @@
 
   .dialog-stage {
     animation: dialog-stage-in 260ms ease-out both;
+  }
+
+  .dialog-overlay[data-closing="true"] {
+    animation: dialog-overlay-out 160ms ease-in both;
+  }
+
+  .dialog-panel[data-closing="true"] {
+    animation: dialog-panel-out 160ms ease-in both;
   }
 
 }

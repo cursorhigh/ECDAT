@@ -6,7 +6,7 @@ Models the crypto-discovery pipeline:
 
 from django.db import models
 
-from core.models import Mode, TimeStampedModel
+from core.models import TimeStampedModel
 
 
 class ScanJob(TimeStampedModel):
@@ -34,7 +34,6 @@ class ScanJob(TimeStampedModel):
         CANCELLED = "cancelled", "Cancelled"
 
     source_type = models.CharField(max_length=16, choices=SourceType.choices)
-    mode = models.CharField(max_length=8, choices=Mode.choices, default=Mode.ACTUAL)
     session = models.ForeignKey(
         "core.WorkSession",
         null=True,
@@ -97,7 +96,7 @@ class ScanJob(TimeStampedModel):
 
     class Meta:
         ordering = ["-created_at"]
-        indexes = [models.Index(fields=["source_type", "status"]), models.Index(fields=["mode"])]
+        indexes = [models.Index(fields=["source_type", "status"])]
 
     def __str__(self) -> str:
         return f"{self.source_type}:{self.target} [{self.status}]"
@@ -134,7 +133,6 @@ class ScanBatch(TimeStampedModel):
     progress = models.PositiveSmallIntegerField(default=0)
     started_at = models.DateTimeField(null=True, blank=True)
     finished_at = models.DateTimeField(null=True, blank=True)
-    mode = models.CharField(max_length=8, choices=Mode.choices, default=Mode.ACTUAL)
     session = models.ForeignKey(
         "core.WorkSession",
         null=True,
@@ -145,7 +143,7 @@ class ScanBatch(TimeStampedModel):
 
     class Meta:
         ordering = ["-created_at"]
-        indexes = [models.Index(fields=["status"]), models.Index(fields=["mode"])]
+        indexes = [models.Index(fields=["status"])]
 
     def __str__(self) -> str:
         return f"batch:{self.target} [{len(self.source_types or [])} sources, {self.status}]"
@@ -163,7 +161,6 @@ class RawFinding(TimeStampedModel):
     scan_job = models.ForeignKey(
         ScanJob, on_delete=models.CASCADE, related_name="raw_findings"
     )
-    mode = models.CharField(max_length=8, choices=Mode.choices, default=Mode.ACTUAL)
     session = models.ForeignKey(
         "core.WorkSession",
         null=True,
@@ -198,7 +195,7 @@ class RawFinding(TimeStampedModel):
 
     class Meta:
         ordering = ["-ingested_at"]
-        indexes = [models.Index(fields=["source_type", "status"]), models.Index(fields=["mode"])]
+        indexes = [models.Index(fields=["source_type", "status"])]
 
     def __str__(self) -> str:
         return f"Raw[{self.source_type}] {self.location[:60]}"
@@ -244,7 +241,6 @@ class NormalizedFinding(TimeStampedModel):
     raw_finding = models.OneToOneField(
         RawFinding, on_delete=models.CASCADE, related_name="normalized"
     )
-    mode = models.CharField(max_length=8, choices=Mode.choices, default=Mode.ACTUAL)
     session = models.ForeignKey(
         "core.WorkSession",
         null=True,
@@ -321,7 +317,6 @@ class CryptoAsset(TimeStampedModel):
         UNKNOWN = "unknown", "Unknown"
 
     name = models.CharField(max_length=256)
-    mode = models.CharField(max_length=8, choices=Mode.choices, default=Mode.ACTUAL)
     session = models.ForeignKey(
         "core.WorkSession",
         null=True,
@@ -598,7 +593,6 @@ class AssetRelation(models.Model):
     to_asset = models.ForeignKey(
         CryptoAsset, on_delete=models.CASCADE, related_name="incoming_relations"
     )
-    mode = models.CharField(max_length=8, choices=Mode.choices, default=Mode.ACTUAL)
     session = models.ForeignKey(
         "core.WorkSession",
         null=True,

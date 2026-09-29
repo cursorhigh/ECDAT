@@ -1,9 +1,9 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useState } from "react";
+import { ChangeEvent, FormEvent, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, BadgeCheck, Boxes, Check, CheckCircle2, Clock, FileCode2, FileJson, FileType, Folder, FolderOpen, Globe, Loader2, Package, Play, Radar, ScanLine, Search, ShieldAlert, ShieldCheck, SlidersHorizontal, Sparkles, Upload, XCircle } from "lucide-react";
+import { AlertTriangle, BadgeCheck, Boxes, Check, CheckCircle2, Clock, FileCode2, FileJson, FileType, Folder, FolderOpen, Globe, Loader2, Package, Radar, ScanLine, Search, ShieldAlert, ShieldCheck, SlidersHorizontal, Sparkles, Upload, XCircle } from "lucide-react";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Tooltip } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import { PageHeader, SectionLabel } from "@/components/data/page-header";
 import { StatusBadge } from "@/components/data/status-badge";
 import { useToast } from "@/components/feedback/toast";
 import { api, isNoScanSelected } from "@/lib/api/client";
+import { requestRiskPrompt } from "@/components/data/risk-prompt-store";
 import type { Handoff, NormalizedFinding, ScanBatch, ScanJob, ScanPreview, ScannerDescriptor, ScannerRegistry, StartScanPayload } from "@/lib/api/types";
 import { useSession } from "@/lib/session-context";
 import { cn, formatDate, formatNumber, titleCase, truncate } from "@/lib/utils";
@@ -80,10 +81,6 @@ function joinPath(parent: string, child: string) {
   return `${parent}${separator}${child}`;
 }
 
-function isDemoJob(job: ScanJob) {
-  return String(job.target || "").toLowerCase().startsWith("demo:");
-}
-
 function confidenceLevel(value?: number | null): { label: string; variant: BadgeProps["variant"] } {
   const score = Number(value);
   if (!Number.isFinite(score) || score <= 0) return { label: "Unknown", variant: "muted" };
@@ -139,18 +136,24 @@ export default function ScansPage() {
   const [cryptoOnly, setCryptoOnly] = useState(true);
   const [kindFilter, setKindFilter] = useState("");
 
-  // Operational Context Modal State (HNDL + Mosca)
-  const [riskDialogOpen, setRiskDialogOpen] = useState(false);
-  const [selectedScanForRisk, setSelectedScanForRisk] = useState<number | null>(null);
-  const [dataLifetimeYears, setDataLifetimeYears] = useState("8.0");
-  const [migrationComplexity, setMigrationComplexity] = useState("3.0");
-  const [quantumHorizonYear, setQuantumHorizonYear] = useState("2033");
-  const [dataSensitivity, setDataSensitivity] = useState("4");
-  const [cryptoAgility, setCryptoAgility] = useState("2");
-  const [isPublicAccess, setIsPublicAccess] = useState(true);
-  const [customAppName, setCustomAppName] = useState("");
+  // Risk analysis lives on the Discovered assets page now. This page only asks
+  // the single global prompt to open, rather than rendering its own copy of the
+  // dialog -- two mounts of the same modal is what made it appear twice.
 
-  const scans = useQuery({ queryKey: ["scans", scopeKey], queryFn: () => api.scans({ page: 1 }), enabled: ready && hasSession });
+  const scans = useQuery({
+    queryKey: ["scans", scopeKey],
+    queryFn: () => api.scans({ page: 1 }),
+    enabled: ready && hasSession,
+    // Keep the list live while any scan is still working, then stop. Without
+    // this a running scan sits on its starting percentage until a manual
+    // refresh, which reads as a hung scan.
+    refetchInterval: (query) => {
+      const rows = (query.state.data as { results?: { status?: string }[] } | undefined)?.results || [];
+      return rows.some((r) => !TERMINAL_STATUSES.has(String(r.status || "").toLowerCase()))
+        ? 2000
+        : false;
+    },
+  });
   const awaiting = useQuery({ queryKey: ["analysis-awaiting", scopeKey], queryFn: api.analysisAwaiting, enabled: ready && hasSession, refetchInterval: 4000 });
   const registry = useQuery({ queryKey: ["scanners"], queryFn: () => api.scanners(), enabled: ready, staleTime: 300_000 });
   const preview = useQuery({ queryKey: ["scan-preview", scanType, scopeKey], queryFn: () => api.scanPreview(scanType), enabled: ready && scanType !== "specified" });
@@ -158,53 +161,25 @@ export default function ScansPage() {
 
   const awaitingRows = awaiting.data || [];
 
-  const startRiskAnalysis = useMutation({
-    mutationFn: async () => {
-      const scanId = selectedScanForRisk || awaitingRows[0]?.scan_job_id || selectedJobId || scans.data?.results?.[0]?.id;
-      if (!scanId) throw new Error("Choose a completed scan first.");
-      const rawContext = {
-        application: {
-          name: customAppName || "ECDAT Target Systems",
-          type: "enterprise_service",
-        },
-        data: {
-          lifetime_years: Number(dataLifetimeYears) || 8.0,
-          sensitivity: Number(dataSensitivity) || 4,
-          types: ["PII", "Financial", "SessionTokens"],
-        },
-        network: {
-          publicly_accessible: isPublicAccess,
-          internet_facing: isPublicAccess,
-        },
-        business_context: {
-          data_retention_years: Number(dataLifetimeYears) || 8.0,
-          migration_complexity: Number(migrationComplexity) || 3,
-          crypto_agility: Number(cryptoAgility) || 2,
-          quantum_horizon_year: Number(quantumHorizonYear) || 2033,
-          assessment_year: 2026,
-        },
-        operational_parameters: {
-          X_migration_time_years: Number(migrationComplexity) || 3.0,
-          Y_data_lifetime_years: Number(dataLifetimeYears) || 8.0,
-          Z_quantum_horizon_year: Number(quantumHorizonYear) || 2033,
-        }
-      };
-      return api.startAnalysis({ scan_job: Number(scanId), raw_system_context: rawContext });
-    },
-    onSuccess: (created) => {
-      setRiskDialogOpen(false);
-      pushToast(`Quantum Risk Analysis #${created.id} started successfully!`, "success");
-      router.push("/analysis");
-    },
-    onError: (error) => pushToast(error instanceof Error ? error.message : "Failed to start risk analysis.", "error")
-  });
-
   const openRiskModal = (scanId?: number | null) => {
-    if (scanId) setSelectedScanForRisk(scanId);
-    else if (selectedJobId) setSelectedScanForRisk(selectedJobId);
-    else if (awaitingRows[0]?.scan_job_id) setSelectedScanForRisk(awaitingRows[0].scan_job_id);
-    else if (scans.data?.results?.[0]?.id) setSelectedScanForRisk(scans.data.results[0].id);
-    setRiskDialogOpen(true);
+    // An already-parked run is resumed rather than re-parked, so the prompt must
+    // not try to start a second one for the same scan.
+    const alreadyParked = awaitingRows.some((row) => row.scan_job_id === scanId);
+    const target =
+      scanId ?? selectedJobId ?? awaitingRows[0]?.scan_job_id ?? scans.data?.results?.[0]?.id ?? null;
+    if (!target) {
+      pushToast("No completed scan is available to analyze.", "error");
+      return;
+    }
+    requestRiskPrompt(
+      alreadyParked
+        ? {
+            kind: "resume",
+            scanJobId: target,
+            deadlineSeconds: awaitingRows.find((row) => row.scan_job_id === target)?.seconds_left ?? null,
+          }
+        : { kind: "start", scanJobId: target }
+    );
   };
 
   const availableScanners = (registry.data?.scanners || []).filter((scanner) => scanner.status === "available");
@@ -340,15 +315,7 @@ export default function ScansPage() {
   });
   const activeBatch = batchLive.data ?? null;
 
-  const cancelBatch = useMutation({
-    mutationFn: (id: number) => api.cancelScanBatch(id),
-    onSuccess: async () => {
-      pushToast("Cancellation requested for every source.", "info");
-      await queryClient.invalidateQueries({ queryKey: ["scan-batch"] });
-    },
-    onError: (error) =>
-      pushToast(error instanceof Error ? error.message : "Cancellation failed.", "error"),
-  });
+
 
   const startScan = useMutation({
     mutationFn: async (payload: StartScanPayload) => api.startScan(payload),
@@ -379,26 +346,6 @@ export default function ScansPage() {
     onError: (error) => pushToast(error instanceof Error ? error.message : "Discovery could not be started.", "error")
   });
 
-  const demoScan = useMutation({
-    mutationFn: api.demoScan,
-    onSuccess: async (created) => {
-      selectJob(created.id);
-      setTab("scan");
-      pushToast(`Demo discovery job #${created.id} is processing.`, "success");
-      await queryClient.invalidateQueries({ queryKey: ["scans"] });
-    },
-    onError: (error) => pushToast(error instanceof Error ? error.message : "Demo discovery could not be started.", "error")
-  });
-
-  const cancelScan = useMutation({
-    mutationFn: (id: number) => api.cancelScan(id),
-    onSuccess: async () => {
-      pushToast("Cancellation requested.", "info");
-      await queryClient.invalidateQueries({ queryKey: ["scans"] });
-      if (selectedJobId) await queryClient.invalidateQueries({ queryKey: ["scan-job", selectedJobId] });
-    },
-    onError: (error) => pushToast(error instanceof Error ? error.message : "Discovery could not be cancelled.", "error")
-  });
 
   const ingest = useMutation({
     mutationFn: async () => {
@@ -472,43 +419,73 @@ export default function ScansPage() {
     reader.readAsText(file);
   };
 
-  const scanRows = scans.data?.results || [];
   const findingRows = findings.data?.results || [];
   const findingTotal = findings.data?.count || 0;
   const findingPages = Math.max(1, Math.ceil(findingTotal / FINDINGS_PAGE_SIZE));
   // Row numbers continue across pages, so "#37" means the same finding whether
   // it is reached from page 1 or page 2.
   const findingRowOffset = (findingsPage - 1) * FINDINGS_PAGE_SIZE;
-  const jobPanel = !selectedJobId ? (
-      <EmptyState title="No job selected" description="Start a discovery scan below, or open a previous scan from the audit history to follow its current state." />
-  ) : job.isLoading ? (
-    <LoadingState label="Loading job state" />
-  ) : job.isError && !isNoScanSelected(job.error) ? (
-    <ErrorState
-      message={job.error instanceof Error ? job.error.message : "This job is not part of the selected scan."}
-      onRetry={() => void job.refetch()}
-    />
-  ) : job.data ? (
-    <JobMonitor
-      job={job.data}
-      isFetching={job.isFetching}
-      onCancel={() => cancelScan.mutate(job.data!.id)}
-      cancelling={cancelScan.isPending}
-      onStartRisk={openRiskModal}
-    />
-  ) : null;
 
-  // A multi-source run takes precedence: it is the more recent action.
-  const batchPanel = activeBatchId !== null && activeBatch ? (
-    <BatchMonitor
-      batch={activeBatch}
-      scanners={availableScanners}
-      onCancel={() => cancelBatch.mutate(activeBatch.id)}
-      cancelling={cancelBatch.isPending}
-      onStartRisk={() => openRiskModal(activeBatch.sources?.[0]?.id)}
-    />
-  ) : activeBatchId !== null ? (
-    <LoadingState label="Loading multi-source run" />
+  /*
+   * One compact status line for the run this page is following.
+   *
+   * A multi-source run is one ScanJob per source inside one session, so the
+   * status shown is aggregated across the run's jobs rather than a single source:
+   * "Source Code Repos, Completed, 333 findings" would understate the run that
+   * also found 38 certificates. Falls back to the single job when the payload
+   * has no batch id (older backend, or a genuine single-source run).
+   */
+  const followedJob = job.data;
+  const runJobs = useMemo(() => {
+    if (!followedJob) return [];
+    if (followedJob.batch == null) return [followedJob];
+    const rows = scans.data?.results || [];
+    return rows.filter((r) => r.batch === followedJob.batch);
+  }, [followedJob, scans.data?.results]);
+  const runJobsSafe = runJobs.length ? runJobs : followedJob ? [followedJob] : [];
+  const runStatus = (() => {
+    if (!runJobsSafe.length) return "";
+    const statuses = runJobsSafe.map((j) => String(j.status).toLowerCase());
+    if (statuses.some((s) => !TERMINAL_STATUSES.has(s))) return "running";
+    if (statuses.some((s) => s === "failed")) return "failed";
+    if (statuses.every((s) => s === "cancelled" || s === "canceled")) return "cancelled";
+    if (statuses.some((s) => s === "partial")) return "partial";
+    return statuses[0];
+  })();
+  const runRunning = Boolean(runStatus) && !TERMINAL_STATUSES.has(runStatus);
+  const runProgress = runJobsSafe.length
+    ? Math.round(runJobsSafe.reduce((sum, j) => sum + (j.progress || 0), 0) / runJobsSafe.length)
+    : 0;
+  const runFindings = runJobsSafe.reduce((sum, j) => sum + (j.findings_count || 0), 0);
+  const runSkipped = runJobsSafe.reduce((sum, j) => sum + (j.items_skipped || 0), 0);
+
+  const followedStrip = runJobsSafe.length ? (
+    <div className="flex items-center gap-3 border bg-card px-3 py-1.5 text-xs">
+      <StatusBadge status={runStatus} />
+      <span className="min-w-0 flex-1 truncate text-muted-foreground" title={runJobsSafe[0].target || undefined}>
+        {runJobsSafe[0].target || "Connected scope"}
+        {runJobsSafe.length > 1 ? (
+          <span className="ml-1.5 text-[11px]">
+            · {runJobsSafe.length} sources
+          </span>
+        ) : null}
+      </span>
+      {runRunning ? (
+        <>
+          <Progress value={runProgress} className="h-1.5 w-24" />
+          <span className="tnum w-9 text-right text-muted-foreground">{runProgress}%</span>
+        </>
+      ) : (
+        <>
+          <span className="tnum text-muted-foreground">
+            {formatNumber(runFindings)} finding{runFindings === 1 ? "" : "s"}
+          </span>
+          {runSkipped ? (
+            <span className="tnum text-warning">{formatNumber(runSkipped)} skipped</span>
+          ) : null}
+        </>
+      )}
+    </div>
   ) : null;
 
   return (
@@ -518,21 +495,10 @@ export default function ScansPage() {
         eyebrow="Discover"
         title="Cryptographic discovery"
         description="Collect evidence-backed cryptographic observations across connected sources. Classification, risk, and migration reasoning are produced by later stages."
-        actions={
-          <div className="flex items-center gap-2">
-            {scans.data?.results?.length ? (
-              <Button size="sm" onClick={() => openRiskModal()}>
-                <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-                Run Risk Analysis
-              </Button>
-            ) : null}
-            <Button variant="outline" size="sm" onClick={() => demoScan.mutate()} disabled={demoScan.isPending}>
-              <Play className="h-3.5 w-3.5" aria-hidden="true" />
-              {demoScan.isPending ? "Starting…" : "Run demo discovery"}
-            </Button>
-          </div>
-        }
       />
+
+      {/* Status of the scan this page is following, if any. */}
+      {followedStrip}
 
       {/* Awaiting Risk Analysis Prompt */}
       {awaitingRows.length ? (
@@ -784,24 +750,6 @@ export default function ScansPage() {
                   </Button>
                 </div>
               </form>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex-row items-start justify-between">
-              <div>
-                <CardTitle>Discovery activity</CardTitle>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">Current state of the selected job.</p>
-              </div>
-              <Radar className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-            </CardHeader>
-            <CardContent>
-              {batchPanel || jobPanel}
-              {selectedJobId ? (
-                <Button variant="ghost" size="sm" className="mt-3 w-full" onClick={() => selectJob(null)}>
-                  Clear selection
-                </Button>
-              ) : null}
             </CardContent>
           </Card>
         </div>
@@ -1133,143 +1081,6 @@ export default function ScansPage() {
           )}
         </div>
       </Dialog>
-      {/* Operational Context Dialog */}
-      <Dialog
-        open={riskDialogOpen}
-        onOpenChange={setRiskDialogOpen}
-        title="Operational Threat & Timeline Parameters"
-        description="Provide organizational context for Michele Mosca's Theorem (X + Y > Z) and HNDL (Harvest-Now-Decrypt-Later) Threat Scoring."
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setRiskDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => startRiskAnalysis.mutate()}
-              disabled={startRiskAnalysis.isPending}
-            >
-              {startRiskAnalysis.isPending ? (
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-              )}
-              Commit Parameters &amp; Run Risk Analysis
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4 text-xs">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5 font-medium">
-                <Clock className="h-3.5 w-3.5 text-primary" />
-                Data Shelf-Life (Y years)
-              </Label>
-              <Input
-                type="number"
-                step="0.5"
-                value={dataLifetimeYears}
-                onChange={(e) => setDataLifetimeYears(e.target.value)}
-                placeholder="e.g. 8.0"
-              />
-              <p className="text-[10px] text-muted-foreground">Years data must remain secret.</p>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5 font-medium">
-                <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
-                Migration Duration (X years)
-              </Label>
-              <Input
-                type="number"
-                step="0.5"
-                value={migrationComplexity}
-                onChange={(e) => setMigrationComplexity(e.target.value)}
-                placeholder="e.g. 3.0"
-              />
-              <p className="text-[10px] text-muted-foreground">Years to migrate all infrastructure.</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5 font-medium">
-                <ShieldAlert className="h-3.5 w-3.5 text-destructive" />
-                CRQC Horizon Year (Z)
-              </Label>
-              <Input
-                type="number"
-                value={quantumHorizonYear}
-                onChange={(e) => setQuantumHorizonYear(e.target.value)}
-                placeholder="e.g. 2033"
-              />
-              <p className="text-[10px] text-muted-foreground">Expected year quantum computers break classical crypto.</p>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5 font-medium">
-                Data Sensitivity Tier
-              </Label>
-              <Select
-                value={dataSensitivity}
-                onChange={(e) => setDataSensitivity(e.target.value)}
-              >
-                <option value="5">Tier 5 - Top Secret / Critical Infrastructure</option>
-                <option value="4">Tier 4 - High (PII / Financial / Auth Tokens)</option>
-                <option value="3">Tier 3 - Medium (Confidential Internal)</option>
-                <option value="2">Tier 2 - Low (Internal Operational)</option>
-                <option value="1">Tier 1 - Public Non-sensitive</option>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5 font-medium">
-                <Globe className="h-3.5 w-3.5 text-primary" />
-                Network Exposure
-              </Label>
-              <Select
-                value={isPublicAccess ? "public" : "internal"}
-                onChange={(e) => setIsPublicAccess(e.target.value === "public")}
-              >
-                <option value="public">Public / Internet-Facing</option>
-                <option value="internal">Internal / Private Mesh</option>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5 font-medium">
-                Crypto Agility Level
-              </Label>
-              <Select
-                value={cryptoAgility}
-                onChange={(e) => setCryptoAgility(e.target.value)}
-              >
-                <option value="3">High - Pluggable / Modular Crypto</option>
-                <option value="2">Moderate - Configurable Libraries</option>
-                <option value="1">Low - Hardcoded / Embedded Keys</option>
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="font-medium">System / Application Label</Label>
-            <Input
-              value={customAppName}
-              onChange={(e) => setCustomAppName(e.target.value)}
-              placeholder="e.g. Enterprise Core Services &amp; Key Vault"
-            />
-          </div>
-
-          <div className="rounded border bg-muted/40 p-2.5 text-[11px] leading-relaxed text-muted-foreground">
-            <span className="font-medium text-foreground">Mosca Inequality Theorem:</span> If Migration Time (
-            <span className="font-semibold text-primary">{migrationComplexity}y</span>) + Shelf-Life (
-            <span className="font-semibold text-primary">{dataLifetimeYears}y</span>) &gt; Quantum Arrival (
-            <span className="font-semibold text-primary">{Number(quantumHorizonYear) - 2026}y</span>), then data is ALREADY vulnerable to Harvest Now Decrypt Later.
-          </div>
-        </div>
-      </Dialog>
     </div>
   );
 }
@@ -1440,274 +1251,5 @@ function scannerName(scanners: ScannerDescriptor[], sourceType: string): string 
   );
 }
 
-function BatchMonitor({ batch, scanners, onCancel, cancelling, onStartRisk }: { batch: ScanBatch; scanners: ScannerDescriptor[]; onCancel: () => void; cancelling: boolean; onStartRisk?: () => void }) {
-  const status = String(batch.status || "").toLowerCase();
-  const active = BATCH_ACTIVE.has(status);
-  const sources = batch.sources || [];
-  const partial = sources.filter((source) => String(source.status).toLowerCase() === "partial");
-  const skipped = sources.filter((source) => (source.items_skipped || 0) > 0);
-  const nameFor = (source: string) => scannerName(scanners, source);
-
-  return (
-    <Card>
-      <CardHeader className="flex-row items-start justify-between">
-        <div className="min-w-0">
-          <p className="font-mono text-xs text-muted-foreground">RUN #{batch.id}</p>
-          <p className="mt-1 max-w-[320px] truncate text-sm font-medium" title={batch.target}>
-            {batch.target || "Connected scope"}
-          </p>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            {sources.length} source{sources.length === 1 ? "" : "s"} ·{" "}
-            {formatNumber(batch.findings_count || 0)} finding
-            {batch.findings_count === 1 ? "" : "s"}
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <StatusBadge status={batch.status} />
-          {active ? (
-            <Button variant="outline" size="sm" onClick={onCancel} disabled={cancelling}>
-              {cancelling ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <XCircle className="h-3.5 w-3.5" aria-hidden="true" />}
-              Cancel all
-            </Button>
-          ) : null}
-        </div>
-      </CardHeader>
-
-      <div className="border-b px-5 pt-4">
-        <Progress value={batch.progress} />
-        <div className="flex justify-between py-2 text-[11px] text-muted-foreground">
-          <span>{active ? "Sources running" : "All sources finished"}</span>
-          <span className="tnum">{batch.progress}%</span>
-        </div>
-      </div>
-
-      <CardContent className="px-1">
-        <ul className="divide-y">
-          {sources.map((source) => {
-            const sourceStatus = String(source.status || "").toLowerCase();
-            const reasons = source.skip_reason_labels || [];
-            return (
-              <li key={source.id} className="px-5 py-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-medium">{nameFor(source.source_type)}</p>
-                      <StatusBadge status={source.status} />
-                      {sourceStatus === "partial" ? (
-                        <span className="text-[11px] text-warning">Incomplete coverage</span>
-                      ) : null}
-                    </div>
-                    {typeof source.items_total === "number" && source.items_total > 0 ? (
-                      <p className="tnum mt-1 text-[11px] text-muted-foreground">
-                        {formatNumber(source.items_scanned || 0)} of{" "}
-                        {formatNumber(source.items_total)} items inspected
-                      </p>
-                    ) : null}
-                    {reasons.length ? (
-                      <ul className="mt-1 space-y-0.5">
-                        {reasons.map((reason) => (
-                          <li key={reason.reason} className="text-[11px] text-warning">
-                            {formatNumber(reason.count)} · {reason.label}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
-                    {source.error && source.error_code !== "PARTIAL_COVERAGE" ? (
-                      <p className="mt-1 text-[11px] leading-4 text-destructive">{source.error}</p>
-                    ) : null}
-                  </div>
-                  <div className="flex shrink-0 items-center gap-3">
-                    <span className="tnum text-[11px] text-muted-foreground">
-                      {formatNumber(source.findings_count || 0)}
-                    </span>
-                    <span className="tnum w-10 text-right text-[11px] text-muted-foreground">
-                      {source.progress}%
-                    </span>
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-
-        {batch.excluded?.length ? (
-          <div className="border-t border-warning/30 bg-warning/5 px-5 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-warning">
-              Not run
-            </p>
-            <ul className="mt-1.5 space-y-1">
-              {batch.excluded.map((item) => (
-                <li key={item.source} className="text-[11px] leading-4 text-muted-foreground">
-                  <span className="font-medium text-foreground">
-                    {nameFor(item.source)}
-                  </span>{" "}
-                  — {item.reason}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-
-        {partial.length && !active ? (
-          <p className="border-t px-5 py-3 text-[11px] leading-4 text-warning">
-            {partial.length} source{partial.length === 1 ? "" : "s"} finished with incomplete
-            coverage. Their findings are recorded; what they could not read is listed above.
-          </p>
-        ) : null}
-        {skipped.length && !partial.length && !active ? (
-          <p className="border-t px-5 py-3 text-[11px] leading-4 text-muted-foreground">
-            Some items were not inspected. The run still reports only what was actually read.
-          </p>
-        ) : null}
-
-        {!active && (batch.findings_count || 0) > 0 ? (
-          <div className="border-t p-4">
-            <Button size="sm" className="w-full" onClick={onStartRisk}>
-              <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-              Configure Operational Parameters &amp; Run Risk Analysis
-            </Button>
-          </div>
-        ) : null}
-      </CardContent>
-    </Card>
-  );
-}
 
 
-function JobMonitor({ job, isFetching, onCancel, cancelling, onStartRisk }: { job: ScanJob; isFetching: boolean; onCancel: () => void; cancelling: boolean; onStartRisk?: (id: number) => void }) {
-  const status = String(job.status || "").toLowerCase();
-  const terminal = TERMINAL_STATUSES.has(status);
-  const cancellable = CANCELLABLE_STATUSES.has(status);
-  const outcome = jobOutcome(status);
-  const demo = isDemoJob(job);
-
-  return (
-    <div className="space-y-4">
-      {demo ? (
-        <div className="flex items-center gap-2 border border-warning/30 bg-warning/5 px-3 py-2 text-[11px] font-medium uppercase tracking-[0.08em] text-warning">
-          <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
-          Demo data
-        </div>
-      ) : null}
-
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="font-mono text-xs text-muted-foreground">JOB #{job.id}</p>
-          <p className="mt-1 max-w-[240px] truncate text-sm font-medium" title={job.target}>
-            {job.target || "Connected scope"}
-          </p>
-        </div>
-        <StatusBadge status={job.status} />
-      </div>
-
-      <Progress value={job.progress} />
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-        <span className="text-muted-foreground">
-          {STAGE_LABELS[job.progress_stage || ""] ||
-            (terminal ? "Reported progress" : isFetching ? "Refreshing state…" : "Current progress")}
-        </span>
-        <span className="tnum font-medium">{job.progress}%</span>
-      </div>
-
-      {typeof job.items_total === "number" && job.items_total > 0 ? (
-        <p className="tnum text-[11px] text-muted-foreground">
-          {formatNumber(job.items_scanned || 0)} of {formatNumber(job.items_total)} items inspected
-          {job.items_skipped ? ` · ${formatNumber(job.items_skipped)} not inspected` : ""}
-        </p>
-      ) : !terminal && job.progress_stage === "enumerating" ? (
-        <p className="text-[11px] text-muted-foreground">Counting items in scope…</p>
-      ) : null}
-
-      {status === "partial" && (job.skip_reason_labels?.length || job.items_skipped) ? (
-        <div className="border border-warning/40 bg-warning/5 p-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-warning">
-            What was not inspected
-          </p>
-          <ul className="mt-2 space-y-1">
-            {(job.skip_reason_labels || []).map((entry) => (
-              <li key={entry.reason} className="flex items-baseline justify-between gap-3 text-[11px]">
-                <span className="text-muted-foreground">{entry.label}</span>
-                <span className="tnum shrink-0 text-warning">{formatNumber(entry.count)}</span>
-              </li>
-            ))}
-            {!job.skip_reason_labels?.length ? (
-              <li className="flex items-baseline justify-between gap-3 text-[11px]">
-                <span className="text-muted-foreground">Items could not be inspected</span>
-                <span className="tnum shrink-0 text-warning">{formatNumber(job.items_skipped || 0)}</span>
-              </li>
-            ) : null}
-          </ul>
-          {job.error_action ? (
-            <p className="mt-2 text-[11px] leading-4 text-muted-foreground">{job.error_action}</p>
-          ) : null}
-        </div>
-      ) : null}
-
-      <div className="grid grid-cols-2 gap-3 border-t pt-4 text-xs">
-        <div>
-          <p className="text-muted-foreground">Findings</p>
-          <p className="tnum mt-1 font-medium">{formatNumber(job.findings_count)}</p>
-        </div>
-        <div>
-          <p className="text-muted-foreground">Created</p>
-          <p className="mt-1">{formatDate(job.created_at)}</p>
-        </div>
-      </div>
-
-      {job.error ? (
-        <div
-          className={
-            status === "failed"
-              ? "space-y-1 border border-destructive/30 bg-destructive/5 p-3 text-xs leading-5 text-destructive"
-              : "space-y-1 border border-border bg-muted/20 p-3 text-xs leading-5 text-muted-foreground"
-          }
-        >
-          <div className="flex gap-2">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-            <span>{job.error}</span>
-          </div>
-          {job.error_action ? <p className="pl-6 opacity-80">{job.error_action}</p> : null}
-          {job.error_code ? <p className="pl-6 font-mono text-[10px] uppercase opacity-70">{job.error_code}</p> : null}
-        </div>
-      ) : null}
-
-      {cancellable ? (
-        <Button variant="outline" className="w-full" onClick={onCancel} disabled={cancelling}>
-          {cancelling ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <XCircle className="h-3.5 w-3.5" aria-hidden="true" />}
-          {cancelling ? "Cancelling…" : "Cancel discovery"}
-        </Button>
-      ) : null}
-
-      {outcome ? (
-        <div
-          className={
-            outcome.variant === "success"
-              ? "flex flex-col gap-2.5 border border-success/30 bg-success/5 p-3 text-xs text-success"
-              : outcome.variant === "danger"
-                ? "flex items-center gap-2 border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive"
-                : outcome.variant === "warning"
-                  ? "flex items-center gap-2 border border-warning/30 bg-warning/5 p-3 text-xs text-warning"
-                  : "flex items-center gap-2 border border-border bg-muted/20 p-3 text-xs text-muted-foreground"
-          }
-        >
-          <div className="flex items-center gap-2">
-            {outcome.variant === "success" ? <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" /> : <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />}
-            <span>
-              <span className="font-medium">{outcome.title}.</span> {outcome.detail}
-            </span>
-          </div>
-          {outcome.variant === "success" && (job.findings_count || 0) > 0 ? (
-            <Button
-              size="sm"
-              className="mt-1 w-full"
-              onClick={() => onStartRisk?.(job.id)}
-            >
-              <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-              Configure Operational Parameters &amp; Run Risk Analysis
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  );
-}

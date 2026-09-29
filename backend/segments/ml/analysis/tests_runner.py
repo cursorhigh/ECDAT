@@ -6,6 +6,7 @@ from unittest import mock
 
 from django.test import Client, TestCase, override_settings
 
+from core.modes import active_mode
 from segments.scraping.discovery.classifier import classify_asset
 from segments.scraping.discovery.models import CryptoAsset, RawFinding, ScanJob
 from segments.scraping.discovery.normalizer import normalize_finding
@@ -23,7 +24,6 @@ _FORCE_FALLBACK_PROVIDERS = {
 }
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class AnalysisRunnerTests(TestCase):
     """Runner + API tests using only deterministic fallback providers."""
 
@@ -53,8 +53,7 @@ class AnalysisRunnerTests(TestCase):
             session=self.session,
             source_type="source_code",
             target=target,
-            mode="actual",
-            status=status,
+                        status=status,
             config={"scan_type": "specified"},
         )
 
@@ -64,8 +63,7 @@ class AnalysisRunnerTests(TestCase):
         raw = RawFinding.objects.using("default").create(
             scan_job=job,
             session=self.session,
-            mode="actual",
-            source_type="source_code",
+                        source_type="source_code",
             location=location,
             raw_json=raw_json,
         )
@@ -77,8 +75,7 @@ class AnalysisRunnerTests(TestCase):
         return AnalysisRun.objects.using("default").create(
             scan_job=job,
             session=self.session,
-            mode="actual",
-            status=status,
+                        status=status,
             input_payload=payload if payload is not None else build_analysis_payload(job),
             raw_system_context=default_raw_system_context(job),
         )
@@ -310,18 +307,15 @@ class PendingContextTests(TestCase):
             session=self.session,
             source_type="source_code",
             target="pending/app",
-            mode="actual",
-            status="completed",
+                        status="completed",
             findings_count=1,
         )
 
-    @override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
     def test_pending_analysis_creates_awaiting_run(self):
         job = ScanJob.objects.using("default").create(
             source_type="source_code",
             target="pending/app",
-            mode="actual",
-            status="completed",
+                        status="completed",
             findings_count=1,
         )
         with mock.patch("segments.ml.analysis.runner.threading.Thread"):
@@ -335,20 +329,18 @@ class PendingContextTests(TestCase):
             AnalysisRun.objects.using("default").filter(scan_job=job).count(), 1
         )
 
-    @override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
     @mock.patch("segments.ml.analysis.runner._dispatch")
     def test_auto_continue_queues_with_default_after_timeout(self, mock_dispatch):
         job = ScanJob.objects.using("default").create(
             source_type="source_code",
             target="pending/app",
-            mode="actual",
-            status="completed",
+                        status="completed",
             findings_count=1,
         )
         with mock.patch("segments.ml.analysis.runner.threading.Thread"):
             run = pending_analysis(job)
 
-        _auto_continue(run.pk, run.mode, "default", 0)
+        _auto_continue(run.pk, active_mode(), "default", 0)
 
         run.refresh_from_db()
         self.assertEqual(run.status, "queued")
@@ -356,14 +348,12 @@ class PendingContextTests(TestCase):
         mock_dispatch.assert_called_once()
         self.assertEqual(mock_dispatch.call_args.args[0].pk, run.pk)
 
-    @override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
     @mock.patch("segments.ml.analysis.runner._dispatch")
     def test_continue_pending_uses_custom_context(self, mock_dispatch):
         job = ScanJob.objects.using("default").create(
             source_type="source_code",
             target="pending/app",
-            mode="actual",
-            status="completed",
+                        status="completed",
             findings_count=1,
         )
         with mock.patch("segments.ml.analysis.runner.threading.Thread"):
@@ -378,7 +368,6 @@ class PendingContextTests(TestCase):
         self.assertEqual(run.raw_system_context["network"]["publicly_accessible"], True)
         mock_dispatch.assert_called_once()
 
-    @override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
     def test_awaiting_endpoint_lists_pending_run(self):
         job = self._pending_job()
         with mock.patch("segments.ml.analysis.runner.threading.Thread"):
@@ -391,7 +380,42 @@ class PendingContextTests(TestCase):
         self.assertEqual(rows[0]["scan_job_id"], job.pk)
         self.assertGreater(rows[0]["seconds_left"], 0)
 
-    @override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
+    @mock.patch("segments.ml.analysis.runner.threading.Thread")
+    def test_api_start_without_context_commits_the_defaults(self, _mock_thread):
+        """The "Use defaults" button: redeem a parked run with no context.
+
+        This is the path the frontend's dismiss button takes -- POST start with
+        no `raw_system_context`. It had no test, which is how the button shipped
+        wired to a plain close: nothing proved the backend would actually
+        dispatch, so the run sat in AWAITING_CONTEXT until the deadline timer
+        happened to fire.
+
+        The point is that the run *leaves* AWAITING_CONTEXT and keeps the context
+        it was parked with.
+        """
+        job = self._pending_job()
+        with mock.patch("segments.ml.analysis.runner.threading.Thread"):
+            run = pending_analysis(job)
+        parked_context = run.raw_system_context
+        self.assertEqual(run.status, AnalysisRun.Status.AWAITING_CONTEXT)
+
+        r = self._pending_client().post(
+            "/api/analysis/start/",
+            data=json.dumps({"scan_job": job.pk}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["data"]["id"], run.pk)
+        self.assertEqual(r.json()["data"]["status"], AnalysisRun.Status.QUEUED)
+
+        run.refresh_from_db()
+        self.assertEqual(run.status, AnalysisRun.Status.QUEUED)
+        self.assertIsNone(run.await_until)
+        # Untouched, so the assessment is reasoned from the conservative values
+        # the run was created with rather than anything invented here.
+        self.assertEqual(run.raw_system_context, parked_context)
+
     @mock.patch("segments.ml.analysis.runner.threading.Thread")
     def test_api_start_redemption_reuses_awaiting_run(self, _mock_thread):
         job = self._pending_job()
@@ -464,7 +488,7 @@ class CycloneDXConversionTests(TestCase):
             "format": "ECDAT-CBOM",
             "version": "1.0",
             "generated_at": "2026-01-01T00:00:00Z",
-            "repository": repository or {"name": "demo", "url": ""},
+            "repository": repository or {"name": "ECDAT inventory", "url": ""},
             "summary": {"total_assets": len(assets), "by_family": {"rsa": 1}},
             "crypto_assets": assets,
         }
@@ -725,7 +749,6 @@ class CycloneDXConversionTests(TestCase):
         )
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class CBOMExportTests(TestCase):
     """The export endpoint, against real discovered data."""
 
@@ -743,7 +766,7 @@ class CBOMExportTests(TestCase):
 
         self.job = ScanJob.objects.using("default").create(
             source_type=ScanJob.SourceType.SOURCE_CODE,
-            target=self.root, mode="actual", status=ScanJob.Status.COMPLETED,
+            target=self.root, status=ScanJob.Status.COMPLETED,
             session_id=self.workspace.pk, config={"scan_type": "specified"},
         )
         for index, (family, algorithm, size) in enumerate(
@@ -797,8 +820,7 @@ class CBOMExportTests(TestCase):
 
         empty = WorkSession.objects.using("default").create(name="cbom-empty")
         ScanJob.objects.using("default").create(
-            source_type=ScanJob.SourceType.SOURCE_CODE, target="x", mode="actual",
-            status=ScanJob.Status.COMPLETED, session_id=empty.pk,
+            source_type=ScanJob.SourceType.SOURCE_CODE, target="x",             status=ScanJob.Status.COMPLETED, session_id=empty.pk,
         )
         self.client.post(f"/api/session/switch/{empty.pk}/")
         r = self.client.get("/api/analysis/cbom/?format=cyclonedx-json")
@@ -812,8 +834,7 @@ class CBOMExportTests(TestCase):
 
         other = WorkSession.objects.using("default").create(name="cbom-other")
         ScanJob.objects.using("default").create(
-            source_type=ScanJob.SourceType.SOURCE_CODE, target="y", mode="actual",
-            status=ScanJob.Status.COMPLETED, session_id=other.pk,
+            source_type=ScanJob.SourceType.SOURCE_CODE, target="y",             status=ScanJob.Status.COMPLETED, session_id=other.pk,
         )
         self.client.post(f"/api/session/switch/{other.pk}/")
         r = self.client.get("/api/analysis/cbom/?format=cyclonedx-json")
@@ -823,7 +844,7 @@ class CBOMExportTests(TestCase):
         from segments.ml.analysis.models import AnalysisRun
 
         run = AnalysisRun.objects.using("default").create(
-            scan_job=self.job, mode="actual", status=AnalysisRun.Status.COMPLETED,
+            scan_job=self.job, status=AnalysisRun.Status.COMPLETED,
             session_id=self.workspace.pk,
         )
         r = self.client.get(f"/api/analysis/{run.pk}/cbom/?format=cyclonedx-json")
@@ -835,7 +856,7 @@ class CBOMExportTests(TestCase):
 
         other = WorkSession.objects.using("default").create(name="cbom-theirs")
         run = AnalysisRun.objects.using("default").create(
-            scan_job=self.job, mode="actual", status=AnalysisRun.Status.COMPLETED,
+            scan_job=self.job, status=AnalysisRun.Status.COMPLETED,
             session_id=other.pk,
         )
         self.client.post(f"/api/session/switch/{self.workspace.pk}/")

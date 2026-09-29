@@ -18,11 +18,26 @@ ML_pipe
 ML_pipe/*
 
 # Django
-db.sqlite3
-db.sqlite3-journal
+#
+# Every SQLite artefact, not just the main file. The old entry listed only
+# `db.sqlite3` and `db.sqlite3-journal`, so the `-wal` and `-shm` sidecars were
+# not covered -- and a 4 MB `db.sqlite3-wal` holding uncommitted pages of the real
+# scan database was committed and pushed. `*.sqlite3*` catches all of them.
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+*.sqlite3-journal
 staticfiles/
 media/
 *.log
+
+# Local database backups
+#
+# `backend/backups/` holds timestamped SQLite snapshots. One of these was a 79 MB
+# demo database and ended up in a commit, which is why pushes started warning
+# about files over GitHub's 50 MB limit.
+backend/backups/
+backups/
 
 # Environment / secrets
 .env

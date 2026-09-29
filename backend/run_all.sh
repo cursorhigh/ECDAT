@@ -17,7 +17,7 @@
 # Environment:
 #   ECDAT_HOST, ECDAT_PORT, ECDAT_HUEY_WORKERS also honoured.
 #   The app itself loads `.env` (viz. config/settings.py), so any
-#   ECDAT_ACTIVE_MODE / DJANGO_* settings there apply automatically.
+#   DJANGO_* settings there apply automatically.
 #
 # Works in WSL / Git-Bash on Windows (venv/Scripts/python.exe) and on
 # macOS / Linux (venv/bin/python).
@@ -88,10 +88,8 @@ mkdir -p logs
 # 1. Migrations
 # ---------------------------------------------------------------------------
 if [ "$DO_MIGRATE" = "1" ]; then
-  echo "[run_all] applying migrations (default)..."
+  echo "[run_all] applying migrations..."
   "$PYTHON" manage.py migrate --noinput
-  echo "[run_all] applying migrations (demo)..."
-  "$PYTHON" manage.py migrate --noinput --database=demo
 fi
 
 # ---------------------------------------------------------------------------

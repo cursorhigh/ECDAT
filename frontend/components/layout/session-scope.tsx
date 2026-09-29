@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { Check, ChevronDown, FolderKanban, Plus, RefreshCw, ScanLine } from "lucide-react";
@@ -8,9 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Label } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { NavTooltip } from "@/components/ui/nav-tooltip";
 import { useToast } from "@/components/feedback/toast";
 import { api } from "@/lib/api/client";
 import { useSession } from "@/lib/session-context";
+import { useDismissOnOutside } from "@/lib/use-dismiss";
 import { cn } from "@/lib/utils";
 
 /**
@@ -29,6 +31,10 @@ export function SessionScope({ compact = false }: { compact?: boolean }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+
+  // Clicking anywhere outside the switcher, or pressing Escape, closes it.
+  useDismissOnOutside({ active: open, ref: wrapRef, onDismiss: () => setOpen(false) });
 
   const history = useQuery({
     queryKey: ["scan-history"],
@@ -71,7 +77,16 @@ export function SessionScope({ compact = false }: { compact?: boolean }) {
 
   return (
     <>
-      <div className="relative">
+      <div className="relative" ref={wrapRef}>
+        <NavTooltip
+          title={info?.session_name || "No scan selected"}
+          description={
+            info?.session_name
+              ? `Every view is scoped to this scan. ${info.counts.assets} assets · ${info.counts.raw_findings} findings. Click to switch, open or start another.`
+              : "Start a discovery scan. No scan selected, so the data views stay empty."
+          }
+          disabled={open}
+        >
         <Button
           type="button"
           variant="outline"
@@ -88,6 +103,7 @@ export function SessionScope({ compact = false }: { compact?: boolean }) {
           </span>
           <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
         </Button>
+        </NavTooltip>
         {open ? (
           <div className="absolute right-0 top-11 z-50 max-h-[70vh] w-80 overflow-y-auto border bg-popover p-2 text-popover-foreground shadow-2xl" role="menu">
             <div className="px-2 py-2">

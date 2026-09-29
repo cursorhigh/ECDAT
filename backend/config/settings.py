@@ -128,15 +128,13 @@ DATABASES = {
         'PORT': os.getenv('DB_PORT', ''),
         'OPTIONS': dict(_SQLITE_WRITE_OPTIONS),
     },
-    'demo': {
-        'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.sqlite3'),
-        'NAME': BASE_DIR / 'demo.sqlite3',
-        'OPTIONS': dict(_SQLITE_WRITE_OPTIONS),
-    },
+    # The `demo` alias and its separate demo.sqlite3 were removed along with
+    # demo mode. There is one database, so there is one entry here.
 }
 
-# Route reads/writes/migrations by the active mode for a hard demo/actual
-# data boundary (see config/db_router.py and core/modes.py).
+# Route reads/writes to the single database (see config/db_router.py and
+# core/modes.py). Kept explicit so the boundary is visible rather than implied
+# by Django's default alias.
 DATABASE_ROUTERS = ['config.db_router.ECDATRouter']
 
 
@@ -200,10 +198,6 @@ if _require_api_key is None:
     _require_api_key = '0' if DEBUG else '1'
 
 ECDAT = {
-    'DEMO_MODE': os.getenv('ECDAT_DEMO_MODE', '1') == '1',
-    # The active data boundary: 'demo' (synthetic) or 'actual' (real).
-    # All reads/writes route to the matching database.
-    'ACTIVE_MODE': os.getenv('ECDAT_ACTIVE_MODE', 'demo'),
     # When true, every /api/ route (except health) requires a valid API key.
     'REQUIRE_API_KEY': _require_api_key == '1',
 }

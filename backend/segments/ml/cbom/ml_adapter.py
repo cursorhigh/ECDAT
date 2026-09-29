@@ -135,7 +135,7 @@ class MLFeatureAdapter:
                 if mode is None:
                     mode = algo_props.get("mode")
 
-        catalog_entry = lookup_crypto_algorithm(algo_raw, key_size=key_size, curve=curve, mode=mode)
+        catalog_entry = lookup_crypto_algorithm(algo_raw, key_size=key_size, curve=curve)
 
         # 2. Derive Cryptographic Specification Features (11 features)
         if catalog_entry:

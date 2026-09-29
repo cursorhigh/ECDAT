@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, BrainCircuit, CheckCircle2, ClipboardList, Clock, Globe, Loader2, Play, ShieldAlert, SlidersHorizontal, Sparkles, XCircle } from "lucide-react";
+import { AlertTriangle, BrainCircuit, CheckCircle2, ClipboardList, Clock, Globe, Loader2, Pause, Play, ShieldAlert, SlidersHorizontal, Sparkles, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RefreshButton } from "@/components/ui/refresh-button";
@@ -18,6 +18,7 @@ import { StatusBadge, riskBadge } from "@/components/data/status-badge";
 import { CbomExport } from "@/components/data/cbom-export";
 import { useToast } from "@/components/feedback/toast";
 import { api } from "@/lib/api/client";
+import { requestRiskPrompt } from "@/components/data/risk-prompt-store";
 import type { AnalysisDetail, AnalysisListItem, AwaitingAnalysis, JsonRecord } from "@/lib/api/types";
 import { useSession } from "@/lib/session-context";
 import { formatDate, formatNumber, isTerminalStatus, refetchAllOrThrow, titleCase, truncate } from "@/lib/utils";
@@ -44,21 +45,17 @@ function displayValue(value: unknown) {
 }
 
 /** Server-side cap on findings per analysis run. */
-const ANALYSIS_MAX_FINDINGS = 500;
 
 export default function AnalysisPage() {
   const { ready, scopeKey, info, hasSession } = useSession();
   const { pushToast } = useToast();
   const queryClient = useQueryClient();
   const [scanJob, setScanJob] = useState("");
-  const [maxFindings, setMaxFindings] = useState(String(ANALYSIS_MAX_FINDINGS));
   const [context, setContext] = useState("");
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
   const [detailTab, setDetailTab] = useState("summary");
 
   // Operational Context Modal State (HNDL + Mosca)
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [targetAwaitingItem, setTargetAwaitingItem] = useState<AwaitingAnalysis | null>(null);
   const [dataLifetimeYears, setDataLifetimeYears] = useState("8.0");
   const [migrationComplexity, setMigrationComplexity] = useState("3");
   const [quantumHorizonYear, setQuantumHorizonYear] = useState("2033");
@@ -114,12 +111,11 @@ export default function AnalysisPage() {
       } else {
         rawContext = buildStructuredContext();
       }
-      return api.startAnalysis({ scan_job: Number(chosenScan), max_findings: Number(maxFindings) || undefined, raw_system_context: rawContext });
+      return api.startAnalysis({ scan_job: Number(chosenScan), raw_system_context: rawContext });
     },
     onSuccess: async (created) => {
       setSelectedRunId(created.id);
       setContext("");
-      setDialogOpen(false);
       pushToast(`Analysis run #${created.id} is ${titleCase(created.status)}.`, "success");
       await queryClient.invalidateQueries({ queryKey: ["analysis-runs"] });
       await queryClient.invalidateQueries({ queryKey: ["analysis-detail", created.id] });
@@ -135,8 +131,6 @@ export default function AnalysisPage() {
     onSuccess: async (created) => {
       setSelectedRunId(created.id);
       setContext("");
-      setDialogOpen(false);
-      setTargetAwaitingItem(null);
       pushToast(`Operational context committed to run #${created.id}.`, "success");
       await queryClient.invalidateQueries({ queryKey: ["analysis-awaiting"] });
       await queryClient.invalidateQueries({ queryKey: ["analysis-runs"] });
@@ -150,15 +144,46 @@ export default function AnalysisPage() {
     onError: (error) => pushToast(error instanceof Error ? error.message : "Analysis could not be cancelled.", "error")
   });
 
+  // Pause keeps the assessments already written; resume re-queues the run and
+  // skips them, so pausing costs at most one asset rather than a restart.
+  const pause = useMutation({
+    mutationFn: (id: number) => api.pauseAnalysis(id),
+    onSuccess: async (run) => {
+      pushToast(`Analysis #${run.id} paused at ${run.progress}%.`, "info");
+      await refetchRun();
+    },
+    onError: (error) => pushToast(error instanceof Error ? error.message : "Analysis could not be paused.", "error")
+  });
+
+  const resume = useMutation({
+    mutationFn: (id: number) => api.resumeAnalysis(id),
+    onSuccess: async (run) => {
+      pushToast(`Analysis #${run.id} resumed. Assets already assessed are re-used.`, "success");
+      await refetchRun();
+    },
+    onError: (error) => pushToast(error instanceof Error ? error.message : "Analysis could not be resumed.", "error")
+  });
+
   const refresh = async () => {
     await refetchAllOrThrow([runs, scans, awaiting]);
     if (activeRunId) await refetchAllOrThrow([detail]);
+  };
+  // Pause/resume change the run's own status, so the list and the detail both
+  // need to come back, not just the one the user is looking at.
+  const refetchRun = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["analysis-runs"] });
+    if (activeRunId) await queryClient.invalidateQueries({ queryKey: ["analysis-detail", activeRunId] });
   };
   const completedScans = (scans.data?.results || []).filter((scan) => scan.status === "completed");
   const scansWithFindings = completedScans.filter((s) => (s.findings_count || 0) > 0);
   const prioritizedScan = scansWithFindings[0] || completedScans[0];
   const partialScans = (scans.data?.results || []).filter((scan) => scan.status === "partial");
   const awaitingRows = awaiting.data || [];
+
+  // Anything the operator can still act on. `awaiting_context` counts as live
+  // because the context window is still open, but it is not pausable.
+  const controlBusy = pause.isPending || resume.isPending || cancel.isPending;
+  const liveRun = (runs.data || []).find((run) => !isTerminalStatus(run.status) || run.status === "paused") || null;
 
   return (
     <div className="space-y-6">
@@ -175,141 +200,17 @@ export default function AnalysisPage() {
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
                   The analysis paused before execution. Specify the operational data shelf-life (Y) and migration window (X) parameters to proceed.
                 </p>
-                <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      setTargetAwaitingItem(awaitingRows[0]);
-                      setDialogOpen(true);
-                    }}
-                  >
-                    <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
-                    Configure HNDL & Mosca Parameters
-                  </Button>
-                </div>
+                <p className="mt-3 text-xs leading-5 text-foreground">
+                  The parameters window is already open. If it closes without an
+                  answer, the run continues on conservative defaults when the window
+                  expires.
+                </p>
               </div>
             </div>
           </CardContent>
         </Card>
       ) : null}
 
-      {/* Operational Context Dialog */}
-      <Dialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        title="Operational Threat & Timeline Parameters"
-        description="Provide organizational context for Michele Mosca's Theorem (X + Y > Z) and HNDL (Harvest-Now-Decrypt-Later) Threat Scoring."
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                if (targetAwaitingItem) {
-                  resolve.mutate(targetAwaitingItem);
-                } else {
-                  start.mutate();
-                }
-              }}
-              disabled={start.isPending || resolve.isPending}
-            >
-              {start.isPending || resolve.isPending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <CheckCircle2 className="h-3.5 w-3.5" />
-              )}
-              {targetAwaitingItem ? "Commit Parameters & Run" : "Start Analysis With Parameters"}
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4 text-xs">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5 font-medium">
-                <Clock className="h-3.5 w-3.5 text-primary" />
-                Data Shelf-Life (Y years)
-              </Label>
-              <Input
-                type="number"
-                step="0.5"
-                value={dataLifetimeYears}
-                onChange={(e) => setDataLifetimeYears(e.target.value)}
-                placeholder="e.g. 8.0"
-              />
-              <p className="text-[10px] text-muted-foreground">Years data must remain secret.</p>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5 font-medium">
-                <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
-                Migration Duration (X years)
-              </Label>
-              <Input
-                type="number"
-                step="0.5"
-                value={migrationComplexity}
-                onChange={(e) => setMigrationComplexity(e.target.value)}
-                placeholder="e.g. 3.0"
-              />
-              <p className="text-[10px] text-muted-foreground">Estimated time to migrate systems.</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5 font-medium">
-                <Sparkles className="h-3.5 w-3.5 text-warning" />
-                CRQC Arrival Horizon (Z)
-              </Label>
-              <Input
-                type="number"
-                value={quantumHorizonYear}
-                onChange={(e) => setQuantumHorizonYear(e.target.value)}
-                placeholder="e.g. 2033"
-              />
-              <p className="text-[10px] text-muted-foreground">Estimated year of Quantum arrival.</p>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5 font-medium">
-                <ShieldAlert className="h-3.5 w-3.5 text-destructive" />
-                Data Sensitivity Level
-              </Label>
-              <Select value={dataSensitivity} onChange={(e) => setDataSensitivity(e.target.value)}>
-                <option value="1">1 - Public / Low Sensitivity</option>
-                <option value="2">2 - Internal Operational</option>
-                <option value="3">3 - Confidential / Business Data</option>
-                <option value="4">4 - High / PII & Financial</option>
-                <option value="5">5 - Critical / Secrets & Key Material</option>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5 font-medium">
-                <Globe className="h-3.5 w-3.5 text-accent" />
-                Network Exposure
-              </Label>
-              <Select value={isPublicAccess ? "public" : "internal"} onChange={(e) => setIsPublicAccess(e.target.value === "public")}>
-                <option value="public">Internet-Facing / Public APIs</option>
-                <option value="internal">Internal Network / Isolated</option>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="font-medium">Crypto Agility</Label>
-              <Select value={cryptoAgility} onChange={(e) => setCryptoAgility(e.target.value)}>
-                <option value="1">1 - Hardcoded Primitives (Rigid)</option>
-                <option value="2">2 - Modular Library (Moderate)</option>
-                <option value="3">3 - Agile KMS / Dynamic Suites</option>
-              </Select>
-            </div>
-          </div>
-        </div>
-      </Dialog>
 
       <div className="grid gap-4 xl:grid-cols-[0.85fr_1.4fr]">
         <Card>
@@ -319,7 +220,7 @@ export default function AnalysisPage() {
               Start analysis
             </CardTitle>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              Only completed scans are eligible for analysis. The current active scope is {info?.session_name || "All data"}.
+              Analyzes every finding the completed scan discovered, with no coverage cap.
             </p>
           </CardHeader>
           <CardContent>
@@ -343,29 +244,18 @@ export default function AnalysisPage() {
                 ) : null}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="max-findings">Maximum findings</Label>
-                <Input
-                  id="max-findings"
-                  type="number"
-                  min="1"
-                  max={ANALYSIS_MAX_FINDINGS}
-                  value={maxFindings}
-                  onChange={(event) => setMaxFindings(event.target.value)}
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  1–{ANALYSIS_MAX_FINDINGS} findings per run. Raise the limit to widen coverage.
-                </p>
-              </div>
-
               <div className="flex gap-2">
                 <Button
                   type="button"
                   variant="outline"
                   className="flex-1"
                   onClick={() => {
-                    setTargetAwaitingItem(null);
-                    setDialogOpen(true);
+                    const target = Number(scanJob) || completedScans[0]?.id;
+                    if (!target) {
+                      pushToast("No completed scan is available to analyze.", "error");
+                      return;
+                    }
+                    requestRiskPrompt({ kind: "start", scanJobId: target });
                   }}
                 >
                   <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
@@ -389,12 +279,29 @@ export default function AnalysisPage() {
         </Card>
 
         <Card>
-          <CardHeader className="flex-row items-center justify-between">
+          <CardHeader className="flex-row items-start justify-between gap-4">
             <div>
               <CardTitle>Analysis runs</CardTitle>
               <p className="mt-1 text-xs text-muted-foreground">Analysis lifecycle: queued → running → completed, failed, or cancelled.</p>
+              <p className="mt-1 text-xs text-muted-foreground">A paused run keeps its completed assessments; resuming picks up from the next unassessed asset.</p>
             </div>
-            <ClipboardList className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            <div className="flex shrink-0 items-center gap-3">
+              {liveRun ? (
+                <div className="flex items-center gap-2 border bg-muted/40 px-2.5 py-1.5">
+                  <StatusBadge status={liveRun.status} />
+                  <span className="font-mono text-[11px] text-muted-foreground">#{liveRun.id}</span>
+                  <RunControlButtons
+                    runId={liveRun.id}
+                    status={liveRun.status}
+                    busy={controlBusy}
+                    onPause={() => pause.mutate(liveRun.id)}
+                    onResume={() => resume.mutate(liveRun.id)}
+                    onCancel={() => cancel.mutate(liveRun.id)}
+                  />
+                </div>
+              ) : null}
+              <ClipboardList className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             {runs.isLoading ? (
@@ -427,6 +334,16 @@ export default function AnalysisPage() {
                         setSelectedRunId(run.id);
                         setDetailTab("summary");
                       }}
+                      controls={
+                        <RunControlButtons
+                          runId={run.id}
+                          status={run.status}
+                          busy={controlBusy}
+                          onPause={() => pause.mutate(run.id)}
+                          onResume={() => resume.mutate(run.id)}
+                          onCancel={() => cancel.mutate(run.id)}
+                        />
+                      }
                     />
                   ))}
                 </TableBody>
@@ -449,6 +366,10 @@ export default function AnalysisPage() {
           onTabChange={setDetailTab}
           onCancel={() => cancel.mutate(activeRunId)}
           cancelling={cancel.isPending}
+          onPause={() => pause.mutate(activeRunId)}
+          pausing={pause.isPending}
+          onResume={() => resume.mutate(activeRunId)}
+          resuming={resume.isPending}
         />
       ) : (
         <Card>
@@ -461,11 +382,50 @@ export default function AnalysisPage() {
   );
 }
 
-function AnalysisRow({ run, selected, onSelect }: { run: AnalysisListItem; selected: boolean; onSelect: () => void }) {
-  return <TableRow className={selected ? "bg-primary/5" : undefined}><TableCell><button type="button" onClick={onSelect} className="font-mono text-xs font-semibold hover:text-primary">#{run.id}</button><p className="mt-0.5 text-[11px] text-muted-foreground">{formatDate(run.created_at)}</p></TableCell><TableCell><p className="max-w-[250px] truncate text-sm">{run.target || "—"}</p></TableCell><TableCell><StatusBadge status={run.status} /></TableCell><TableCell><div className="flex min-w-28 items-center gap-2"><Progress value={run.progress} className="w-20" /><span className="tnum text-[11px] text-muted-foreground">{run.progress}%</span></div></TableCell><TableCell className="tnum">{formatNumber(run.assets)}</TableCell><TableCell><Button variant={selected ? "secondary" : "ghost"} size="sm" onClick={onSelect}>{selected ? "Selected" : "View"}</Button></TableCell></TableRow>;
+/**
+ * Pause / Resume / Cancel for a single run.
+ *
+ * Which buttons appear is derived from the status rather than hard-coded at the
+ * call site, so the same component is safe in the table, the detail header, and
+ * the runs-card header. Pause is deliberately not offered for
+ * `awaiting_context`: that run has not started, and the backend would reject a
+ * pause with a 400, so showing one would only produce a dead control.
+ */
+function RunControlButtons({ runId, status, onPause, onResume, onCancel, busy }: { runId: number; status: string; onPause: () => void; onResume: () => void; onCancel: () => void; busy: boolean }) {
+  const key = (status || "").toLowerCase();
+  const isPaused = key === "paused";
+  const canPause = key === "running" || key === "queued";
+  const canCancel = !isTerminalStatus(status);
+  if (!isPaused && !canPause && !canCancel) return null;
+  return (
+    <div className="flex items-center gap-1.5">
+      {isPaused ? (
+        <Button size="sm" variant="outline" onClick={onResume} disabled={busy} aria-label={`Resume run ${runId}`}>
+          <Play className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+          Resume
+        </Button>
+      ) : null}
+      {canPause ? (
+        <Button size="sm" variant="outline" onClick={onPause} disabled={busy} aria-label={`Pause run ${runId}`}>
+          <Pause className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+          Pause
+        </Button>
+      ) : null}
+      {canCancel ? (
+        <Button size="sm" variant="outline" onClick={onCancel} disabled={busy} aria-label={`Cancel run ${runId}`}>
+          <XCircle className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+          Cancel
+        </Button>
+      ) : null}
+    </div>
+  );
 }
 
-function AnalysisDetailPanel({ run, loading, error, tab, onTabChange, onCancel, cancelling }: { run?: AnalysisDetail; loading: boolean; error?: string; tab: string; onTabChange: (value: string) => void; onCancel: () => void; cancelling: boolean }) {
+function AnalysisRow({ run, selected, onSelect, controls }: { run: AnalysisListItem; selected: boolean; onSelect: () => void; controls: React.ReactNode }) {
+  return <TableRow className={selected ? "bg-primary/5" : undefined}><TableCell><button type="button" onClick={onSelect} className="font-mono text-xs font-semibold hover:text-primary">#{run.id}</button><p className="mt-0.5 text-[11px] text-muted-foreground">{formatDate(run.created_at)}</p></TableCell><TableCell><p className="max-w-[250px] truncate text-sm">{run.target || "—"}</p></TableCell><TableCell><StatusBadge status={run.status} /></TableCell><TableCell><div className="flex min-w-28 items-center gap-2"><Progress value={run.progress} className="w-20" /><span className="tnum text-[11px] text-muted-foreground">{run.progress}%</span></div></TableCell><TableCell className="tnum">{formatNumber(run.assets)}</TableCell><TableCell><div className="flex items-center gap-2"><Button variant={selected ? "secondary" : "ghost"} size="sm" onClick={onSelect}>{selected ? "Selected" : "View"}</Button>{controls}</div></TableCell></TableRow>;
+}
+
+function AnalysisDetailPanel({ run, loading, error, tab, onTabChange, onCancel, cancelling, onPause, pausing, onResume, resuming }: { run?: AnalysisDetail; loading: boolean; error?: string; tab: string; onTabChange: (value: string) => void; onCancel: () => void; cancelling: boolean; onPause: () => void; pausing: boolean; onResume: () => void; resuming: boolean }) {
   if (loading) return <Card><CardContent className="p-5"><LoadingState label="Loading analysis detail" /></CardContent></Card>;
   if (error) return <Card><CardContent className="p-5"><ErrorState message={error} /></CardContent></Card>;
   if (!run) return <Card><CardContent className="p-5"><EmptyState title="Analysis detail unavailable" description="The selected run is outside the active scope or has not returned data." /></CardContent></Card>;
@@ -475,7 +435,9 @@ function AnalysisDetailPanel({ run, loading, error, tab, onTabChange, onCancel, 
   const dataContext = record(context.data_context);
   const networkContext = record(context.network_context);
   const assessmentRows = array(run.assessments);
-  return <Card><CardHeader className="flex-row items-start justify-between"><div><div className="flex flex-wrap items-center gap-2"><SectionLabel>Run #{run.id}</SectionLabel><StatusBadge status={run.status} /></div><p className="mt-2 max-w-2xl truncate text-sm text-muted-foreground" title={run.target}>{run.target || "No target reported"}</p><p className="mt-1 text-xs text-muted-foreground">Started {formatDate(run.started_at || run.created_at)}{run.finished_at ? ` · Finished ${formatDate(run.finished_at)}` : ""}</p></div><div className="flex items-center gap-2">{!isTerminalStatus(run.status) ? <Button variant="outline" size="sm" onClick={onCancel} disabled={cancelling}>{cancelling ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <XCircle className="h-3.5 w-3.5" aria-hidden="true" />}Cancel</Button> : null}</div></CardHeader><div className="border-b px-5 pt-4"><Progress value={run.progress} /><div className="flex justify-between py-2 text-[11px] text-muted-foreground"><span>{isTerminalStatus(run.status) ? "Terminal state" : "Refreshing analysis state"}</span><span className="tnum">{run.progress}%</span></div></div><div className="px-5 pt-3"><Tabs value={tab} onValueChange={onTabChange} items={[{ value: "summary", label: "Summary" }, { value: "assessments", label: "Assessments", count: assessmentRows.length }, { value: "cbom", label: "CBOM" }]} /></div><CardContent className="p-5"><div>{run.truncation?.truncated ? <div className="mb-5 flex gap-2 border border-warning/40 bg-warning/5 p-3 text-xs leading-5 text-warning"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /><span>This analysis assessed {formatNumber(run.truncation.analysed)} of {formatNumber(run.truncation.available)} discovered findings{run.truncation.limit ? ` (limit ${formatNumber(run.truncation.limit)})` : ""}. Every result below describes only the assessed subset, not the whole scan.</span></div> : null}{run.error ? <div className="mb-5 flex gap-2 border border-destructive/30 bg-destructive/5 p-3 text-xs leading-5 text-destructive"><XCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />{run.error}</div> : null}{tab === "summary" ? <SummaryView run={run} summary={summary} summaryStats={summaryStats} dataContext={dataContext} networkContext={networkContext} /> : tab === "assessments" ? <AssessmentView assessments={assessmentRows} /> : <CbomView cbom={record(run.cbom)} runId={run.id} />}</div></CardContent></Card>;
+  const runStatus = (run.status || "").toLowerCase();
+  const isPaused = runStatus === "paused";
+  return <Card><CardHeader className="flex-row items-start justify-between"><div><div className="flex flex-wrap items-center gap-2"><SectionLabel>Run #{run.id}</SectionLabel><StatusBadge status={run.status} />{isPaused ? <span className="text-[11px] text-muted-foreground">Paused — assessed assets are kept and reused on resume.</span> : null}</div><p className="mt-2 max-w-2xl truncate text-sm text-muted-foreground" title={run.target}>{run.target || "No target reported"}</p><p className="mt-1 text-xs text-muted-foreground">Started {formatDate(run.started_at || run.created_at)}{run.finished_at ? ` · Finished ${formatDate(run.finished_at)}` : ""}</p></div><RunControlButtons runId={run.id} status={run.status} busy={cancelling || pausing || resuming} onPause={onPause} onResume={onResume} onCancel={onCancel} /></CardHeader><div className="border-b px-5 pt-4"><Progress value={run.progress} /><div className="flex justify-between py-2 text-[11px] text-muted-foreground"><span>{isTerminalStatus(run.status) ? "Terminal state" : "Refreshing analysis state"}</span><span className="tnum">{run.progress}%</span></div></div><div className="px-5 pt-3"><Tabs value={tab} onValueChange={onTabChange} items={[{ value: "summary", label: "Summary" }, { value: "assessments", label: "Assessments", count: assessmentRows.length }, { value: "cbom", label: "CBOM" }]} /></div><CardContent className="p-5"><div>{run.truncation?.truncated ? <div className="mb-5 flex gap-2 border border-warning/40 bg-warning/5 p-3 text-xs leading-5 text-warning"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /><span>This analysis assessed {formatNumber(run.truncation.analysed)} of {formatNumber(run.truncation.available)} discovered findings{run.truncation.limit ? ` (limit ${formatNumber(run.truncation.limit)})` : ""}. Every result below describes only the assessed subset, not the whole scan.</span></div> : null}{run.error ? <div className="mb-5 flex gap-2 border border-destructive/30 bg-destructive/5 p-3 text-xs leading-5 text-destructive"><XCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />{run.error}</div> : null}{tab === "summary" ? <SummaryView run={run} summary={summary} summaryStats={summaryStats} dataContext={dataContext} networkContext={networkContext} /> : tab === "assessments" ? <AssessmentView assessments={assessmentRows} /> : <CbomView cbom={record(run.cbom)} runId={run.id} />}</div></CardContent></Card>;
 }
 
 function SummaryView({ run, summary, summaryStats, dataContext, networkContext }: { run: AnalysisDetail; summary: JsonRecord; summaryStats: JsonRecord; dataContext: JsonRecord; networkContext: JsonRecord }) {
@@ -499,7 +461,6 @@ function SummaryView({ run, summary, summaryStats, dataContext, networkContext }
   const rawCollectable = networkContext.collectable ?? riskCtx.HNDL_exposure ?? (summaryStats.hndl_applicable ? "High (HNDL Active)" : "Standard");
   const collectableVal = typeof rawCollectable === "boolean" ? (rawCollectable ? "High" : "Low") : String(rawCollectable);
 
-  const modeVal = run.mode === "actual" || (run.target && !String(run.target).toLowerCase().startsWith("demo:")) ? "live" : "demo";
   const algoCatVal = summary.algorithm_category || (rows[0]?.algorithm_category ? titleCase(rows[0].algorithm_category) : "PUBLIC_KEY");
 
   return (
@@ -508,7 +469,6 @@ function SummaryView({ run, summary, summaryStats, dataContext, networkContext }
         <SummaryMetric label="Findings processed" value={run.findings_count} />
         <SummaryMetric label="Summary assets" value={summaryStats.assets ?? rows.length} />
         <SummaryMetric label="Algorithm category" value={algoCatVal} />
-        <SummaryMetric label="Analysis mode" value={modeVal} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">

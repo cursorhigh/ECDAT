@@ -1,4 +1,4 @@
-import { CircleAlert, CircleCheck, CircleDashed, CircleDot, Clock3, OctagonX, ShieldCheck } from "lucide-react";
+import { CircleAlert, CircleCheck, CircleDashed, CircleDot, Clock3, OctagonX, PauseCircle, ShieldCheck } from "lucide-react";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { cn, titleCase } from "@/lib/utils";
 
@@ -12,6 +12,9 @@ const statusMap: Record<string, { label: string; variant: BadgeProps["variant"];
   generating: { label: "Generating", variant: "info", icon: CircleDot },
   validating: { label: "Validating", variant: "info", icon: Clock3 },
   cancelling: { label: "Cancelling", variant: "warning", icon: Clock3 },
+  // Paused is a decision state, not a terminal one: it needs a human to resume
+  // it, so it must not borrow the muted treatment used for cancelled runs.
+  paused: { label: "Paused", variant: "warning", icon: PauseCircle },
   partial: { label: "Partial", variant: "warning", icon: CircleAlert },
   awaiting_context: { label: "Awaiting context", variant: "warning", icon: Clock3 },
   failed: { label: "Failed", variant: "danger", icon: OctagonX },

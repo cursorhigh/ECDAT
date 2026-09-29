@@ -46,7 +46,6 @@ params (`?search=…` where declared, `?ordering=…`).
 | GET    | `/api/browse/?path=`     | —                   | `{ path, parent, folders[] }` for the path picker |
 | GET    | `/api/scan-preview/?scan_type=quick\|whole\|specified` | — | platform + `roots[]` a scan will walk |
 | POST   | `/api/start-scan/`       | `{ scan_type, source_type, target, options }` | `201 created`, scan row + `session` |
-| POST   | `/api/run-demo-scan/`    | —                   | `201 created`, demo ScanJob row                 |
 | POST   | `/api/scans/<id>/cancel/` | —                  | `{ id, status }`                                 |
 | POST   | `/api/scan-data/`        | `{ source_type, target, findings: [] }` | `201 created`; ingest external scanner data |
 | GET    | `/api/graph/`            | —                   | everything the asset graph renders (assets, findings, relations) |

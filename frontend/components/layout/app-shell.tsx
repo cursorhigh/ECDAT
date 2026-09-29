@@ -3,11 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, Boxes, FileBarChart, Gauge, Menu, Route, ScrollText, Search, Settings2, ShieldAlert, X } from "lucide-react";
+import { Activity, Boxes, FileBarChart, Gauge, Menu, Route, ScrollText, Settings2, ShieldAlert, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { NavTooltip } from "@/components/ui/nav-tooltip";
 import { HealthIndicator } from "@/components/data/health-indicator";
 import { SessionScope } from "@/components/layout/session-scope";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { DangerMenu } from "@/components/layout/danger-menu";
 import { useSession } from "@/lib/session-context";
 import { cn } from "@/lib/utils";
 
@@ -69,7 +71,9 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
   return (
     <header className="z-30 flex min-h-16 shrink-0 items-center justify-between gap-3 border-b bg-background/95 px-4 backdrop-blur sm:px-6">
       <div className="flex min-w-0 items-center gap-3">
-        <Button type="button" variant="ghost" size="icon" className="lg:hidden" onClick={onMenu} aria-label="Open navigation"><Menu className="h-5 w-5" aria-hidden="true" /></Button>
+        <NavTooltip title="Navigation" description="Open the section menu.">
+          <Button type="button" variant="ghost" size="icon" className="lg:hidden" onClick={onMenu} aria-label="Open navigation"><Menu className="h-5 w-5" aria-hidden="true" /></Button>
+        </NavTooltip>
         <div className="min-w-0"><div className="flex items-center gap-2 text-[11px] text-muted-foreground"><span>Scan</span><span>/</span><span className="truncate text-foreground">{current?.label || "Overview"}</span></div><p className="mt-1 hidden text-[11px] text-muted-foreground sm:block">Cryptographic discovery, risk, and migration control plane</p></div>
       </div>
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
@@ -77,7 +81,7 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
         <div className="hidden md:block"><HealthIndicator /></div>
         <SessionScope compact />
         <ThemeToggle />
-        <Link href="/assets" className="inline-flex h-9 w-9 items-center justify-center border border-transparent text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground" aria-label="Search cryptographic assets" title="Search cryptographic assets"><Search className="h-4 w-4" aria-hidden="true" /></Link>
+        <DangerMenu />
       </div>
     </header>
   );

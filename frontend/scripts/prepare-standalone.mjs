@@ -1,23 +1,31 @@
 import { cpSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
+import { resolveStandaloneAppDir } from "./standalone-paths.mjs";
+
 const root = process.cwd();
-const standalone = join(root, ".next", "standalone");
 
-if (!existsSync(standalone)) {
-  throw new Error("Next standalone output was not generated.");
-}
+// Throws with an actionable message when the bundle is missing or unrecognised.
+const appDir = resolveStandaloneAppDir(root);
 
-const staticSource = join(root, ".next", "static");
-const staticTarget = join(standalone, ".next", "static");
-if (existsSync(staticSource)) {
-  cpSync(staticSource, staticTarget, { recursive: true, force: true });
-}
-
-const publicSource = join(root, "public");
-const publicTarget = join(standalone, "public");
-if (existsSync(publicSource)) {
-  cpSync(publicSource, publicTarget, { recursive: true, force: true });
+/**
+ * Standalone output ships only the server. `.next/static` and `public` are
+ * deliberately left behind, so they must be copied next to server.js or the page
+ * renders with no CSS or JS.
+ *
+ * They are copied into `appDir` (not `standalone/`) because that is the
+ * directory the server runs from, and Next resolves static assets relative to it.
+ */
+for (const [label, source, target] of [
+  ["static assets", join(root, ".next", "static"), join(appDir, ".next", "static")],
+  ["public files", join(root, "public"), join(appDir, "public")]
+]) {
+  if (!existsSync(source)) {
+    console.log(`No ${label} to copy (${source} not present).`);
+    continue;
+  }
+  cpSync(source, target, { recursive: true, force: true });
+  console.log(`Copied ${label} into ${target}`);
 }
 
 console.log("Standalone frontend assets prepared.");
