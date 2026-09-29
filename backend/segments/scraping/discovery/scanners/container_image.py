@@ -115,7 +115,7 @@ def read_layout(data: bytes) -> ImageLayout:
         return layout
 
     try:
-        archive = tarfile.open(fileobj=io.BytesIO(data), mode="r:")
+        archive = tarfile.open(fileobj=io.BytesIO(data))
     except Exception:  # noqa: BLE001
         layout.reason = "unreadable_archive"
         return layout
@@ -298,7 +298,7 @@ def discover(location: str, data: bytes, context=None) -> tuple[Discovery, Image
     except _ArchiveTooLarge:
         return result, layout
     try:
-        archive = tarfile.open(fileobj=io.BytesIO(data), mode="r:")
+        archive = tarfile.open(fileobj=io.BytesIO(data))
     except Exception:  # noqa: BLE001
         return result, layout
 
@@ -405,7 +405,7 @@ def _open_layer(data: bytes) -> tarfile.TarFile | None:
         return None
     for candidate in candidates:
         try:
-            return tarfile.open(fileobj=io.BytesIO(candidate), mode="r:")
+            return tarfile.open(fileobj=io.BytesIO(candidate))
         except Exception:  # noqa: BLE001
             continue
     return None

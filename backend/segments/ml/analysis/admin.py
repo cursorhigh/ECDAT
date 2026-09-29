@@ -5,11 +5,11 @@ from .models import AnalysisRun, AssetAssessment
 
 @admin.register(AnalysisRun)
 class AnalysisRunAdmin(admin.ModelAdmin):
-    list_display = ("id", "scan_job", "status", "progress", "mode", "created_at")
-    list_filter = ("status", "mode")
+    list_display = ("id", "scan_job", "status", "progress", "created_at")
+    list_filter = ("status",)
 
 
 @admin.register(AssetAssessment)
 class AssetAssessmentAdmin(admin.ModelAdmin):
-    list_display = ("id", "run", "finding_ref", "asset", "mode")
-    list_filter = ("mode",)
+    list_display = ("id", "run", "finding_ref", "asset")
+    list_filter = ("run",)

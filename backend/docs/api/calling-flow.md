@@ -66,7 +66,6 @@ GET /api/scans/7/
 # -> data.status == "completed"
 ```
 
-Or use the demo dataset instead: `POST /api/run-demo-scan/`.
 
 **External scanner data** — skip the folder walk and hand raw findings directly:
 

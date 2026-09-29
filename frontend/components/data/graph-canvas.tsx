@@ -246,6 +246,9 @@ export function GraphCanvas({
   const readyRef = useRef(false);
   const selectRef = useRef(onSelect);
   const hoverRef = useRef(onHover);
+  // Which node is currently selected, so a double click can tell "clear the
+  // selection" from "select this other node".
+  const selectedIdRef = useRef<number | null>(null);
 
   // Cytoscape binds its handlers once when the graph is built, so they need the
   // latest callbacks without being re-bound. Writing these refs during render
@@ -260,6 +263,9 @@ export function GraphCanvas({
   // re-seeding keeps one source of truth for what is visible.
   useEffect(() => {
     if (!containerRef.current) return;
+    // Captured once: the listener is added and removed on this exact node, so a
+    // later ref reassignment cannot leave the handler attached to a stale one.
+    const container = containerRef.current;
 
     const visibleNodes = nodes.filter((node) => !hiddenTypes.has(node.node_type));
     const visibleIds = new Set(visibleNodes.map((node) => node.id));
@@ -310,6 +316,15 @@ export function GraphCanvas({
     // typings cannot express as literal unions. The values themselves are from
     // the fixed sets in graph-style.ts, so this is a typing gap, not a cast over
     // unvalidated input.
+    //
+    // Text and outline colours are resolved from the active theme rather than
+    // hardcoded. They used to be fixed near-white and near-black, which made
+    // labels invisible the moment the workspace switched to the light theme.
+    const dark = document.documentElement.classList.contains("dark");
+    const ink = dark ? "#e6e9f0" : "#1c2333";
+    const hairline = dark ? "rgba(255,255,255,0.16)" : "rgba(20,28,48,0.14)";
+    const ring = dark ? "#f2f5fb" : "#111827";
+
     const stylesheet = [
       {
         selector: "node",
@@ -317,46 +332,55 @@ export function GraphCanvas({
           "background-color": "data(color)",
           shape: "data(shape)",
           label: "data(label)",
-          color: "#e2e8f0",
-          "font-size": 9,
+          color: ink,
+          "font-size": 10,
           "text-valign": "bottom",
-          "text-margin-y": 4,
-          "text-max-width": 120,
+          "text-margin-y": 6,
+          "text-max-width": 140,
           "text-wrap": "ellipsis",
-          width: 22,
-          height: 22,
+          width: 26,
+          height: 26,
+          // A single hairline in the theme's own ink, not a hard black outline.
+          // The previous #0b1220 border at width 1 made every node read as a
+          // cut-out sticker rather than a node.
           "border-width": 1,
-          "border-color": "#0b1220",
+          "border-color": hairline,
           "overlay-opacity": 0,
-          "transition-property": "opacity, border-width, border-color",
+          "transition-property": "opacity, border-width, border-color, width, height",
           "transition-duration": 140
         }
       },
       {
         // Labels only earn their space once the graph is small enough to read.
         selector: "node.labelled",
-        style: { "font-size": 9 }
+        style: { "font-size": 10 }
       },
       {
         selector: "edge",
         style: {
-          width: 1.2,
+          width: 1.4,
           "line-color": "data(color)",
           "target-arrow-color": "data(color)",
           "target-arrow-shape": "data(arrow)",
-          "curve-style": "bezier",
-          opacity: 0.55,
+          // unbundled-bezier keeps parallel edges apart without the bow of a
+          // full bezier, which is what made the dense clusters look tangled.
+          "curve-style": "unbundled-bezier",
+          opacity: 0.5,
           "line-style": "data(lineStyle)",
-          "arrow-scale": 0.7,
+          "arrow-scale": 0.6,
           "transition-property": "opacity, width",
           "transition-duration": 140
         }
       },
       {
+        // Selected: a slim accent ring plus a small lift, rather than the
+        // previous 3px white border which read as a chunky highlighter ring.
         selector: ":selected",
         style: {
-          "border-width": 3,
-          "border-color": "#f8fafc",
+          "border-width": 2.5,
+          "border-color": ring,
+          width: 32,
+          height: 32,
           "z-index": 30
         }
       },
@@ -364,20 +388,20 @@ export function GraphCanvas({
         // Focus dims everything not adjacent, which is the only way a dense
         // graph becomes readable without hiding data.
         selector: ".dimmed",
-        style: { opacity: 0.12, "text-opacity": 0 }
+        style: { opacity: 0.1, "text-opacity": 0 }
       },
       {
         selector: ".faded",
-        style: { opacity: 0.18 }
+        style: { opacity: 0.2 }
       },
       {
         selector: "node.neighbour",
-        style: { "border-width": 2, "border-color": "#cbd5e1" }
+        style: { "border-width": 2, "border-color": ring, opacity: 1 }
       }
     ] as unknown as cytoscape.StylesheetJson;
 
     const cy = cytoscape({
-      container: containerRef.current,
+      container,
       elements,
       style: stylesheet,
       minZoom: 0.15,
@@ -402,7 +426,7 @@ export function GraphCanvas({
       cy.resize();
       // Deferred by a frame so the container has been measured; laying out
       // against an unsized container produces degenerate positions.
-      applyLayout(cy, layout, nodes, edges, containerRef.current);
+      applyLayout(cy, layout, nodes, edges, container);
       appliedLayoutRef.current = layout;
       readyRef.current = true;
     });
@@ -421,13 +445,61 @@ export function GraphCanvas({
     };
     applyLabelDensity();
 
+    /**
+     * The one place a selection is cleared.
+     *
+     * Cytoscape holds its own selection, independent of React, so clearing the
+     * panel alone left the node wearing its accent ring with the neighbourhood
+     * still dimmed. Escape worked because it went through clearFocus(); every
+     * other path has to do the same work, so they all come through here.
+     *
+     * `removeClass` must come after `unselect()`: unselecting fires the
+     * `unselect` event, whose listener re-applies the emphasis, so clearing
+     * first would be immediately undone.
+     */
+    const clearSelection = () => {
+      selectedIdRef.current = null;
+      cy.batch(() => {
+        cy.nodes().unselect();
+        cy.elements().removeClass("dimmed faded neighbour");
+      });
+      selectRef.current(null);
+    };
+
+    // A double click is two taps on the same node inside the platform's own
+    // double-click interval. Detecting it here rather than from a native
+    // `dblclick` listener avoids having to map a DOM event target back to a
+    // Cytoscape element -- `cy.$(domNode)` returns a plain array, not a
+    // collection, so the `closest()` approach used previously did not exist on
+    // the result and threw before anything was cleared.
+    const DOUBLE_CLICK_MS = 400;
+    let lastTapNodeId: number | null = null;
+    let lastTapAt = 0;
+
     cy.on("tap", "node", (event) => {
       const id = Number(event.target.id());
+      const now = Date.now();
+      const isDoubleTap = id === lastTapNodeId && now - lastTapAt <= DOUBLE_CLICK_MS;
+      lastTapNodeId = id;
+      lastTapAt = now;
+      // Second tap on the node already showing as selected: that is a double
+      // click asking to detach. A double click on a different node still
+      // selects it, because the ids do not match.
+      if (isDoubleTap) {
+        clearSelection();
+        return;
+      }
       const row = nodes.find((node) => node.id === id) || null;
+      selectedIdRef.current = row ? id : null;
       selectRef.current(row);
     });
+
     cy.on("tap", (event) => {
-      if (event.target === cy) selectRef.current(null);
+      if (event.target !== cy) return;
+      // A tap on empty canvas ends any node double-click chain, so clicking
+      // the background and then a node is never read as a double click.
+      lastTapNodeId = null;
+      clearSelection();
     });
     cy.on("mouseover", "node", (event) => {
       const id = Number(event.target.id());
@@ -456,6 +528,7 @@ export function GraphCanvas({
     return () => {
       window.clearTimeout(timer);
       window.cancelAnimationFrame(initialFrame);
+      selectedIdRef.current = null;
       readyRef.current = false;
       cy.destroy();
       cyRef.current = null;

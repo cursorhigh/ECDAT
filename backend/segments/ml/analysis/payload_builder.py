@@ -60,9 +60,14 @@ def finding_from_raw(
     return finding
 
 
-def build_analysis_payload(scan_job: ScanJob, max_findings: int = 500) -> Dict[str, Any]:
-    """Build a CBOM-ready payload for all findings linked to a ScanJob or its multi-source batch."""
-    max_findings = max(0, int(max_findings))
+def build_analysis_payload(scan_job: ScanJob, max_findings: int | None = None) -> Dict[str, Any]:
+    """Build a CBOM-ready payload for all findings linked to a ScanJob or its multi-source batch.
+
+    `max_findings=None` means no cap: every deduplicated finding discovered for the
+    job is analysed. It must stay distinguishable from 0, which would analyse nothing.
+    """
+    if max_findings is not None:
+        max_findings = max(0, int(max_findings))
     db = scan_job._state.db or "default"
 
     # 1. First, search for NormalizedFindings for this specific scan job
@@ -156,10 +161,11 @@ def _payload(
     this list, so the shortfall is reported rather than hidden.
     """
     available = len(findings) if total_available is None else total_available
-    truncated = (
-        max_findings is not None
-        and available > len(findings)
-    ) or (max_findings is not None and len(findings) >= max_findings)
+    # A payload is truncated only when findings were actually dropped. Comparing
+    # `len(findings) >= max_findings` as well would flag a run that happened to
+    # land exactly on the limit (available == limit) as truncated, showing a
+    # false "analysed N of N" shortfall banner for a run that lost nothing.
+    truncated = max_findings is not None and available > len(findings)
     payload: Dict[str, Any] = {
         "repository": {
             "name": scan_job.target or f"{scan_job.source_type} scan",

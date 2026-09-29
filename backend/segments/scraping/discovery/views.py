@@ -149,23 +149,10 @@ def scanners(request):
         {
             "scanners": entries,
             "available": [e["id"] for e in entries if e["status"] == "available"],
-            "demo_mode": bool(settings.ECDAT.get("DEMO_MODE")),
             "platform": detect_platform(),
             "scopes": scopes,
         }
     )
-
-
-@csrf_exempt
-def run_demo_scan(request):
-    """Trigger the demo-mode scan (POST) and return the created ScanJob."""
-    from .services import run_demo_scan as create_and_run
-
-    if request.method != "POST":
-        return JsonResponse({"detail": "Method not allowed"}, status=405)
-
-    job = create_and_run()
-    return JsonResponse(ScanJobSerializer(job).data, status=201)
 
 
 @csrf_exempt

@@ -8,7 +8,7 @@ of its endpoints (edges between two same-session assets go to that session,
 a mixed edge keeps the non-global session, otherwise stays global).
 
 Usage:
-    python manage.py fix_asset_relations [--db=demo]
+    python manage.py fix_asset_relations
 """
 
 import json

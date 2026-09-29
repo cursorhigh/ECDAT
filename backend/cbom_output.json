@@ -2,7 +2,7 @@
   "format": "ECDAT-CBOM",
   "version": "1.0",
   "spec_version": "1.6-CycloneDX",
-  "generated_at": "2026-09-28T19:39:53Z",
+  "generated_at": "2026-09-29T06:23:27Z",
   "repository": {
     "name": "enterprise-auth-service",
     "url": "https://github.com/example/enterprise-auth-service"
@@ -435,10 +435,10 @@
   "cyclonedx_bom": {
     "bomFormat": "CycloneDX",
     "specVersion": "1.6",
-    "serialNumber": "urn:uuid:d58b03cc-1c2b-4dc4-8f15-48adda9c8bfd",
+    "serialNumber": "urn:uuid:ad878f64-3b98-4cfb-8332-1d2a0402f19e",
     "version": 1,
     "metadata": {
-      "timestamp": "2026-09-28T19:39:53Z",
+      "timestamp": "2026-09-29T06:23:27Z",
       "tools": {
         "components": [
           {

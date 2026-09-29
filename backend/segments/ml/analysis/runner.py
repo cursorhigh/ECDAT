@@ -19,7 +19,7 @@ from huey.contrib.djhuey import db_task
 from segments.ml.cbom import CBOMAgent
 from segments.ml.cbom.ai_provider import FallbackLLMProvider
 from core.models import log_action
-from core.modes import db_alias_for_mode
+from core.modes import active_mode, db_alias_for_mode
 from segments.scraping.discovery.models import NormalizedFinding, ScanJob
 from segments.ml.hndl import HNDLAgent
 from segments.ml.mosca_agent import MOSCAAgent
@@ -31,15 +31,16 @@ from .payload_builder import build_analysis_payload, default_raw_system_context,
 logger = logging.getLogger("analysis")
 
 
-def start_analysis(scan_job, raw_system_context=None, max_findings: int = 500):
+def start_analysis(scan_job, raw_system_context=None, max_findings: int | None = None):
     """Create a queued AnalysisRun for a scan job and dispatch execution.
 
     Executes in-process via a daemon thread by default (plain runserver);
     ECDAT_QUEUE_ASYNC=1 routes through huey for a dedicated worker while
     immediate huey mode runs the task inline. Returns the created run.
+
+    `max_findings=None` analyses every discovered finding; pass an int to cap it.
     """
     db = scan_job._state.db or "default"
-    max_findings = max_findings if max_findings is not None else 500
     payload = build_analysis_payload(scan_job, max_findings=max_findings)
     context = (
         raw_system_context
@@ -48,7 +49,6 @@ def start_analysis(scan_job, raw_system_context=None, max_findings: int = 500):
     )
     run = AnalysisRun.objects.using(db).create(
         scan_job=scan_job,
-        mode=scan_job.mode,
         status=AnalysisRun.Status.QUEUED,
         progress=0,
         repository=payload["repository"],
@@ -61,7 +61,6 @@ def start_analysis(scan_job, raw_system_context=None, max_findings: int = 500):
         f"Queued analysis for scan {scan_job.pk}",
         "analysisrun",
         run.pk,
-        mode=scan_job.mode,
         session_id=run.session_id,
     )
     _dispatch(run, db)
@@ -69,34 +68,41 @@ def start_analysis(scan_job, raw_system_context=None, max_findings: int = 500):
 
 
 def _context_timeout() -> int:
-    """Seconds an auto-queued run waits for a context choice (default 30)."""
-    raw = os.environ.get("ECDAT_AUTO_CONTEXT_TIMEOUT", "30")
+    """Seconds a parked run waits for the operator to supply context.
+
+    Defaults to 60: long enough to answer the MOSCA/HNDL form, short enough
+    that an unattended run still reaches a result on its own with the
+    conservative defaults rather than sitting in AWAITING_CONTEXT forever.
+    Override with ECDAT_AUTO_CONTEXT_TIMEOUT.
+    """
+    raw = os.environ.get("ECDAT_AUTO_CONTEXT_TIMEOUT", "60")
     try:
         return max(0, int(raw))
     except (TypeError, ValueError):
-        return 30
+        return 60
 
 
 def _dispatch(run, db):
     """Run an already-queued AnalysisRun through the configured executor."""
     if os.environ.get("ECDAT_QUEUE_ASYNC") == "1":
-        run_analysis_task(run.pk, run.mode)
+        run_analysis_task(run.pk, active_mode())
     elif settings.HUEY.get("immediate"):
-        run_analysis_task(run.pk, run.mode)
+        run_analysis_task(run.pk, active_mode())
     else:
-        threading.Thread(target=execute_analysis, args=(run.pk, run.mode), daemon=True).start()
+        threading.Thread(target=execute_analysis, args=(run.pk, active_mode()), daemon=True).start()
 
 
-def pending_analysis(scan_job, raw_system_context=None, max_findings: int = 500):
+def pending_analysis(scan_job, raw_system_context=None, max_findings: int | None = None):
     """Create an awaiting-context AnalysisRun instead of dispatching it.
 
     The run is created with the (default) context and a deadline; once the
     user either picks a context (via ``continue_pending``) or the deadline
     passes untouched, it is queued and dispatched with whatever context was
     standing (default). Returns the created run.
+
+    `max_findings=None` analyses every discovered finding; pass an int to cap it.
     """
     db = scan_job._state.db or "default"
-    max_findings = max_findings if max_findings is not None else 500
     payload = build_analysis_payload(scan_job, max_findings=max_findings)
     context = (
         raw_system_context
@@ -106,7 +112,6 @@ def pending_analysis(scan_job, raw_system_context=None, max_findings: int = 500)
     timeout = _context_timeout()
     run = AnalysisRun.objects.using(db).create(
         scan_job=scan_job,
-        mode=scan_job.mode,
         status=AnalysisRun.Status.AWAITING_CONTEXT,
         progress=0,
         repository=payload["repository"],
@@ -121,10 +126,9 @@ def pending_analysis(scan_job, raw_system_context=None, max_findings: int = 500)
         f"(continuing with default in {timeout}s)",
         "analysisrun",
         run.pk,
-        mode=scan_job.mode,
         session_id=run.session_id,
     )
-    _schedule_auto_continue(run.pk, run.mode, db, timeout)
+    _schedule_auto_continue(run.pk, active_mode(), db, timeout)
     return run
 
 
@@ -177,14 +181,13 @@ def _auto_continue(run_id, mode, db, timeout):
         f"Auto-analysis continuing with default context for scan {run.scan_job_id}",
         "analysisrun",
         run.pk,
-        mode=mode,
         session_id=run.session_id,
     )
     _dispatch(run, db)
     close_old_connections()
 
 
-def continue_pending(run, raw_system_context=None, db=None, max_findings: int = 500):
+def continue_pending(run, raw_system_context=None, db=None, max_findings: int | None = None):
     """Dispatch an awaiting-context run, optionally with a custom context.
 
     Replaces ``raw_system_context`` when given, flips the run to queued and
@@ -217,7 +220,6 @@ def continue_pending(run, raw_system_context=None, db=None, max_findings: int = 
         f"Analysis for scan {run.scan_job_id} started with {'custom' if raw_system_context is not None else 'default'} context",
         "analysisrun",
         run.pk,
-        mode=run.mode,
         session_id=run.session_id,
     )
     _dispatch(run, db)
@@ -238,8 +240,15 @@ def execute_analysis(run_id, mode):
         logger.warning("execute_analysis: run %s not found in db '%s'", run_id, db)
         return None
 
-    if run.status in (AnalysisRun.Status.CANCELLED, AnalysisRun.Status.COMPLETED):
-        return run
+        if run.status in (
+            AnalysisRun.Status.CANCELLED,
+            AnalysisRun.Status.COMPLETED,
+            # A paused run must not be picked up by a stray sweep or a second
+            # dispatch; only resume_run() may move it back to queued.
+            AnalysisRun.Status.PAUSED,
+        ):
+            return run
+
 
     try:
         return _run_pipeline(run, db, mode)
@@ -249,7 +258,7 @@ def execute_analysis(run_id, mode):
         run.error = str(exc)
         run.finished_at = timezone.now()
         run.save(using=db, update_fields=["status", "progress", "error", "finished_at"])
-        log_action("system", f"Analysis failed: {exc}", "analysisrun", run.pk, mode=mode,
+        log_action("system", f"Analysis failed: {exc}", "analysisrun", run.pk,
                    session_id=run.session_id)
         return run
 
@@ -272,7 +281,7 @@ def _mark_cancelled(run, db) -> None:
     run.await_until = None
     run.save(using=db, update_fields=["status", "progress", "error", "finished_at", "await_until"])
     log_action("analysis_cancelled", "Analysis run cancelled by user",
-               "analysisrun", run.pk, mode=run.mode, session_id=run.session_id)
+               "analysisrun", run.pk, session_id=run.session_id)
 
 
 def cancel_run(run, db=None) -> bool:
@@ -306,6 +315,87 @@ def cancel_run(run, db=None) -> bool:
         return False
     _mark_cancelled(run, db)
     return True
+
+
+def _run_is_paused(run, db) -> bool:
+    """True once the operator has paused the run."""
+    return AnalysisRun.objects.using(db).filter(pk=run.pk, status=AnalysisRun.Status.PAUSED).exists()
+
+
+def _mark_paused(run, db) -> None:
+    """Park a run the operator paused, keeping the progress it reached."""
+    AnalysisRun.objects.using(db).filter(pk=run.pk).update(
+        status=AnalysisRun.Status.PAUSED,
+        await_until=None,
+    )
+    run.status = AnalysisRun.Status.PAUSED
+
+
+def pause_run(run, db=None) -> bool:
+    """Pause a running analysis (compare-and-swap). Returns True if it won.
+
+    Pausable states are the same as cancellable ones minus the terminal ones, so
+    a pause is always something the operator can undo by resuming. The worker
+    thread stops at its next asset checkpoint; assessments already written stay.
+    """
+    db = db or run._state.db or "default"
+    won = (
+        AnalysisRun.objects.using(db)
+        .filter(
+            pk=run.pk,
+            status__in=[AnalysisRun.Status.QUEUED, AnalysisRun.Status.RUNNING],
+        )
+        .update(
+            status=AnalysisRun.Status.PAUSED,
+            await_until=None,
+            finished_at=None,
+        )
+    )
+    if won:
+        run.status = AnalysisRun.Status.PAUSED
+        log_action(
+            "analysis_paused",
+            f"Analysis run {run.pk} paused by user",
+            "analysisrun",
+            run.pk,
+            session_id=run.session_id,
+        )
+    return bool(won)
+
+
+def resume_run(run, db=None) -> bool:
+    """Resume a paused analysis by re-queueing and re-dispatching it.
+
+    The pipeline is re-entered from the start, but assets that already have an
+    ``AssetAssessment`` for this run are skipped, so pausing is cheap rather than
+    a restart. Those assessments are written inside the per-asset loop, which is
+    also where the pause is honoured, so nothing completed is ever redone.
+    """
+    db = db or run._state.db or "default"
+    won = (
+        AnalysisRun.objects.using(db)
+        .filter(pk=run.pk, status=AnalysisRun.Status.PAUSED)
+        .update(
+            status=AnalysisRun.Status.QUEUED,
+            progress=0,
+            error="",
+            finished_at=None,
+            await_until=None,
+        )
+    )
+    if won:
+        run.status = AnalysisRun.Status.QUEUED
+        run.progress = 0
+        run.error = ""
+        log_action(
+            "analysis_resumed",
+            f"Analysis run {run.pk} resumed by user",
+            "analysisrun",
+            run.pk,
+            session_id=run.session_id,
+        )
+        _dispatch(run, db)
+    return bool(won)
 
 
 def _run_pipeline(run, db, mode):
@@ -371,11 +461,67 @@ def _run_pipeline(run, db, mode):
     critical = 0
     hndl_applicable = 0
 
+    # Resume support. Each asset writes its AssetAssessment inside the loop
+    # below, so on a resumed run the ones already done can be skipped and their
+    # contribution to the summary rebuilt from the stored rows. Without this a
+    # resume would silently re-assess everything and double-count.
+    resumed = (
+        AssetAssessment.objects.using(db)
+        .filter(run=run)
+        .exclude(finding_ref="")
+        .order_by("id")
+    )
+    done_refs = set()
+    for existing in resumed:
+        m = (existing.mosca_result or {}).get("mosca_assessment") or {}
+        h = (existing.hndl_result or {}).get("hndl") or {}
+        ref = str(existing.finding_ref)
+        done_refs.add(ref)
+        pri = str(m.get("migration_priority") or "").upper()
+        risk = str(m.get("overall_risk") or "").upper()
+        rows.append(
+            {
+                "asset_id": ref,
+                "algorithm": ((existing.cbom_asset or {}).get("algorithm") or ""),
+                "algorithm_category": m.get("algorithm_category", ""),
+                "classical_security": m.get("classical_security", ""),
+                "hndl_risk": h.get("future_decryption_risk", ""),
+                "overall_risk": m.get("overall_risk", ""),
+                "migration_priority": m.get("migration_priority", ""),
+                "quantum_vulnerable": m.get("quantum_vulnerable"),
+            }
+        )
+        if pri in ("URGENT", "CRITICAL"):
+            urgent += 1
+        if risk in ("CRITICAL", "HIGH") or pri in ("URGENT", "CRITICAL"):
+            critical += 1
+        if h.get("applicable"):
+            hndl_applicable += 1
+    if done_refs:
+        logger.info(
+            "Analysis %s resuming: %d of %d assets already assessed", run.pk, len(done_refs), len(assets)
+        )
+
     for i, asset in enumerate(assets):
         if _run_is_cancelled(run, db):
             _mark_cancelled(run, db)
             return run
+        # Pause lands on the same asset boundary as cancel, so a pause costs at
+        # most one asset of work rather than the whole run.
+        if _run_is_paused(run, db):
+            _mark_paused(run, db)
+            log_action(
+                "analysis_paused",
+                f"Analysis run {run.pk} paused after {len(rows)} of {len(assets)} assets",
+                "analysisrun",
+                run.pk,
+                session_id=run.session_id,
+            )
+            return run
         if not isinstance(asset, dict):
+            continue
+        # Already assessed on an earlier (resumed) pass.
+        if str(asset.get("asset_id") or "") in done_refs:
             continue
         h_res = hndl.analyze(
             cbom_asset=asset,
@@ -435,7 +581,6 @@ def _run_pipeline(run, db, mode):
 
         AssetAssessment.objects.using(db).create(
             run=run,
-            mode=mode,
             asset=asset_obj,
             finding_ref=str(asset.get("asset_id") or ""),
             cbom_asset=asset,
@@ -509,7 +654,6 @@ def _run_pipeline(run, db, mode):
         f"Analysis complete: {len(assets)} assets assessed",
         "analysisrun",
         run.pk,
-        mode=mode,
         session_id=run.session_id,
     )
     _auto_mitigation(run, db)
@@ -553,7 +697,7 @@ def run_analysis_task(run_id, mode):
     try:
         execute_analysis(run_id, mode)
     except Exception as exc:  # noqa: BLE001 - worker must survive unexpected errors
-        logger.exception("run_analysis_task: analysis %s (mode=%s) crashed: %s", run_id, mode, exc)
+        logger.exception("run_analysis_task: analysis %s crashed: %s", run_id, exc)
 
 
 def sweep_pending_runs() -> int:
@@ -580,8 +724,8 @@ def sweep_pending_runs() -> int:
             AnalysisRun.objects.using(db).filter(status=AnalysisRun.Status.QUEUED)[:200]
         ):
             log_action("analysis_requeued", f"Re-queued stuck analysis {run.pk} to complete it",
-                       "analysisrun", run.pk, mode=mode, session_id=run.session_id)
-            run_analysis_task(run.pk, run.mode)
+                       "analysisrun", run.pk, session_id=run.session_id)
+            run_analysis_task(run.pk, active_mode())
             recovered += 1
 
         for run in list(
@@ -593,8 +737,8 @@ def sweep_pending_runs() -> int:
             run.error = ""
             run.save(using=db, update_fields=["status", "progress", "error"])
             log_action("analysis_requeued", f"Restarted stuck analysis {run.pk} to complete it",
-                       "analysisrun", run.pk, mode=mode, session_id=run.session_id)
-            run_analysis_task(run.pk, run.mode)
+                       "analysisrun", run.pk, session_id=run.session_id)
+            run_analysis_task(run.pk, active_mode())
             recovered += 1
 
         overdue = list(
@@ -605,7 +749,7 @@ def sweep_pending_runs() -> int:
             )[:50]
         )
         for run in overdue:
-            _auto_continue(run.pk, run.mode, db, 0)
+            _auto_continue(run.pk, active_mode(), db, 0)
             recovered += 1
 
     return recovered

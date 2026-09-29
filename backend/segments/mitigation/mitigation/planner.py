@@ -17,7 +17,7 @@ from django.utils import timezone
 from huey.contrib.djhuey import db_task
 
 from core.models import log_action
-from core.modes import db_alias_for_mode
+from core.modes import active_mode, db_alias_for_mode
 from segments.mitigation.mitigation_agent import MitigationAgent
 
 from .models import MitigationPlan
@@ -35,7 +35,6 @@ def ensure_plan(run, db="default"):
     plan, _ = MitigationPlan.objects.using(db).get_or_create(
         run=run,
         defaults={
-            "mode": run.mode,
             "session_id": run.session_id,
             "status": MitigationPlan.Status.PENDING,
             "progress": 0,
@@ -64,7 +63,6 @@ def trigger_mitigation(run, db="default"):
         f"Queued mitigation plan for analysis run {run.pk}",
         "mitigationplan",
         plan.pk,
-        mode=run.mode,
         session_id=run.session_id,
     )
     _dispatch(plan, db)
@@ -77,7 +75,7 @@ def trigger_mitigation(run, db="default"):
 
 
 def _dispatch(plan, db):
-    mode = plan.mode
+    mode = active_mode()
     if os.environ.get("ECDAT_QUEUE_ASYNC") == "1":
         generate_plan_task(plan.pk, mode)
     elif settings.HUEY.get("immediate"):
@@ -192,7 +190,6 @@ def generate_plan(plan_id, mode):
             f"({document['summary']['assets']} assets)",
             "mitigationplan",
             plan.pk,
-            mode=mode,
             session_id=run.session_id,
         )
         return plan
@@ -208,7 +205,6 @@ def generate_plan(plan_id, mode):
                 f"Mitigation plan failed: {exc}",
                 "mitigationplan",
                 plan.pk,
-                mode=mode,
                 session_id=run.session_id,
             )
         return plan
@@ -246,7 +242,7 @@ def cancel_plan(plan, db=None) -> bool:
     plan.progress = 0
     plan.error = "Cancelled by user"
     log_action("mitigation_cancelled", f"Mitigation plan cancelled by user",
-               "mitigationplan", plan.pk, mode=plan.mode, session_id=plan.session_id)
+               "mitigationplan", plan.pk, session_id=plan.session_id)
     return True
 
 
@@ -268,8 +264,8 @@ def sweep_pending_plans() -> int:
             MitigationPlan.objects.using(db).filter(status=MitigationPlan.Status.PENDING)[:200]
         ):
             log_action("mitigation_requeued", f"Re-queued stuck mitigation plan {plan.pk}",
-                       "mitigationplan", plan.pk, mode=mode, session_id=plan.session_id)
-            generate_plan_task(plan.pk, plan.mode)
+                       "mitigationplan", plan.pk, session_id=plan.session_id)
+            generate_plan_task(plan.pk, active_mode())
             recovered += 1
 
         for plan in list(
@@ -287,8 +283,8 @@ def sweep_pending_plans() -> int:
             plan.error = ""
             plan.save(using=db, update_fields=["status", "progress", "error"])
             log_action("mitigation_requeued", f"Restarted stuck mitigation plan {plan.pk}",
-                       "mitigationplan", plan.pk, mode=mode, session_id=plan.session_id)
-            generate_plan_task(plan.pk, plan.mode)
+                       "mitigationplan", plan.pk, session_id=plan.session_id)
+            generate_plan_task(plan.pk, active_mode())
             recovered += 1
 
     return recovered
@@ -365,7 +361,9 @@ def _run_bundle(run, db):
 
             role = ""
             loc_lower = (ca.location or ca.source_path or "").lower()
-            if "cert" in loc_lower or "demo_rsa" in loc_lower:
+            # The old test also matched "demo_rsa" in the path, which only ever
+            # matched the synthetic demo fixture. Real assets have no such path.
+            if "cert" in loc_lower:
                 role = "certificate"
             elif algo_upper in ("ECDSA", "ED25519"):
                 role = "digital_signature"
@@ -516,4 +514,4 @@ def generate_plan_task(plan_id, mode):
     try:
         generate_plan(plan_id, mode)
     except Exception as exc:  # noqa: BLE001 - worker must survive unexpected errors
-        logger.exception("generate_plan_task: plan %s (mode=%s) crashed: %s", plan_id, mode, exc)
+        logger.exception("generate_plan_task: plan %s crashed: %s", plan_id, exc)

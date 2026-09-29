@@ -23,7 +23,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         db = active_db()
-        self.stdout.write(f"Database: {db} (mode={active_mode()})")
+        self.stdout.write(f"Database: {db}")
 
         if options["list"]:
             keys = ApiKey.objects.using(db).all()

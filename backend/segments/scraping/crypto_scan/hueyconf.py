@@ -2,8 +2,8 @@
 
 Huey's django integration reads the `HUEY` dict from Django settings. Setting
 `huey_class` to `huey.SqliteHuey` and `connection.filename` to our own Sqlite
-file keeps the queue entirely separate from app data DBs (db.sqlite3 /
-demo.sqlite3). App DB rows remain the authoritative source of truth.
+file keeps the queue entirely separate from the app database (db.sqlite3).
+App DB rows remain the authoritative source of truth.
 
 Important: do not import `huey.contrib.djhuey` here -- that module reads
 `settings.HUEY` at import time, creating a circular dependency. Only build the
@@ -15,7 +15,7 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parents[3]
 
-# Sqlite queue file kept separate from db.sqlite3 / demo.sqlite3.
+# Sqlite queue file kept separate from the app database.
 HUEY_DB = os.getenv("HUEY_DB", str(BASE_DIR / "huey.sqlite3"))
 
 HUEY = {

@@ -4,17 +4,14 @@
 # - Creates a virtual environment (backend/venv)
 # - Installs Python dependencies from requirements.txt
 # - Sets up .env from .env.example (with a generated secret key)
-# - Runs migrations on both the 'actual' (db.sqlite3) and 'demo' (demo.sqlite3) DBs
-# - Seeds demo data
+# - Runs migrations on the database
 # - Runs checks (Django check + API smoke test) and reports whether all is good
 #
 # Usage:
-#   .\setup.ps1                 # full default setup + demo seed + checks
-#   .\setup.ps1 -SkipSeed       # skip demo-data seeding
+#   .\setup.ps1                 # full default setup + checks
 #   .\setup.ps1 -Help
 # ============================================================================
 param(
-    [switch]$SkipSeed,
     [switch]$Help
 )
 
@@ -28,8 +25,7 @@ function Fail($m)  { Write-Host "ERROR: $m" -ForegroundColor Red }
 
 if ($Help) {
     Write-Host "ECDAT backend setup.ps1"
-    Write-Host "  .\setup.ps1                 full default setup + demo seed + checks"
-    Write-Host "  .\setup.ps1 -SkipSeed       skip the demo-data seeding"
+    Write-Host "  .\setup.ps1                 full default setup + checks"
     exit 0
 }
 
@@ -84,8 +80,6 @@ Write-Host @'
     DJANGO_SECRET_KEY   secret (a random one was generated for you)
     DJANGO_DEBUG        '1' for development, '0' for live
     DJANGO_ALLOWED_HOSTS  only used when DEBUG=0 (comma separated)
-    ECDAT_ACTIVE_MODE   'demo' -> demo.sqlite3, 'actual' -> db.sqlite3
-    ECDAT_DEMO_MODE     '1' enables demo datasets / seed command
 '@
 
 # ---------------------------------------------------------------------------
@@ -97,36 +91,14 @@ Step "Installing Python dependencies"
 Ok "Python dependencies installed"
 
 # ---------------------------------------------------------------------------
-# 5. Migrations (both 'default' and 'demo' databases)
+# 5. Migrations
 # ---------------------------------------------------------------------------
-Step "Running database migrations (actual + demo)"
+Step "Running database migrations"
 & $VENV_PY manage.py migrate
 Ok "Migrations applied"
 
 # ---------------------------------------------------------------------------
-# 6. Seed demo data (optional)
-# ---------------------------------------------------------------------------
-if (-not $SkipSeed) {
-    Step "Seeding demo data"
-    $seedLog = Join-Path $env:TEMP "ecdat_seed.log"
-    & cmd /c "$VENV_PY manage.py seed_demo >`"$seedLog`" 2>&1"
-    $seedOk = ($LASTEXITCODE -eq 0)
-    if ($seedOk) {
-        Remove-Item $seedLog -ErrorAction SilentlyContinue
-        Ok "demo data seeded"
-    } else {
-        Warn "seed_demo did not run. Review:"
-        Get-Content $seedLog -ErrorAction SilentlyContinue | Select-Object -Last 6 | ForEach-Object { Warn "  $_" }
-        Remove-Item $seedLog -ErrorAction SilentlyContinue
-        Warn "Demo seeding requires ECDAT_ACTIVE_MODE=demo and ECDAT_DEMO_MODE=1 in .env."
-        Warn "Set those and run 'manage.py seed_demo' when ready."
-    }
-} else {
-    Step "Skipping demo seeding (-SkipSeed)"
-}
-
-# ---------------------------------------------------------------------------
-# 7. Checks - report if everything is good
+# 6. Checks - report if everything is good
 # ---------------------------------------------------------------------------
 Step "Running checks"
 $FAILURES = 0

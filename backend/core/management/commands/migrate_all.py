@@ -1,14 +1,16 @@
-"""Apply migrations to *both* databases.
+"""Apply migrations to every configured database and verify the result.
 
-The project keeps two fully independent databases (`default` for actual mode and
-`demo` for demo mode) and the router sends every read and write -- migrations
-included -- to whichever one `ACTIVE_MODE` selects. That means a plain
-`manage.py migrate` silently migrates only one of them, leaving the other
-behind. The result is confusing failures much later, such as "no such table"
-raised from a background scan thread while the migrate output looked successful.
+This used to exist because the project kept two independent databases
+(`default` for actual, `demo` for demo mode) with a router that sent migrations
+to whichever one `ACTIVE_MODE` selected. That meant a plain `manage.py migrate`
+silently migrated only one, leaving the other behind -- which surfaced much later
+as "no such table" from a background thread while the migrate output looked fine.
 
-This command applies pending migrations to both aliases and reports the result
-per database, so a half-migrated deployment is obvious.
+Demo mode is removed and there is one database, so the two-database hazard is
+gone. The command is kept because the *reporting* is still the useful part: it
+applies pending migrations, then re-checks, and fails loudly rather than leaving
+a half-migrated schema to be discovered by a background scan. It iterates
+`connections`, so it stays correct if a second alias is ever configured.
 """
 
 from django.core.management import call_command

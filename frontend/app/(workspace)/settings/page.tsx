@@ -2,9 +2,17 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Database, KeyRound, Laptop, LockKeyhole, MonitorCog, Palette, Radar, RotateCcw, Server, ShieldCheck, SlidersHorizontal, Trash2 } from "lucide-react";
+import {
+  Info,
+  Laptop,
+  MonitorCog,
+  Palette,
+  Radar,
+  RotateCcw,
+  Server,
+  Trash2
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tooltip } from "@/components/ui/tooltip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
@@ -19,136 +27,328 @@ import { formatNumber } from "@/lib/utils";
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
-  const { info, activeId, recentSessions, resetCurrentScope, clearActiveSession } = useSession();
+  const { info, activeId, recentSessions, resetCurrentScope } = useSession();
   const { pushToast } = useToast();
   const [resetOpen, setResetOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   const reset = async () => {
     setBusy(true);
     try {
       await resetCurrentScope();
       setResetOpen(false);
-      pushToast("The active scope was reset and returned to All data.", "success");
+      pushToast("This scan's data was deleted. The audit trail was kept.", "success");
     } catch (error) {
-      pushToast(error instanceof Error ? error.message : "Reset failed.", "error");
+      pushToast(error instanceof Error ? error.message : "Delete failed.", "error");
     } finally {
       setBusy(false);
     }
   };
 
+  const scanName = info?.session_name || (activeId ? `Scan #${activeId}` : "No scan selected");
+
   return (
     <div className="space-y-6">
-      <PageHeader eyebrow="System segment" title="Settings" description="Review application configuration, appearance, and access controls." />
-      <div className="space-y-3"><SectionLabel>Runtime health</SectionLabel><HealthCards /></div>
-      <div className="grid gap-4 xl:grid-cols-2"><Card><CardHeader><CardTitle className="flex items-center gap-2"><Palette className="h-4 w-4 text-primary" aria-hidden="true" />Appearance</CardTitle><p className="mt-1 text-xs text-muted-foreground">Sharp edges, spacious layout, and high-contrast neutral surfaces.</p></CardHeader><CardContent><div className="grid gap-3 sm:grid-cols-2"><ThemeOption active={theme === "dark"} label="Dark workspace" description="Near-black surfaces for long analyst sessions." onClick={() => setTheme("dark")} /><ThemeOption active={theme === "light"} label="Light workspace" description="White surfaces with the same information hierarchy." onClick={() => setTheme("light")} /></div></CardContent></Card><Card><CardHeader><CardTitle className="flex items-center gap-2"><Laptop className="h-4 w-4 text-primary" aria-hidden="true" />Service connection</CardTitle><p className="mt-1 text-xs text-muted-foreground">How this workspace connects to its configured service.</p></CardHeader><CardContent className="space-y-4"><div className="flex items-center gap-3 border p-3"><div className="flex h-8 w-8 items-center justify-center border bg-muted"><Server className="h-4 w-4" aria-hidden="true" /></div><div><p className="text-sm font-medium">Secure service gateway</p><p className="mt-1 font-mono text-[11px] text-muted-foreground">Workspace gateway → configured service</p></div></div><div className="flex items-center gap-3 border p-3"><div className="flex h-8 w-8 items-center justify-center border bg-muted"><LockKeyhole className="h-4 w-4" aria-hidden="true" /></div><div><p className="text-sm font-medium">Protected service credentials</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Protected credentials remain outside the browser workspace and are applied only when the service requires them.</p></div></div><div className="flex items-center gap-3 border p-3"><div className="flex h-8 w-8 items-center justify-center border bg-muted"><MonitorCog className="h-4 w-4" aria-hidden="true" /></div><div><p className="text-sm font-medium">Remote fonts and CDN assets</p><p className="mt-1 text-xs text-muted-foreground">Not required by this frontend; system font fallbacks are bundled through CSS.</p></div></div></CardContent></Card></div>
+      <PageHeader
+        eyebrow="System"
+        title="Settings"
+        description="Appearance, the scan you are working in, and how this deployment is running."
+        actions={
+          <Button variant="outline" size="sm" onClick={() => setDetailsOpen(true)}>
+            <Info className="h-3.5 w-3.5" aria-hidden="true" />
+            Environment details
+          </Button>
+        }
+      />
 
-      <Card><CardHeader className="flex-row items-center justify-between"><div><CardTitle className="flex items-center gap-2"><Database className="h-4 w-4 text-primary" aria-hidden="true" />Session management</CardTitle><p className="mt-1 text-xs text-muted-foreground">Every scan keeps its own data, and nothing is shared between scans.</p></div><SessionScope compact /></CardHeader><CardContent className="space-y-4"><div className="grid gap-3 sm:grid-cols-3"><SettingValue label="Active scope" value={activeId ? info?.session_name || `Session #${activeId}` : "All data"} /><SettingValue label="Session ID" value={activeId ? `#${activeId}` : "0 / all"} /><SettingValue label="Assets in scope" value={formatNumber(info?.counts.assets)} /></div><Separator /><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-medium">Reset active scope</p><p className="mt-1 text-xs text-muted-foreground">Deletes discovery and analysis data for the active session. This cannot be undone.</p></div><Button variant="outline" onClick={() => setResetOpen(true)} disabled={busy}><Trash2 className="h-3.5 w-3.5" aria-hidden="true" />Reset scope</Button></div>{recentSessions.length ? <div><SectionLabel>Recent scans</SectionLabel><div className="mt-2 flex flex-wrap gap-2">{recentSessions.map((session) => <span key={session.id} className="border bg-muted/30 px-2.5 py-1.5 text-xs"><span className="font-medium">{session.name}</span><span className="ml-2 font-mono text-[10px] text-muted-foreground">#{session.id}</span></span>)}</div></div> : null}</CardContent></Card>
+      <div className="space-y-3">
+        <SectionLabel>Runtime</SectionLabel>
+        <HealthCards />
+      </div>
 
-      <DiscoverySourcesReference />
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Palette className="h-4 w-4 text-primary" aria-hidden="true" />
+              Appearance
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-2">
+              <ThemeOption
+                active={theme === "dark"}
+                label="Dark"
+                description="For long analyst sessions"
+                onClick={() => setTheme("dark")}
+              />
+              <ThemeOption
+                active={theme === "light"}
+                label="Light"
+                description="Same layout, white surfaces"
+                onClick={() => setTheme("light")}
+              />
+            </div>
+          </CardContent>
+        </Card>
 
-      <Card><CardHeader><CardTitle className="flex items-center gap-2"><SlidersHorizontal className="h-4 w-4 text-primary" aria-hidden="true" />Capability boundaries</CardTitle><p className="mt-1 text-xs text-muted-foreground">Some diagnostic capabilities are not available in this release.</p></CardHeader><CardContent className="grid gap-3 sm:grid-cols-2"><Capability label="Worker health" state="Unavailable" detail="Worker status is not currently available." /><Capability label="Discovery rules version" state="Unavailable" detail="Version metadata is not currently available." /><Capability label="Optional model status" state="Unavailable" detail="Optional model status is not currently available." /><Capability label="CBOM availability" state="Analysis document" detail="The CBOM document is available from completed analysis." /><Capability label="Folder selection" state="Workspace limitation" detail="Native folder selection requires the desktop application; browser mode uses the available folder browser." /><Capability label="Credential boundary" state="Safe boundary" detail="Protected credentials remain outside the browser workspace." /></CardContent></Card>
+        <Card>
+          <CardHeader className="flex-row items-center justify-between gap-3">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Radar className="h-4 w-4 text-primary" aria-hidden="true" />
+              Current scan
+            </CardTitle>
+            <SessionScope compact />
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xs leading-5 text-muted-foreground">
+              Every view follows the scan you pick here. Scans never share data, so switching one changes
+              what you are looking at everywhere.
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              <Stat label="Scan" value={scanName} />
+              <Stat label="Assets" value={formatNumber(info?.counts.assets)} />
+              <Stat label="Findings" value={formatNumber(info?.counts.raw_findings)} />
+            </div>
+            {recentSessions.length ? (
+              <div>
+                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  Recent scans
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {recentSessions.map((session) => (
+                    <span
+                      key={session.id}
+                      className={`border px-2 py-1 text-[11px] ${
+                        session.id === activeId ? "border-primary bg-primary/5" : ""
+                      }`}
+                    >
+                      {session.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      </div>
 
-      <Dialog open={resetOpen} onOpenChange={setResetOpen} title="Reset active scope?" description="This permanently deletes discovery and analysis data for the selected session." footer={<><Button variant="ghost" onClick={() => setResetOpen(false)}>Cancel</Button><Button variant="destructive" onClick={() => void reset()} disabled={busy}><RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />{busy ? "Resetting…" : "Reset and return to All data"}</Button></>}><div className="flex gap-3 border border-destructive/30 bg-destructive/5 p-4 text-sm leading-6"><Trash2 className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden="true" /><p>This action cannot be undone. The active scan and its findings will be removed. If you are viewing All data, it resets all sessions instead.</p></div></Dialog>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <Trash2 className="h-4 w-4 text-primary" aria-hidden="true" />
+            Delete data
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium">Delete this scan&rsquo;s data</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Removes its findings, assets, risk and migration results. The audit trail is kept, so the
+                deletion stays on record.
+              </p>
+            </div>
+            <Button variant="outline" onClick={() => setResetOpen(true)} disabled={busy} className="shrink-0">
+              Delete scan data
+            </Button>
+          </div>
+          <Separator />
+          <p className="text-[11px] leading-4 text-muted-foreground">
+            Need to remove a single discovery job, or clear every scan at once? Use the{" "}
+            <span className="text-foreground">dustbin in the top bar</span>, which lists each job and asks
+            you to confirm.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Dialog
+        open={resetOpen}
+        onOpenChange={setResetOpen}
+        title="Delete this scan's data?"
+        description={`Everything discovered under ${scanName} will be removed.`}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setResetOpen(false)} disabled={busy}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => void reset()} disabled={busy}>
+              <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+              {busy ? "Deleting…" : "Delete and start fresh"}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3 text-xs leading-5 text-muted-foreground">
+          <p>This removes the scan&rsquo;s raw findings, assets, dependencies, risk assessments, migration
+            plans and reports.</p>
+          <p className="flex items-start gap-2 border border-success/30 bg-success/5 p-2.5 text-foreground">
+            <Server className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" />
+            <span>
+              The audit trail is append-only and is <span className="font-semibold">not</span> deleted. This
+              action is recorded against the scan permanently.
+            </span>
+          </p>
+        </div>
+      </Dialog>
+
+      <EnvironmentDetailsDialog open={detailsOpen} onOpenChange={setDetailsOpen} />
     </div>
   );
 }
 
 /**
- * Which discovery sources this build can run, and what each one looks for.
+ * Reference material, kept out of the main view.
  *
- * Purely reference: choosing what to scan belongs on the Scan tab, so nothing
- * here is actionable. Compact by design — one row per source, with the detail
- * behind a hover so the page stays a summary rather than a manual.
+ * Connection topology, capability limits and the source registry are all things
+ * an operator checks occasionally and never acts on, so they used to occupy
+ * most of the page. They belong behind one deliberate click, which is what this
+ * dialog is.
  */
-function DiscoverySourcesReference() {
+function EnvironmentDetailsDialog({
+  open,
+  onOpenChange
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const { ready, scopeKey } = useSession();
   const registry = useQuery({
     queryKey: ["scanners", scopeKey],
     queryFn: api.scanners,
-    enabled: ready,
+    enabled: ready && open
   });
   const scanners = registry.data?.scanners || [];
   const available = scanners.filter((scanner) => scanner.status === "available").length;
   const quickRoots = registry.data?.scopes?.quick?.roots || [];
 
   return (
-    <Card>
-      <CardHeader className="flex-row items-start justify-between">
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Environment details"
+      description="Reference information. Nothing on this screen is a setting you can change here."
+    >
+      <div className="space-y-5 text-xs">
         <div>
-          <CardTitle className="flex items-center gap-2">
-            <Radar className="h-4 w-4 text-primary" aria-hidden="true" />
-            Discovery sources
-          </CardTitle>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {available} of {scanners.length} implemented. Select any combination when you start a
-            scan.
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            How this workspace is reached
           </p>
-        </div>
-        <span className="shrink-0 border border-border bg-muted/40 px-2 py-1 text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
-          Reference
-        </span>
-      </CardHeader>
-      <CardContent>
-        {registry.isLoading ? (
-          <p className="text-xs text-muted-foreground">Loading source registry…</p>
-        ) : registry.isError ? (
-          <p className="text-xs text-destructive">The source registry could not be read.</p>
-        ) : (
-          <ul className="divide-y border">
-            {scanners.map((scanner) => (
-              <li key={scanner.id} className="flex items-center gap-3 py-2">
-                <span
-                  className={`h-1.5 w-1.5 shrink-0 ${scanner.status === "available" ? "bg-success" : "bg-muted-foreground/40"}`}
-                  aria-hidden="true"
-                />
-                <Tooltip
-                  placement="top"
-                  offset={8}
-                  msg={
-                    <span className="block">
-                      <span className="block font-semibold text-foreground">{scanner.name}</span>
-                      <span className="mt-0.5 block">{scanner.description}</span>
-                      {scanner.supported_artifacts?.length ? (
-                        <span className="mt-1 block text-muted-foreground">
-                          Identifies: {scanner.supported_artifacts.join(", ")}
-                        </span>
-                      ) : null}
-                    </span>
-                  }
-                >
-                  <span tabIndex={0} className="cursor-help truncate text-sm">
-                    {scanner.name}
-                  </span>
-                </Tooltip>
-                <span className="ml-auto shrink-0 font-mono text-[10px] text-muted-foreground">
-                  {scanner.version}
-                </span>
-                <span
-                  className={`shrink-0 border px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] ${
-                    scanner.status === "available"
-                      ? "border-success/40 text-success"
-                      : "border-border text-muted-foreground"
-                  }`}
-                >
-                  {scanner.status === "available" ? "Available" : "Not available"}
-                </span>
-              </li>
-            ))}
+          <ul className="space-y-2">
+            <DetailRow
+              icon={Server}
+              title="Service gateway"
+              body="Requests go through the workspace gateway to the configured backend. The API key is added server-side and is never exposed to the browser."
+            />
+            <DetailRow
+              icon={Laptop}
+              title="Credentials"
+              body="Service credentials stay outside the browser and are only attached when the backend requires them."
+            />
+            <DetailRow
+              icon={MonitorCog}
+              title="Folder selection"
+              body="Native folder picking needs the desktop build. In the browser, use the built-in folder browser instead."
+            />
           </ul>
-        )}
-        {quickRoots.length ? (
-          <p className="mt-3 text-[11px] leading-4 text-muted-foreground">
-            The <span className="text-foreground">Standard key locations</span> scope reads{" "}
-            {quickRoots.length} location{quickRoots.length === 1 ? "" : "s"} on this machine,
-            including the local certificate stores and SSH, GnuPG, Docker, AWS and Azure key
-            directories.
+        </div>
+
+        <div>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Discovery sources · {available} of {scanners.length} available
           </p>
-        ) : null}
-      </CardContent>
-    </Card>
+          {registry.isLoading ? (
+            <p className="text-muted-foreground">Loading source registry…</p>
+          ) : registry.isError ? (
+            <p className="text-destructive">The source registry could not be read.</p>
+          ) : (
+            <ul className="divide-y border">
+              {scanners.map((scanner) => (
+                <li key={scanner.id} className="flex items-center gap-3 py-2">
+                  <span
+                    className={`h-1.5 w-1.5 shrink-0 ${
+                      scanner.status === "available" ? "bg-success" : "bg-muted-foreground/40"
+                    }`}
+                    aria-hidden="true"
+                  />
+                  <span className="min-w-0 flex-1 truncate">{scanner.name}</span>
+                  {scanner.supported_artifacts?.length ? (
+                    <span className="hidden max-w-[240px] truncate text-[10px] text-muted-foreground sm:inline">
+                      {scanner.supported_artifacts.join(", ")}
+                    </span>
+                  ) : null}
+                  <span className="shrink-0 font-mono text-[10px] text-muted-foreground">{scanner.version}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {quickRoots.length ? (
+            <p className="mt-2 leading-4 text-muted-foreground">
+              The standard scope reads {quickRoots.length} key location
+              {quickRoots.length === 1 ? "" : "s"} on this machine, including the local certificate
+              stores and the SSH, GnuPG, Docker, AWS and Azure key directories.
+            </p>
+          ) : null}
+        </div>
+      </div>
+    </Dialog>
   );
 }
 
-function ThemeOption({ active, label, description, onClick }: { active: boolean; label: string; description: string; onClick: () => void }) { return <button type="button" onClick={onClick} className={`border p-4 text-left transition-colors ${active ? "border-primary bg-primary/5" : "hover:bg-secondary"}`}><div className="flex items-center justify-between gap-2"><p className="text-sm font-semibold">{label}</p><span className={`h-3 w-3 border ${active ? "border-primary bg-primary" : "bg-transparent"}`} aria-hidden="true" /></div><p className="mt-2 text-xs leading-5 text-muted-foreground">{description}</p></button>; }function SettingValue({ label, value }: { label: string; value: string }) { return <div className="border p-3"><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</p><p className="mt-2 truncate text-sm font-medium">{value}</p></div>; }
-function Capability({ label, state, detail }: { label: string; state: string; detail: string }) { return <div className="border p-4"><div className="flex items-center justify-between gap-3"><p className="text-sm font-semibold">{label}</p><span className="border border-border bg-muted/40 px-2 py-1 text-[10px] uppercase tracking-[0.1em] text-muted-foreground">{state}</span></div><p className="mt-2 text-xs leading-5 text-muted-foreground">{detail}</p></div>; }
+function DetailRow({ icon: Icon, title, body }: { icon: typeof Server; title: string; body: string }) {
+  return (
+    <li className="flex items-start gap-2.5">
+      <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center border bg-muted">
+        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+      </span>
+      <span>
+        <span className="block font-medium text-foreground">{title}</span>
+        <span className="mt-0.5 block leading-4 text-muted-foreground">{body}</span>
+      </span>
+    </li>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border p-2.5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
+      <p className="mt-1 truncate text-sm font-medium" title={value}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function ThemeOption({
+  active,
+  label,
+  description,
+  onClick
+}: {
+  active: boolean;
+  label: string;
+  description: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`flex items-center justify-between gap-2 border p-3 text-left transition-colors ${
+        active ? "border-primary bg-primary/5" : "hover:bg-secondary"
+      }`}
+    >
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold">{label}</span>
+        <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{description}</span>
+      </span>
+      <span
+        className={`h-3 w-3 shrink-0 border ${active ? "border-primary bg-primary" : "bg-transparent"}`}
+        aria-hidden="true"
+      />
+    </button>
+  );
+}

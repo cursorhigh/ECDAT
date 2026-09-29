@@ -64,6 +64,60 @@ def overview(request):
         ((p.document or {}).get("summary") or {}).get("assets", 0) for p in plans
     )
 
+    # --- headline numbers, chosen for what an executive can act on ----------
+    #
+    # A scan is one session that fans out into one job per source, so counting
+    # ScanJob rows and calling it "discovery runs" reported the width of the
+    # scan, not the number of scans. Sources and findings are what that count
+    # actually meant, and they are what an executive should read.
+    scan_jobs = list(
+        scope(ScanJob.objects.all(), sid).values_list(
+            "source_type", "status", "items_total", "items_scanned"
+        )
+    )
+    sources_scanned = len({row[0] for row in scan_jobs})
+    raw_findings = scope(RawFinding.objects.all(), sid).count()
+
+    # Coverage is aggregated across the session's jobs. Sources that do not
+    # report a total (certificates, containers) contribute nothing rather than
+    # being counted as fully read, so this cannot overstate what was inspected.
+    reported_total = sum(row[2] for row in scan_jobs if row[2])
+    items_scanned = sum(row[3] or 0 for row in scan_jobs if row[2])
+
+    # Risk conclusions live in the assessment JSON, not on the asset row.
+    # SQLite evaluates these as json_extract, so the counts are aggregated by
+    # the database rather than by walking rows in Python.
+    assessments = scope(AssetAssessment.objects.using(active_db()).all(), sid)
+    assessed = assessments.count()
+    flagged = assessments.filter(
+        mosca_result__mosca_assessment__migration_priority__in=["URGENT", "HIGH"]
+    )
+    needs_migration = flagged.count()
+    # The flagged count is per finding, so one asset used in 47 places counts 47
+    # times. "How many things must I actually fix" is the number of distinct
+    # assets, which is far smaller -- and is the one an executive can act on.
+    needs_migration_assets = scope(CryptoAsset.objects.all(), sid).filter(
+        id__in=flagged.exclude(asset=None).values("asset_id")
+    ).count()
+    hndl_exposed = assessments.filter(
+        hndl_result__hndl__future_decryption_risk__in=["MEDIUM", "HIGH", "CRITICAL"]
+    ).count()
+    hndl_exposed_assets = scope(CryptoAsset.objects.all(), sid).filter(
+        id__in=assessments.filter(
+            hndl_result__hndl__future_decryption_risk__in=["MEDIUM", "HIGH", "CRITICAL"]
+        )
+        .exclude(asset=None)
+        .values("asset_id")
+    ).count()
+    # Surfaced rather than hidden: a product that quietly drops what it could
+    # not assess is overstating its own coverage.
+    not_assessable = assessments.filter(
+        hndl_result__hndl__future_decryption_risk="NOT_ASSESSABLE"
+    ).count()
+    # Findings collapse into far fewer distinct assets, so the two are reported
+    # together. Presenting either alone invites a wrong order of magnitude.
+    raw_findings_in_scope = raw_findings
+
     payload = {
         "kpis": {
             "assets": total,
@@ -72,10 +126,24 @@ def overview(request):
             "weak": risk_counts["weak"],
             "pqc_ready": risk_counts["pqc"],
             "pqc_ready_pct": _pct(risk_counts["pqc"], total),
-            "scans": scope(ScanJob.objects.all(), sid).count(),
+            "scans": len(scan_jobs),
             "analysed": completed_runs.count(),
             "mitigation_assets": mitigation_assets,
             "plan_count": len(plans),
+            "sources_scanned": sources_scanned,
+            "findings": raw_findings_in_scope,
+            "needs_migration": needs_migration,
+            "needs_migration_pct": _pct(needs_migration, assessed),
+            "needs_migration_assets": needs_migration_assets,
+            "hndl_exposed": hndl_exposed,
+            "hndl_exposed_pct": _pct(hndl_exposed, assessed),
+            "hndl_exposed_assets": hndl_exposed_assets,
+            "assessed": assessed,
+            "not_assessable": not_assessable,
+            "not_assessable_pct": _pct(not_assessable, assessed),
+            "coverage_pct": _pct(items_scanned, reported_total),
+            "items_total": reported_total,
+            "items_scanned": items_scanned,
         },
         "analysis_done": completed_runs.exists(),
         "analysis_assets": analysis_assets,
@@ -291,11 +359,44 @@ def _asset_risk(asset: CryptoAsset) -> tuple[str, str, str]:
     return ("unknown", "Unknown", "gray")
 
 
+NON_SECURITY_HINTS = (
+    "checksum",
+    "check_sum",
+    "non_security",
+    "nonsecurity",
+    "non-security",
+    "fingerprint",
+)
+
+
+def _looks_non_security(asset: CryptoAsset) -> bool:
+    """True when the algorithm is very likely used outside a security control.
+
+    There is no ``role`` column on CryptoAsset, so an earlier check of
+    ``asset.role`` was silently always false and the downgrade below never
+    fired -- every classical-weak hash scored as if it were protecting
+    something. The usage context has to be inferred from what does exist: the
+    file it was found in and the name it was given.
+    """
+    haystack = " ".join(
+        str(getattr(asset, field, "") or "")
+        for field in ("location", "name", "source_path", "identifier")
+    ).lower()
+    return any(hint in haystack for hint in NON_SECURITY_HINTS)
+
+
 def _priority_score(asset: CryptoAsset, risk_key: str) -> int:
     """Deterministic urgency score (0-100) for ranking cryptographic assets.
-    
-    Weak security-use algorithms receive a minimum priority score of 70 (HIGH).
-    Shor-vulnerable asymmetric keys receive a baseline score of 80 (HIGH/CRITICAL).
+
+    Weak security-use algorithms receive a floor of 70 (HIGH). Shor-vulnerable
+    asymmetric keys start at 80 (HIGH/CRITICAL) and rise with key weakness.
+
+    The ordering matters for a quantum-migration list: anything a CRQC breaks
+    must outrank a classical weakness, otherwise MD5-in-a-checksum would be
+    presented above the RSA an attacker will actually harvest. That is why the
+    weak floor is 70 and not the 85 this function used to return -- the old
+    value put every classical-weak asset above every Shor-vulnerable one, and
+    contradicted the 70 its own docstring described.
     """
     if risk_key == "vulnerable":
         score = 80
@@ -308,11 +409,9 @@ def _priority_score(asset: CryptoAsset, risk_key: str) -> int:
                 score = 90
         return score
     elif risk_key == "weak":
-        # Classical-weak security use has high priority floor
-        role = str(getattr(asset, "role", "") or "").lower()
-        if role in ("checksum", "file_checksum", "non_security", "nonsecurity"):
+        if _looks_non_security(asset):
             return 35
-        return 85
+        return 70
     elif risk_key == "moderate":
         algo = str(getattr(asset, "algorithm", "") or "").lower()
         if "128" in algo:
@@ -443,7 +542,11 @@ def _pqc_workflow(
             "assess",
             risk_counts["vulnerable"] + risk_counts["weak"] + risk_counts["moderate"],
             "Shor / Grover exposure · Mosca: data lifetime + migration vs horizon",
-            done=total > 0 or analysis_done,
+            # Strictly the analysis run. This used to read `total > 0 or
+            # analysis_done`, which marked the stage complete as soon as assets
+            # existed -- but assets exist *before* any risk is assessed, so a
+            # progress bar built on it would claim a stage it never reached.
+            done=analysis_done,
             api="/api/assets/",
             sub=[
                 {"label": label, "count": risk_counts[key]}

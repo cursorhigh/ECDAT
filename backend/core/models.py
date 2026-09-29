@@ -9,17 +9,6 @@ from django.conf import settings
 from django.db import models
 
 
-class Mode(models.TextChoices):
-    """Whether a record belongs to demo (synthetic) or actual (real) data.
-
-    The database each row lives in is the hard boundary; this field is kept
-    on rows as a safety label/assertion.
-    """
-
-    DEMO = "demo", "Demo"
-    ACTUAL = "actual", "Actual"
-
-
 class TimeStampedModel(models.Model):
     """Abstract base adding created_at / updated_at to any model."""
 
@@ -61,19 +50,33 @@ class AuditLog(models.Model):
         FINDINGS_INGESTED = "findings_ingested", "Findings ingested"
         ASSET_MERGED = "asset_merged", "Asset merged"
         ASSET_DELETED = "asset_deleted", "Asset deleted"
+        SCAN_DELETED = "scan_deleted", "Scan deleted"
         EXPORT = "export", "Export generated"
-        DEMO_SEEDED = "demo_seeded", "Demo data seeded"
         SYSTEM = "system", "System event"
 
     action = models.CharField(max_length=32, choices=Action.choices)
-    mode = models.CharField(max_length=8, choices=Mode.choices, default=Mode.ACTUAL)
     session = models.ForeignKey(
         WorkSession,
         null=True,
         blank=True,
-        on_delete=models.CASCADE,
+        # SET_NULL, not CASCADE. A deleted scan must not take its own audit
+        # history with it -- that would make erasing the evidence the default
+        # way to deal with a scan you dislike. The row survives with a null
+        # session and stays readable via `session_name`.
+        on_delete=models.SET_NULL,
         related_name="audit_logs",
-        help_text="Work session this audit entry belongs to (null = global).",
+        help_text=(
+            "Work session this audit entry belongs to. Nulled (never cascaded) "
+            "when the session is deleted, so the entry outlives its session."
+        ),
+    )
+    # Denormalised snapshot of the session name. The FK above is deliberately
+    # severable; this field is what keeps the entry self-describing afterwards.
+    session_name = models.CharField(
+        max_length=128,
+        blank=True,
+        default="",
+        help_text="Session name captured at write time; survives session deletion.",
     )
     actor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -90,7 +93,30 @@ class AuditLog(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
-        indexes = [models.Index(fields=["action", "created_at"])]
+        indexes = [
+            models.Index(fields=["action", "created_at"]),
+            models.Index(fields=["session_name"], name="core_auditlog_sessname_idx"),
+        ]
+
+    def save(self, *args, **kwargs):
+        """Refuse edits to an existing entry.
+
+        Audit rows are append-only. This is the application-level half of that
+        guarantee; migration 0005 adds the database-level half, so a row is
+        immutable even against a raw SQL UPDATE from outside the ORM.
+        """
+        if not self._state.adding:
+            raise ValueError(
+                "AuditLog rows are append-only and cannot be modified. "
+                "Write a new entry instead."
+            )
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError(
+            "AuditLog rows are append-only and cannot be deleted. "
+            "Deleting the audited object does not remove its history."
+        )
 
     def __str__(self) -> str:
         return f"{self.created_at:%Y-%m-%d %H:%M} {self.action} {self.target_type} {self.target_id}"
@@ -131,30 +157,42 @@ class ApiKey(models.Model):
         return f"{self.prefix}…"
 
 
-def log_action(action: str, message: str = "", target_type: str = "", target_id: str = "", actor=None, mode=None, session_id=None):
+def log_action(action: str, message: str = "", target_type: str = "", target_id: str = "", actor=None, session_id=None, session_name=None):
     """Convenience helper to write an audit entry synchronously.
 
-    The row is written to the database that belongs to `mode`, so the row's
-    mode field always agrees with the DB it lands in. `session_id` scopes the
-    entry to a work session; when omitted it falls back to the thread-local
-    session captured by WorkSessionMiddleware (i.e. whatever workspace the
-    request was viewing).
+    `session_id` scopes the entry to a work session; when omitted it falls back
+    to the thread-local session captured by WorkSessionMiddleware (i.e. whatever
+    workspace the request was viewing).
+
+    `session_name` overrides the name snapshot. Pass it when the session is
+    being deleted or has already gone, because looking the name up by id would
+    then fail and the entry would be left unattributable.
     """
-    if mode is None:
-        from .modes import active_mode
+    from .modes import active_db
 
-        mode = active_mode()
-    from .modes import db_alias_for_mode
-
-    db = db_alias_for_mode(mode)
+    db = active_db()
     if session_id is None:
         from .sessions import thread_session_id
 
         session_id = thread_session_id() or None
+
+    # Snapshot the session name now, while the session still exists. Deleting a
+    # scan severs the FK (SET_NULL) but must not make the entry unreadable.
+    if session_name is None:
+        session_name = ""
+        if session_id:
+            session_name = (
+                WorkSession.objects.using(db)
+                .filter(pk=session_id)
+                .values_list("name", flat=True)
+                .first()
+                or ""
+            )
+
     AuditLog.objects.using(db).create(
         action=action,
-        mode=mode,
         session_id=session_id or None,
+        session_name=session_name,
         actor=actor,
         target_type=target_type,
         target_id=str(target_id) if target_id is not None else "",

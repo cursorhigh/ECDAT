@@ -11,7 +11,7 @@
       4) backend-only     Backend API + worker, no UI
 
     Behaviour:
-      * migrates both databases (default + demo) unless -SkipMigrate
+      * migrates the database unless -SkipMigrate
       * starts the huey worker and re-queues pending work left by a previous run
       * waits for a healthy backend before opening the UI
       * reuses an already-running backend instead of starting a duplicate
@@ -259,9 +259,8 @@ try {
         if ($Existing) {
             Write-Info 'skipping migrations/worker - external backend is already serving this port.'
         } elseif (-not $SkipMigrate) {
-            Write-Step 'Applying migrations (default + demo databases)'
+            Write-Step 'Applying migrations'
             Invoke-CheckedPython @('manage.py', 'migrate', '--noinput')
-            Invoke-CheckedPython @('manage.py', 'migrate', '--noinput', '--database=demo')
             Write-Ok 'migrations applied'
         } else {
             Write-Warn 'migrations skipped (-SkipMigrate)'

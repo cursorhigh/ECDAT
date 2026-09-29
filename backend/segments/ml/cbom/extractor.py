@@ -226,7 +226,7 @@ class DeterministicExtractor:
 
         # 8. Canonical Algorithm Resolution & Knowledge Catalog Lookup
         algorithm_name = self._resolve_algorithm_name(detected, key_size, curve, mode, hash_alg, family)
-        catalog_entry = lookup_crypto_algorithm(algorithm_name, key_size=key_size, curve=curve, mode=mode)
+        catalog_entry = lookup_crypto_algorithm(algorithm_name, key_size=key_size, curve=curve)
 
         if catalog_entry:
             canonical_algo = catalog_entry["canonical_name"]

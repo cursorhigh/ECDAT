@@ -28,7 +28,6 @@ router.register("stats", StatsViewSet, basename="stats")
 urlpatterns = [
     path("", include(router.urls)),
     path("scanners/", views.scanners, name="scanners"),
-    path("run-demo-scan/", views.run_demo_scan, name="run-demo-scan"),
     path("start-scan/", views.start_scan, name="start-scan"),
     path("scans/<int:scan_id>/cancel/", views.cancel_scan, name="scan-cancel"),
     path("scans/<int:scan_id>/delete/", views.cancel_scan, name="scan-cancel-alt"),

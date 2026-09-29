@@ -140,7 +140,8 @@ export const api = {
   createSession: (name: string) => request<{ id: number; name: string; created: boolean }>("/session/create/", jsonOptions("POST", { name })),
   switchSession: (id: number) => request<{ session_id: number; scope: string }>(`/session/switch/${id}/`, jsonOptions("POST", {})),
   resetSession: () => request<{ ok: boolean; session_id: number | null; deleted: Record<string, number> }>("/session/reset/", jsonOptions("POST", {})),
-  audit: (limit = 200) => request<AuditResponse>("/session/audit/", {}, { limit }),
+  audit: (limit = 200, scope: "session" | "all" = "session") =>
+    request<AuditResponse>("/session/audit/", {}, { limit, scope }),
 
   scans: (query?: Query) => request<Page<ScanJob>>("/scans/", {}, query),
   scan: (id: number) => request<ScanJob>(`/scans/${id}/`),
@@ -198,7 +199,6 @@ export const api = {
       `/scan-batches/${id}/cancel/`,
       jsonOptions("POST", {}),
     ),
-  demoScan: () => request<ScanJob>("/run-demo-scan/", jsonOptions("POST", {})),
   cancelScan: (id: number) => request<{ id: number; status: string }>(`/scans/${id}/cancel/`, jsonOptions("POST", {})),
   ingestScanData: (payload: JsonRecord) => request<ScanJob>("/scan-data/", jsonOptions("POST", payload)),
 
@@ -220,9 +220,11 @@ export const api = {
   analysisList: () => request<AnalysisListItem[]>("/analysis/"),
   analysisAwaiting: () => request<AwaitingAnalysis[]>("/analysis/awaiting/"),
   analysis: (id: number) => request<AnalysisDetail>(`/analysis/${id}/`),
-  startAnalysis: (payload: { scan_job: number; max_findings?: number; raw_system_context?: JsonRecord | string }) =>
+  startAnalysis: (payload: { scan_job: number; max_findings?: number; raw_system_context?: JsonRecord | string; defer?: boolean }) =>
     request<AnalysisListItem>("/analysis/start/", jsonOptions("POST", payload)),
   cancelAnalysis: (id: number) => request<{ id: number; status: string }>(`/analysis/${id}/cancel/`, jsonOptions("POST", {})),
+  pauseAnalysis: (id: number) => request<{ id: number; status: string; progress: number }>(`/analysis/${id}/pause/`, jsonOptions("POST", {})),
+  resumeAnalysis: (id: number) => request<{ id: number; status: string; progress: number }>(`/analysis/${id}/resume/`, jsonOptions("POST", {})),
   analysisArtifacts: (id: number) => request<JsonRecord>(`/analysis/${id}/artifacts/`),
 
   mitigationList: () => request<MitigationPlan[]>("/mitigation/"),

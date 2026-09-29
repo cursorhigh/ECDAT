@@ -72,8 +72,18 @@ def session_info(request):
 
 @require_GET
 def health(request):
-    """Service health/liveness probe (GET /api/health/)."""
-    from core.modes import active_db, active_mode
+    """Service health/liveness probe (GET /api/health/).
+
+    Reports the database and the task worker separately, because they fail
+    independently: a reachable API with no worker still returns 200, and the UI
+    needs to tell "the service is down" apart from "the queue is idle".
+
+    The worker block comes from `core.worker_status`, which reads the queue
+    file and the consumer heartbeat. It is wrapped so that a broken or missing
+    queue can never turn this probe into a 500 -- a health check that raises
+    tells you nothing.
+    """
+    from core.modes import active_db
 
     db_up = True
     try:
@@ -82,13 +92,32 @@ def health(request):
         connections[active_db()].cursor().execute("SELECT 1")
     except Exception:  # noqa: BLE001 - probe must never 500.
         db_up = False
+
+    try:
+        from core.worker_status import worker_status
+
+        worker = worker_status()
+    except Exception:  # noqa: BLE001
+        worker = {
+            "mode": "unknown",
+            "running": False,
+            "state": "unknown",
+            "pending": 0,
+            "scheduled": 0,
+            "workers": None,
+            "last_seen": None,
+            "age_seconds": None,
+            "detail": "Worker status could not be determined.",
+        }
+
     return JsonResponse(
         {
             "service": "ecdat-backend",
             "status": "ok" if db_up else "degraded",
             "time": timezone.now().isoformat(),
-            "active_mode": active_mode(),
-            "active_db": active_db(),
+                "active_db": active_db(),
+            "database_up": db_up,
+            "worker": worker,
         },
         status=200 if db_up else 503,
     )
@@ -96,14 +125,21 @@ def health(request):
 
 @require_GET
 def audit(request):
-    """Recent audit-log entries (GET /api/session/audit/?limit=200)."""
+    """Recent audit-log entries (GET /api/session/audit/?limit=200&scope=session|all).
+
+    `scope=all` returns every entry regardless of session. That is the only way
+    to see the history of a scan that has since been deleted: its entries are
+    deliberately preserved with a null `session_id`, so they no longer match the
+    per-session filter but must remain auditable.
+    """
     try:
         limit = min(1000, max(1, int(request.GET.get("limit", 200))))
     except (TypeError, ValueError):
         limit = 200
     from .models import AuditLog
 
-    sid = current_id_from_request(request) or None
+    want_all = request.GET.get("scope", "").lower() in ("all", "global", "workspace")
+    sid = None if want_all else (current_id_from_request(request) or None)
     rows = (
         AuditLog.objects.using(active_db())
         .filter(session_id=sid) if sid else
@@ -121,6 +157,10 @@ def audit(request):
                     "target_id": e.target_id,
                     "actor": e.actor.username if e.actor else None,
                     "session_id": e.session_id,
+                    # Null once the owning session is deleted. The name is kept
+                    # so an orphaned entry still says where it came from.
+                    "session_name": e.session_name,
+                    "orphaned": e.session_id is None and bool(e.session_name),
                     "created_at": e.created_at,
                 }
                 for e in rows
@@ -238,13 +278,14 @@ def session_reset(request):
         "assessments": count_delete(AssetAssessment, "assessments"),
         "scan_jobs": count_delete(ScanJob, "scan_jobs"),
         "assets": count_delete(CryptoAsset, "assets"),
-        "audit": count_delete(AuditLog, "audit"),
     }
     # RawFinding / NormalizedFinding / AssetRelation are removed by cascade
     # from ScanJob / CryptoAsset above; delete any stragglers defensively.
     deleted["raw_findings"] = count_delete(RawFinding, "raw_findings")
     deleted["normalized"] = count_delete(NormalizedFinding, "normalized")
     deleted["relations"] = count_delete(AssetRelation, "relations")
+    # AuditLog is deliberately NOT deleted. Resetting the workspace must not
+    # erase the record that it was reset.
 
     label = f"session {sid}" if sid else "all sessions"
     if sid:
@@ -285,7 +326,20 @@ def delete_scan_history_session(request, session_id):
     RawFinding.objects.using(db).filter(session_id=session_id).delete()
     NormalizedFinding.objects.using(db).filter(session_id=session_id).delete()
     AssetRelation.objects.using(db).filter(session_id=session_id).delete()
-    AuditLog.objects.using(db).filter(session_id=session_id).delete()
+    # AuditLog is NOT deleted. The entry describing this scan is exactly the
+    # evidence a deletion must not be able to erase, so the trail outlives the
+    # data. `session_name` was snapshotted at write time, so it stays readable.
+    log_action(
+        "scan_deleted",
+        f"Deleted scan {name!r} (#{session_id}) and its findings, assets and reports. "
+        "Audit history for this scan was preserved.",
+        "worksession",
+        str(session_id),
+        session_id=0,
+        # The session is about to be deleted, so the name cannot be looked up
+        # by id afterwards. Pin it or this entry would be unattributable.
+        session_name=name,
+    )
     session.delete()
 
     active_id = current_id_from_request(request)
@@ -318,7 +372,16 @@ def clear_all_scan_history(request):
     RawFinding.objects.using(db).all().delete()
     NormalizedFinding.objects.using(db).all().delete()
     AssetRelation.objects.using(db).all().delete()
-    AuditLog.objects.using(db).all().delete()
+    # AuditLog is NOT deleted -- not even for a "clear everything". The record
+    # that the workspace was wiped is the one entry nobody may remove.
+    log_action(
+        "scan_deleted",
+        "Cleared all scan history, sessions and workspace data. "
+        "The audit trail was preserved.",
+        "worksession",
+        "",
+        session_id=0,
+    )
     WorkSession.objects.using(db).all().delete()
 
     set_current(request, None)
@@ -340,6 +403,15 @@ def delete_scan_job(request, scan_id):
 
     AnalysisRun.objects.using(db).filter(scan_job=job).delete()
     RawFinding.objects.using(db).filter(scan_job=job).delete()
+    # Recorded before the row goes, so the deletion itself leaves a permanent
+    # trace. AuditLog has no FK to ScanJob, so nothing cascades into it.
+    log_action(
+        "scan_deleted",
+        f"Deleted discovery job #{scan_id} ({job.source_type} on {job.target!r}) "
+        f"and its {job.findings_count} raw findings.",
+        "scanjob",
+        str(scan_id),
+    )
     job.delete()
 
     return JsonResponse({"ok": True, "deleted_scan_id": scan_id})

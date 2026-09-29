@@ -15,6 +15,7 @@ import logging
 import re
 
 from .models import NormalizedFinding, RawFinding, ScanJob
+from core.modes import active_mode
 
 logger = logging.getLogger(__name__)
 
@@ -503,7 +504,6 @@ def normalize_finding(raw: RawFinding, using=None, session_id=None) -> Normalize
     norm, created = NormalizedFinding.objects.using(db).get_or_create(
         raw_finding=raw,
         defaults={
-            "mode": raw.mode,
             "session_id": session_id,
             "kind": kind,
             "family": family,

@@ -1,0 +1,10 @@
+[2026-09-29 05:18:15,687] INFO:huey.consumer:MainThread:Huey consumer started with 8 thread, PID 51236 at 2026-09-28 23:48:15.687432
+[2026-09-29 05:18:15,687] INFO:huey.consumer:MainThread:Scheduler runs every 1 second(s).
+[2026-09-29 05:18:15,687] INFO:huey.consumer:MainThread:Periodic tasks are enabled.
+[2026-09-29 05:18:15,687] INFO:huey.consumer:MainThread:The following commands are available:
++ segments.ml.analysis.runner.run_analysis_task
++ segments.mitigation.mitigation.planner.generate_plan_task
++ segments.scraping.crypto_scan.pipeline.scan_chunk
++ segments.scraping.discovery.services.run_scan_task
+[2026-09-29 05:18:15,687] INFO:huey:Worker-1:Executing segments.scraping.discovery.services.run_scan_task: 4435f43b-ec5b-4340-a727-c6ffeaeb6029
+[2026-09-29 05:18:15,709] INFO:huey:Worker-1:segments.scraping.discovery.services.run_scan_task: 4435f43b-ec5b-4340-a727-c6ffeaeb6029 executed in 0.016s

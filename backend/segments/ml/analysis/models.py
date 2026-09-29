@@ -1,6 +1,6 @@
 from django.db import models
 
-from core.models import Mode, TimeStampedModel
+from core.models import TimeStampedModel
 
 
 class AnalysisRun(TimeStampedModel):
@@ -8,6 +8,10 @@ class AnalysisRun(TimeStampedModel):
         AWAITING_CONTEXT = "awaiting_context", "Awaiting context"
         QUEUED = "queued", "Queued"
         RUNNING = "running", "Running"
+        # Stopped by the operator part-way through the per-asset loop. The
+        # assessments already written are kept, and resuming re-enters the
+        # pipeline and skips the assets that already have one.
+        PAUSED = "paused", "Paused"
         COMPLETED = "completed", "Completed"
         FAILED = "failed", "Failed"
         CANCELLED = "cancelled", "Cancelled"
@@ -15,7 +19,6 @@ class AnalysisRun(TimeStampedModel):
     scan_job = models.ForeignKey(
         "discovery.ScanJob", on_delete=models.CASCADE, related_name="analysis_runs"
     )
-    mode = models.CharField(max_length=8, choices=Mode.choices, default=Mode.ACTUAL)
     session = models.ForeignKey(
         "core.WorkSession",
         null=True,
@@ -43,7 +46,7 @@ class AnalysisRun(TimeStampedModel):
 
     class Meta:
         ordering = ["-created_at"]
-        indexes = [models.Index(fields=["status"]), models.Index(fields=["mode"])]
+        indexes = [models.Index(fields=["status"])]
 
     def __str__(self) -> str:
         return f"{self.scan_job} [{self.status}]"
@@ -51,7 +54,6 @@ class AnalysisRun(TimeStampedModel):
 
 class AssetAssessment(TimeStampedModel):
     run = models.ForeignKey(AnalysisRun, on_delete=models.CASCADE, related_name="assessments")
-    mode = models.CharField(max_length=8, choices=Mode.choices, default=Mode.ACTUAL)
     session = models.ForeignKey(
         "core.WorkSession",
         null=True,
@@ -76,7 +78,6 @@ class AssetAssessment(TimeStampedModel):
         ordering = ["id"]
         indexes = [
             models.Index(fields=["run"]),
-            models.Index(fields=["mode"]),
             models.Index(fields=["finding_ref"]),
         ]
 

@@ -14,7 +14,6 @@ from segments.reporting.reports.report_builder import build_report
 from segments.reporting.reports.pdf_renderer import _find_browser, render_pdf
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class ReportBuilderTests(TestCase):
     def setUp(self):
         from core.models import WorkSession
@@ -107,7 +106,6 @@ class ReportBuilderTests(TestCase):
             self.assertGreater(len(pdf), 200)
 
 
-@override_settings(ECDAT={"DEMO_MODE": True, "ACTIVE_MODE": "actual"})
 class ReportApiTests(TestCase):
     def setUp(self):
         from core.models import WorkSession

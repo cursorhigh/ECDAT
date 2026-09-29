@@ -19,12 +19,28 @@ export interface Page<T> {
   results: T[];
 }
 
+export interface WorkerState {
+  /** "inline" when HUEY_IMMEDIATE runs tasks in-process; otherwise "queue". */
+  mode: "inline" | "queue" | "unknown" | string;
+  /** True only while a worker heartbeat is fresh. */
+  running: boolean;
+  state: "online" | "idle" | "stale" | "not_running" | "inline" | "unknown" | string;
+  pending: number;
+  scheduled: number;
+  workers: number | null;
+  last_seen: number | null;
+  age_seconds: number | null;
+  detail: string;
+}
+
 export interface Health {
   service: string;
   status: "ok" | "degraded" | string;
   time: string;
-  active_mode: string;
   active_db: string;
+  database_up: boolean;
+  /** Measured worker/queue state. Absent on older backends. */
+  worker?: WorkerState;
 }
 
 export interface SessionInfo {
@@ -68,6 +84,8 @@ export interface ScanJob {
     label: string;
   }>;
   findings_count: number;
+  /** Set when this job is one source of a multi-source run. */
+  batch?: number | null;
   error?: string | null;
   error_code?: string;
   error_scope?: string;
@@ -137,7 +155,6 @@ export interface ScannerDescriptor {
   capabilities: string[];
   configuration_schema: Record<string, { type: string; label: string; default: number | string; min?: number }>;
   status: "available" | "planned";
-  demo_supported: boolean;
 }
 
 export interface ScannerScopeInfo {
@@ -148,7 +165,6 @@ export interface ScannerScopeInfo {
 export interface ScannerRegistry {
   scanners: ScannerDescriptor[];
   available: string[];
-  demo_mode: boolean;
   platform?: string;
   /** What each non-target scope will actually read on this machine. */
   scopes?: Record<"quick" | "whole", ScannerScopeInfo>;
@@ -212,17 +228,39 @@ export interface AssetOccurrence {
 
 export interface ReportingOverview {
   kpis: {
+    // Asset-based (deduplicated inventory).
     assets: number;
     quantum_vuln: number;
     quantum_vuln_pct: number;
     weak: number;
     pqc_ready: number;
     pqc_ready_pct: number;
+    /** Scan jobs in scope, i.e. one per source. NOT a count of runs. */
     scans: number;
     analysed: number;
     mitigation_assets: number;
     plan_count: number;
+    /** Distinct source types actually scanned in this session. */
+    sources_scanned: number;
+    findings: number;
+    // Finding-based (one assessment per finding, so these are larger than
+    // `assets` and must not be presented as the same unit).
+    needs_migration: number;
+    needs_migration_pct: number;
+    /** Distinct assets behind those findings. This is the actionable count. */
+    needs_migration_assets: number;
+    hndl_exposed: number;
+    hndl_exposed_pct: number;
+    hndl_exposed_assets: number;
+    assessed: number;
+    not_assessable: number;
+    not_assessable_pct: number;
+    // Scan coverage: only sources that report a total contribute a denominator.
+    coverage_pct: number;
+    items_total: number;
+    items_scanned: number;
   };
+
   analysis_done: boolean;
   analysis_assets: number;
   mitigation_done: boolean;
@@ -281,6 +319,12 @@ export interface AnalysisListItem {
   progress: number;
   created_at: string;
   assets: number;
+  /**
+   * Seconds left before a parked (AWAITING_CONTEXT) run falls back to the
+   * conservative defaults. 0 when the run was dispatched immediately. Taken
+   * from the server so the countdown matches the real deadline.
+   */
+  context_deadline_seconds?: number;
 }
 
 export interface Assessment {
@@ -386,6 +430,10 @@ export interface AuditEntry {
   target_id?: string | number | null;
   actor?: string | null;
   session_id?: number | null;
+  /** Session name snapshotted at write time; still set after the session is gone. */
+  session_name?: string | null;
+  /** True when the owning session was deleted and the entry no longer matches a session filter. */
+  orphaned?: boolean;
   created_at: string;
 }
 

@@ -1,6 +1,6 @@
 from django.db import models
 
-from core.models import Mode, TimeStampedModel
+from core.models import TimeStampedModel
 
 
 class MitigationPlan(TimeStampedModel):
@@ -19,7 +19,6 @@ class MitigationPlan(TimeStampedModel):
         related_name="mitigation_plan",
         help_text="The completed analysis run this plan is derived from.",
     )
-    mode = models.CharField(max_length=8, choices=Mode.choices, default=Mode.ACTUAL)
     session = models.ForeignKey(
         "core.WorkSession",
         null=True,
@@ -38,7 +37,7 @@ class MitigationPlan(TimeStampedModel):
 
     class Meta:
         ordering = ["-created_at"]
-        indexes = [models.Index(fields=["status"]), models.Index(fields=["mode"])]
+        indexes = [models.Index(fields=["status"])]
 
     def __str__(self) -> str:
         return f"{self.run} [{self.status}]"
