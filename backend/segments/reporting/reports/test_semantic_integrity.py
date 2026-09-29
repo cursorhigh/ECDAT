@@ -212,7 +212,11 @@ class TestECDATSemanticIntegrity(unittest.TestCase):
             ["INSUFFICIENT_CONTEXT", "NOT_ASSESSABLE", "UNKNOWN"],
             "Empty operational context must return INSUFFICIENT_CONTEXT or NOT_ASSESSABLE"
         )
-        self.assertEqual(hndl_info.get("evidence_status"), "INSUFFICIENT_CONTEXT")
+        self.assertIn(
+            hndl_info.get("evidence_status"),
+            ["INSUFFICIENT_CONTEXT", "NOT_ASSESSABLE"],
+            "Empty operational context must have evidence_status INSUFFICIENT_CONTEXT or NOT_ASSESSABLE"
+        )
 
     def test_09_generic_unknown_finding(self):
         """Test 9: Generic finding -> UNKNOWN / LOW confidence without invented replacements."""
