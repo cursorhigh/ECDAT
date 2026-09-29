@@ -1,9 +1,9 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, BadgeCheck, Boxes, Check, CheckCircle2, Clock, FileCode2, FileJson, FileType, Folder, FolderOpen, Globe, Loader2, Package, Radar, ScanLine, Search, ShieldAlert, ShieldCheck, SlidersHorizontal, Sparkles, Upload, XCircle } from "lucide-react";
+import { AlertTriangle, BadgeCheck, Boxes, Check, CheckCircle2, Clock, FileCode2, FileJson, FileType, Folder, FolderOpen, Globe, Loader2, Package, Radar, ScanLine, Search, ShieldAlert, ShieldCheck, SlidersHorizontal, Sparkles, Upload, X, XCircle } from "lucide-react";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Tooltip } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs } from "@/components/ui/tabs";
 import { EmptyState, ErrorState, LoadingState } from "@/components/feedback/data-state";
+import { NavTooltip } from "@/components/ui/nav-tooltip";
 import { PageHeader, SectionLabel } from "@/components/data/page-header";
 import { StatusBadge } from "@/components/data/status-badge";
 import { useToast } from "@/components/feedback/toast";
@@ -135,6 +136,10 @@ export default function ScansPage() {
   const [externalJson, setExternalJson] = useState("");
   const [cryptoOnly, setCryptoOnly] = useState(true);
   const [kindFilter, setKindFilter] = useState("");
+  // Raw text, then a debounced copy that actually drives the request. Typing
+  // straight into the query key fired a request per keystroke.
+  const [findingsSearch, setFindingsSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
 
   // Risk analysis lives on the Discovered assets page now. This page only asks
   // the single global prompt to open, rather than rendering its own copy of the
@@ -263,8 +268,13 @@ export default function ScansPage() {
   });
 
   const findings = useQuery({
-    queryKey: ["normalized-findings", scopeKey, findingsPage, kindFilter],
-    queryFn: () => api.normalizedFindings({ page: findingsPage, ...(kindFilter ? { kind: kindFilter } : {}) }),
+    queryKey: ["normalized-findings", scopeKey, findingsPage, kindFilter, findingsSearch],
+    queryFn: () =>
+      api.normalizedFindings({
+        page: findingsPage,
+        ...(kindFilter ? { kind: kindFilter } : {}),
+        ...(findingsSearch ? { search: findingsSearch } : {}),
+      }),
     enabled: ready && hasSession && tab === "findings"
   });
 
@@ -297,6 +307,33 @@ export default function ScansPage() {
   const goToFindingsPage = (page: number) => {
     setSelection((previous) => ({ ...previous, findingsPage: Math.max(1, page) }));
   };
+
+  /*
+   * Debounce the search before it reaches the query.
+   *
+   * Two problems, both fixed by the delay. Firing on every keystroke issued one
+   * request per character against a table that can hold thousands of rows, and it
+   * made the input feel like it was fighting the user -- the list churning under
+   * a half-typed word. 250ms is long enough to finish a word and short enough
+   * that it still reads as live.
+   *
+   * Paging resets at the same moment, or a search begun on page 4 of an
+   * unfiltered list would report "no matches" when page 1 had thousands.
+   */
+  const appliedSearch = useRef(findingsSearch);
+  useEffect(() => {
+    const next = searchInput.trim();
+    const timer = setTimeout(() => {
+      if (appliedSearch.current === next) return;
+      appliedSearch.current = next;
+      setFindingsSearch(next);
+      // Back to the first page. Searching while sitting on page 4 of the
+      // unfiltered list would otherwise land on an empty page and read as
+      // "nothing matches" when page 1 was full of hits.
+      setSelection((previous) => ({ ...previous, findingsPage: 1 }));
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   // Changing kind must return to page 1, or a deep page can land empty.
   const selectKind = (kind: string) => {
@@ -848,20 +885,64 @@ export default function ScansPage() {
           <CardHeader className="flex-row items-start justify-between">
             <div>
               <CardTitle>Discovered findings</CardTitle>
+              {/* The count matters most while searching or filtering: it is the
+                  difference between "9 findings" and "9 of 371" — without it a
+                  narrow result reads as though that is all there is. */}
+              {findings.data ? (
+                <p className="tnum mt-1 text-[11px] text-muted-foreground">
+                  {findingsSearch || kindFilter
+                    ? `${formatNumber(findings.data.count)} of ${formatNumber(kindTotal)} match`
+                    : `${formatNumber(kindTotal)} total`}
+                  {/* The list updates live, so a quiet hint beats the count
+                      silently swapping under the reader. */}
+                  {findings.isFetching ? " · updating" : ""}
+                </p>
+              ) : null}
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
                 What discovery actually observed, grouped by what kind of artefact it is. Every finding carries a confidence level; nothing here is a risk verdict.
               </p>
               <ContractStatus summary={contractSummary.data} />
             </div>
-            <div className="flex items-center gap-2">
-              {/* Nothing to search, filter or refresh until something exists. */}
-              {kindTotal > 0 ? (
-                <>
-                  <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                  <RefreshButton onRefresh={() => findings.refetch()} aria-label="Refresh findings" variant="ghost" />
-                </>
-              ) : null}
-            </div>
+            {/* Nothing to search, filter or refresh until something exists. */}
+            {kindTotal > 0 ? (
+              <div className="flex w-full items-center gap-2 sm:w-auto">
+                <div className="relative w-full sm:w-72">
+                  <Search
+                    className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                  <Input
+                    value={searchInput}
+                    onChange={(event) => setSearchInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      // Enter applies immediately rather than waiting out the
+                      // debounce, for anyone typing fast or on a slow connection.
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        const next = searchInput.trim();
+                        appliedSearch.current = next;
+                        setFindingsSearch(next);
+                        setSelection((previous) => ({ ...previous, findingsPage: 1 }));
+                      }
+                    }}
+                    placeholder="Search algorithm, file, library, curve, protocol"
+                    aria-label="Search findings"
+                    className="h-9 pl-8 pr-8"
+                  />
+                  {searchInput ? (
+                    <button
+                      type="button"
+                      onClick={() => setSearchInput("")}
+                      aria-label="Clear search"
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    >
+                      <X className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                  ) : null}
+                </div>
+                <RefreshButton onRefresh={() => findings.refetch()} aria-label="Refresh findings" variant="ghost" />
+              </div>
+            ) : null}
           </CardHeader>
 
           {kindFacets.length > 1 ? (
@@ -912,50 +993,67 @@ export default function ScansPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-12 text-right">#</TableHead>
-                      <TableHead>Artefact</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Key size</TableHead>
-                      <TableHead>Protocol</TableHead>
-                      <TableHead>Library</TableHead>
-                      <TableHead>Evidence</TableHead>
-                      <TableHead className="text-right">Confidence</TableHead>
+                      <TableHead className="w-12 text-right">
+                          <NavTooltip title="Position in the result set" description="A row number within the current page of results. It is not a finding identifier, and it changes when the page does."><span>#</span></NavTooltip>
+                        </TableHead>
+                      <TableHead>
+                          <NavTooltip title="The algorithm" description="The curve matters most for elliptic-curve algorithms, where the curve is what fixes the strength of the key."><span>Artefact</span></NavTooltip>
+                        </TableHead>
+                      <TableHead>
+                          <NavTooltip title="Kind of artefact" description="What kind of cryptographic thing this is. The kind decides which of the other fields can apply at all."><span>Type</span></NavTooltip>
+                        </TableHead>
+                      <TableHead>
+                          <NavTooltip title="Library or component" description="The library the artefact was found in, with its version where one was identified."><span>Library</span></NavTooltip>
+                        </TableHead>
+                      <TableHead>
+                          <NavTooltip title="Where it was seen" description="The file or line discovery read it from. This is the evidence behind the finding, not a restatement of it."><span>Evidence</span></NavTooltip>
+                        </TableHead>
+                      <TableHead className="text-right">
+                          <NavTooltip title="How sure discovery is" description="From 0 to 1. A low score usually means a name matched a pattern rather than a key being parsed."><span>Confidence</span></NavTooltip>
+                        </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {findingRows.map((finding: NormalizedFinding, rowIndex) => (
                       <TableRow key={finding.id}>
-                        <TableCell className="tnum whitespace-nowrap pr-1 text-right font-mono text-[11px] text-muted-foreground">
+                        <TableCell
+                          className="tnum whitespace-nowrap pr-1 text-right font-mono text-[11px] text-muted-foreground"
+                          title={`Row ${formatNumber(findingRowOffset + rowIndex + 1)} of ${formatNumber(findingTotal)}`}
+                        >
                           #{formatNumber(findingRowOffset + rowIndex + 1)}
                         </TableCell>
-                        <TableCell className="min-w-0">
+                        <TableCell className="min-w-0" title={artefactTooltip(finding)}>
                           <p className="truncate font-medium">{finding.algorithm || finding.family_display || titleCase(finding.family)}</p>
-                          <p className="mt-0.5 text-[11px] text-muted-foreground">
-                            {finding.curve ? `${finding.curve} · ` : ""}
-                            {finding.family_display || titleCase(finding.family)}
+                          <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                            {[finding.curve, finding.family_display || titleCase(finding.family)].filter(Boolean).join(" · ")}
                           </p>
                         </TableCell>
-                        <TableCell>
+                        <TableCell title={kindTooltip(finding.kind, finding.kind_display)}>
                           <Badge variant="outline" className="normal-case tracking-normal">
                             {finding.kind_display || titleCase(finding.kind)}
                           </Badge>
                         </TableCell>
-                        <TableCell className="tnum text-xs">{finding.key_size ? `${formatNumber(finding.key_size)} bits` : "—"}</TableCell>
-                        <TableCell className="text-xs">{finding.protocol || "—"}</TableCell>
-                        <TableCell className="text-xs">
+                        <TableCell
+                          className="text-xs"
+                          title={
+                            finding.library
+                              ? [finding.library, finding.library_version].filter(Boolean).join(" ")
+                              : "No library was attributed to this finding."
+                          }
+                        >
                           {finding.library ? (
                             <>
                               <span className="font-mono">{finding.library}</span>
                               {finding.library_version ? <span className="ml-1 text-muted-foreground">{finding.library_version}</span> : null}
                             </>
                           ) : (
-                            "—"
+                            <span className="text-muted-foreground">—</span>
                           )}
                         </TableCell>
-                        <TableCell className="max-w-[260px]">
+                        <TableCell className="max-w-[260px]" title={evidenceTooltip(finding)}>
                           <EvidenceCell finding={finding} />
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right" title={confidenceTooltip(finding.confidence)}>
                           <ConfidenceBadge value={finding.confidence} />
                         </TableCell>
                       </TableRow>
@@ -983,16 +1081,36 @@ export default function ScansPage() {
             ) : (
               <div className="p-4">
                 <EmptyState
-                  title={kindFilter ? "No findings of this kind" : "No findings recorded"}
+                  title={
+                    findingsSearch
+                      ? `Nothing matches "${findingsSearch}"`
+                      : kindFilter
+                        ? "No findings of this kind"
+                        : "No findings recorded"
+                  }
                   description={
-                    kindFilter
-                      ? "This scan has no findings in the selected category. Clear the filter to see everything."
-                      : "Run a discovery scan or import findings to populate this scan."
+                    findingsSearch
+                      ? kindFilter
+                        ? "No finding of this kind matches that text. Clear the kind filter or try a broader term — the file path, algorithm, library, curve and protocol are all searched."
+                        : "Nothing matched. The file path, algorithm, library, library version, curve, protocol, family and kind are all searched."
+                      : kindFilter
+                        ? "This scan has no findings in the selected category. Clear the filter to see everything."
+                        : "Run a discovery scan or import findings to populate this scan."
                   }
                   action={
-                    <Button variant="outline" size="sm" onClick={() => setTab("scan")}>
-                      Start a discovery scan
-                    </Button>
+                    findingsSearch ? (
+                      <Button variant="outline" size="sm" onClick={() => setSearchInput("")}>
+                        Clear search
+                      </Button>
+                    ) : kindFilter ? (
+                      <Button variant="outline" size="sm" onClick={() => selectKind("")}>
+                        Clear kind filter
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" onClick={() => setTab("scan")}>
+                        Start a discovery scan
+                      </Button>
+                    )
                   }
                 />
               </div>
@@ -1116,6 +1234,77 @@ const RELEVANCE_VARIANTS: Record<string, BadgeProps["variant"]> = {
   managed_key_service: "info",
   post_quantum: "success"
 };
+
+/*
+ * Tooltips for the findings table.
+ *
+ * The columns are narrow on purpose -- seven of them across a wide table -- so
+ * values are truncated and abbreviated. The tooltip carries what the cell had to
+ * cut, and says what the number means, which a bare "0.42" never does. Each one
+ * says something the column heading cannot: what the field is for, and what its
+ * absence or a low value implies.
+ */
+
+const KIND_EXPLANATIONS: Record<string, string> = {
+  algorithm: "An algorithm reference found in code, config or a manifest.",
+  certificate: "A certificate, with the key it carries. Check expiry and issuer.",
+  key: "A private or public key material, or a reference to where it is stored.",
+  key_reference: "A pointer to key material held elsewhere, such as a KMS or vault path. The key itself was not read.",
+  library: "A library that provides cryptography, found as a dependency or import.",
+  protocol: "A cryptographic protocol in use, such as TLS or SSH.",
+  dependency: "A dependency that brings cryptography with it, without using it directly.",
+  crypto_api: "A call into a cryptographic API, such as a signing or encryption function.",
+  crypto_configuration: "A configuration setting that governs cryptography, such as a cipher suite or mode.",
+  hardware_module: "Use of a hardware security module.",
+  cloud_crypto_service: "Use of a managed cloud cryptography service, such as a key vault.",
+  container: "A container image carrying cryptographic material.",
+  unknown_crypto_artifact: "A cryptographic artefact that could not be classified further.",
+};
+
+function artefactTooltip(finding: NormalizedFinding): string {
+  const lines = [finding.algorithm || finding.family_display || titleCase(finding.family)];
+  if (finding.curve) lines.push(`Curve: ${finding.curve}`);
+  lines.push(`Family: ${finding.family_display || titleCase(finding.family)}`);
+  // Key size and protocol had their own columns and were dropped as mostly
+  // empty -- across 3,952 findings, key size was present on 3% and protocol on
+  // 5%. Removing the column is fine; losing the value is not, so where the
+  // scanner did record one it is still reachable here.
+  if (finding.key_size) lines.push(`Key size: ${formatNumber(finding.key_size)} bits`);
+  if (finding.protocol) lines.push(`Protocol: ${finding.protocol}`);
+  if (finding.kind === "key_reference") {
+    lines.push("This is a reference to key material held elsewhere, not the key itself.");
+  }
+  return lines.join("\n");
+}
+
+function kindTooltip(kind: string, label?: string): string {
+  const name = label || titleCase(kind);
+  const meaning = KIND_EXPLANATIONS[kind];
+  return meaning ? `${name} — ${meaning}` : name;
+}
+
+function evidenceTooltip(finding: NormalizedFinding): string {
+  const evidence = finding.evidence || {};
+  const parts: string[] = [];
+  const location = typeof evidence.location === "string" ? evidence.location : "";
+  if (location) parts.push(location);
+  if (evidence.line) parts.push(`line ${evidence.line}`);
+  const snippet = typeof evidence.snippet === "string" ? evidence.snippet.trim() : "";
+  if (snippet) parts.push(`\n${snippet}`);
+  if (!parts.length) return "No recorded evidence for this finding.";
+  return parts.join("  ·  ");
+}
+
+function confidenceTooltip(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "Confidence was not recorded for this finding.";
+  const pct = Math.round(value * 100);
+  let meaning: string;
+  if (value >= 0.9) meaning = "Parsed directly — the artefact was read, not guessed at.";
+  else if (value >= 0.7) meaning = "Strong signal from a name or structure that matched a known pattern.";
+  else if (value >= 0.4) meaning = "Partial match. Worth reviewing before treating it as real.";
+  else meaning = "Weak. Usually a name that resembles an algorithm rather than a parsed key or certificate.";
+  return `${pct}% — ${meaning}`;
+}
 
 function EvidenceCell({ finding }: { finding: NormalizedFinding }) {
   const evidence = finding.evidence || {};

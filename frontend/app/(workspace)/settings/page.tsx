@@ -101,8 +101,8 @@ export default function SettingsPage() {
             </CardTitle>
             <SessionScope compact />
           </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-xs leading-5 text-muted-foreground">
+          <CardContent className="space-y-2.5">
+            <p className="text-xs leading-4 text-muted-foreground">
               Every view follows the scan you pick here. Scans never share data, so switching one changes
               what you are looking at everywhere.
             </p>
@@ -115,18 +115,37 @@ export default function SettingsPage() {
               <div>
                 <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                   Recent scans
+                  <span className="tnum ml-1.5 font-normal normal-case tracking-normal">
+                    {recentSessions.length}
+                  </span>
                 </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {recentSessions.map((session) => (
-                    <span
-                      key={session.id}
-                      className={`border px-2 py-1 text-[11px] ${
-                        session.id === activeId ? "border-primary bg-primary/5" : ""
-                      }`}
-                    >
-                      {session.name}
-                    </span>
-                  ))}
+                {/*
+                 * One scrolling line instead of a wrapped block.
+                 *
+                 * Scans of the same target are named identically apart from the
+                 * trailing timestamp, so the full names repeated eight times and
+                 * wrapped the card over several lines to say one thing. Each chip
+                 * now leads with the part that actually differs -- the time -- and
+                 * keeps the full name in a tooltip, so the row stays a single line
+                 * however many scans are on record.
+                 */}
+                <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+                  {recentSessions.map((session) => {
+                    const parts = session.name.split("·");
+                    const stamp = parts.length > 1 ? parts[parts.length - 1].trim() : "";
+                    const label = stamp || session.name;
+                    return (
+                      <span
+                        key={session.id}
+                        title={session.name}
+                        className={`shrink-0 whitespace-nowrap border px-2 py-0.5 text-[11px] ${
+                          session.id === activeId ? "border-primary bg-primary/5" : ""
+                        }`}
+                      >
+                        {label}
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
             ) : null}
@@ -312,9 +331,9 @@ function DetailRow({ icon: Icon, title, body }: { icon: typeof Server; title: st
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border p-2.5">
+    <div className="border p-2">
       <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
-      <p className="mt-1 truncate text-sm font-medium" title={value}>
+      <p className="mt-0.5 truncate text-sm font-medium" title={value}>
         {value}
       </p>
     </div>

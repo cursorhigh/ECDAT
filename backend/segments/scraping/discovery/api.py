@@ -57,7 +57,22 @@ class RawFindingViewSet(viewsets.ReadOnlyModelViewSet):
 class NormalizedFindingViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = NormalizedFindingSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ["algorithm", "library", "protocol"]
+    # Searched rather than just the three fields it started with (algorithm,
+    # library, protocol). Those made `?search=` almost useless in practice: a
+    # reader looking at a table of 371 findings wants to find the one from a
+    # file they remember, or the one on a named curve, or every certificate, and
+    # none of those were reachable. The file path lives on the related
+    # RawFinding, which is the field people actually search on most.
+    search_fields = [
+        "algorithm",
+        "family",
+        "kind",
+        "curve",
+        "protocol",
+        "library",
+        "library_version",
+        "raw_finding__location",
+    ]
     ordering_fields = ["algorithm", "key_size", "confidence", "kind", "family"]
 
     # Filters applied explicitly rather than via a filter backend, so the

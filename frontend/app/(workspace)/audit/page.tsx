@@ -143,15 +143,24 @@ export default function AuditPage() {
                 />
               </div>
             ) : rows.length ? (
+              /*
+               * The limit selector goes to 1,000 events, and nothing bounded the
+               * height, so choosing it produced a page thousands of pixels tall with
+               * the filters, the scope switch and the count footer all scrolled out
+               * of reach -- you could not see or change the filter that produced the
+               * list you were looking at. Capped, scrolls inside its own panel, with
+               * the header sticky so the columns stay named.
+               */
+              <div className="max-h-[32rem] overflow-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Action</TableHead>
-                    <TableHead>Message</TableHead>
-                    <TableHead>Actor</TableHead>
-                    <TableHead>Target</TableHead>
-                    <TableHead>Scan</TableHead>
-                    <TableHead>Timestamp</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card" title="The event that was recorded, as a stable machine-readable code. The message beside it is the human-readable form of the same event.">Action</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card" title="What happened, in words. This is the free-text detail the action code refers to.">Message</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card" title="Who or what caused the event. Without authentication on the API this is a claimed actor, not a verified identity.">Actor</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card" title="The object the event acted on, as type and id -- for example an analysisrun with an id.">Target</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card" title="The scan the event belongs to. A scan marked deleted keeps its history here after the scan itself is removed.">Scan</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card" title="When the event was recorded, in your local time.">Timestamp</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -195,6 +204,7 @@ export default function AuditPage() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             ) : (
               <div className="p-5">
                 <EmptyState
@@ -247,7 +257,14 @@ export default function AuditPage() {
                 />
               </div>
             ) : history.data?.sessions.length ? (
-              <ul className="divide-y">
+              /*
+               * Same reasoning as the audit table, and worse here: every scan is
+               * listed with all of its jobs nested underneath, so the height grows
+               * with scans x jobs rather than scans alone. Bounded, with the
+               * heading row kept outside so the panel still reads as a list of
+               * scans rather than a wall of text.
+               */
+              <ul className="max-h-[32rem] divide-y overflow-auto">
                 {history.data.sessions.map((session) => (
                   <li key={session.id} className="px-4 py-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">

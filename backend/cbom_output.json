@@ -2,7 +2,7 @@
   "format": "ECDAT-CBOM",
   "version": "1.0",
   "spec_version": "1.6-CycloneDX",
-  "generated_at": "2026-09-29T07:54:10Z",
+  "generated_at": "2026-09-29T12:51:02Z",
   "repository": {
     "name": "enterprise-auth-service",
     "url": "https://github.com/example/enterprise-auth-service"
@@ -88,7 +88,20 @@
           }
         ],
         "confidence_reason": "High confidence because explicit cryptographic evidence and standard API patterns were found in the source code."
-      }
+      },
+      "exposure": null,
+      "network_exposure": null,
+      "public_endpoint": false,
+      "internet_facing": false,
+      "hndl_exposure": null,
+      "hndl_risk": null,
+      "data_shelf_life_years": null,
+      "data_lifetime_years": null,
+      "data_sensitivity": null,
+      "migration_time_years": null,
+      "quantum_horizon_years": null,
+      "role": "signature",
+      "exploitability_score": null
     },
     {
       "asset_id": "F002",
@@ -160,7 +173,20 @@
           }
         ],
         "confidence_reason": "High confidence because explicit cryptographic evidence and standard API patterns were found in the source code."
-      }
+      },
+      "exposure": null,
+      "network_exposure": null,
+      "public_endpoint": false,
+      "internet_facing": false,
+      "hndl_exposure": null,
+      "hndl_risk": null,
+      "data_shelf_life_years": null,
+      "data_lifetime_years": null,
+      "data_sensitivity": null,
+      "migration_time_years": null,
+      "quantum_horizon_years": null,
+      "role": "encryption",
+      "exploitability_score": null
     },
     {
       "asset_id": "F003",
@@ -231,7 +257,20 @@
           }
         ],
         "confidence_reason": "High confidence because explicit cryptographic evidence and standard API patterns were found in the source code."
-      }
+      },
+      "exposure": null,
+      "network_exposure": null,
+      "public_endpoint": false,
+      "internet_facing": false,
+      "hndl_exposure": null,
+      "hndl_risk": null,
+      "data_shelf_life_years": null,
+      "data_lifetime_years": null,
+      "data_sensitivity": null,
+      "migration_time_years": null,
+      "quantum_horizon_years": null,
+      "role": "hash",
+      "exploitability_score": null
     },
     {
       "asset_id": "F004",
@@ -303,7 +342,20 @@
           }
         ],
         "confidence_reason": "High confidence because explicit cryptographic evidence and standard API patterns were found in the source code."
-      }
+      },
+      "exposure": null,
+      "network_exposure": null,
+      "public_endpoint": false,
+      "internet_facing": false,
+      "hndl_exposure": null,
+      "hndl_risk": null,
+      "data_shelf_life_years": null,
+      "data_lifetime_years": null,
+      "data_sensitivity": null,
+      "migration_time_years": null,
+      "quantum_horizon_years": null,
+      "role": "signature",
+      "exploitability_score": null
     },
     {
       "asset_id": "F005",
@@ -374,7 +426,20 @@
           }
         ],
         "confidence_reason": "High confidence because explicit cryptographic evidence and standard API patterns were found in the source code."
-      }
+      },
+      "exposure": null,
+      "network_exposure": null,
+      "public_endpoint": false,
+      "internet_facing": false,
+      "hndl_exposure": null,
+      "hndl_risk": null,
+      "data_shelf_life_years": null,
+      "data_lifetime_years": null,
+      "data_sensitivity": null,
+      "migration_time_years": null,
+      "quantum_horizon_years": null,
+      "role": "hash",
+      "exploitability_score": null
     },
     {
       "asset_id": "F006",
@@ -429,16 +494,29 @@
           }
         ],
         "confidence_reason": "Moderate confidence based on artifact metadata without full code context."
-      }
+      },
+      "exposure": null,
+      "network_exposure": null,
+      "public_endpoint": false,
+      "internet_facing": false,
+      "hndl_exposure": null,
+      "hndl_risk": null,
+      "data_shelf_life_years": null,
+      "data_lifetime_years": null,
+      "data_sensitivity": null,
+      "migration_time_years": null,
+      "quantum_horizon_years": null,
+      "role": "hash",
+      "exploitability_score": null
     }
   ],
   "cyclonedx_bom": {
     "bomFormat": "CycloneDX",
     "specVersion": "1.6",
-    "serialNumber": "urn:uuid:0ec67069-4203-4f9c-9610-565690fea469",
+    "serialNumber": "urn:uuid:a310c116-880b-4e4d-b393-a997247df5da",
     "version": 1,
     "metadata": {
-      "timestamp": "2026-09-29T07:54:10Z",
+      "timestamp": "2026-09-29T12:51:02Z",
       "tools": {
         "components": [
           {

@@ -1284,6 +1284,65 @@ class AssetSessionScopingTests(TestCase):
         norm = normalize_finding(raw, using="default", session_id=session.pk)
         return classify_asset(norm, using="default", session_id=session.pk)
 
+    def test_findings_search_covers_path_curve_and_kind(self):
+        """`?search=` must reach the fields a reader actually searches on.
+
+        It only covered algorithm, library and protocol, which made the file a
+        finding came from unreachable -- and that file is the one thing you
+        actually have in hand when you go looking. Curve, family and kind were
+        missing too, so a table of 3,952 findings could not be narrowed to "the
+        certificates on secp256r1".
+
+        The finding is written directly rather than run through the normalizer,
+        because the search filter is the unit under test here and the fields it
+        must reach have to be present for the assertion to mean anything.
+        """
+        from core.models import WorkSession
+        from .models import NormalizedFinding, RawFinding, ScanJob
+
+        ws = WorkSession.objects.using("default").create(name="search-scope")
+        self.client.post(f"/api/session/switch/{ws.pk}/")
+
+        job = ScanJob.objects.using("default").create(
+            source_type=ScanJob.SourceType.SOURCE_CODE,
+            target="search-scope",
+            session_id=ws.pk,
+            status=ScanJob.Status.COMPLETED,
+        )
+        raw = RawFinding.objects.using("default").create(
+            scan_job=job,
+            session_id=ws.pk,
+            source_type=ScanJob.SourceType.SOURCE_CODE,
+            location=r"C:\certs\boring.pem",
+            raw_json={"location": r"C:\certs\boring.pem"},
+        )
+        finding = NormalizedFinding.objects.using("default").create(
+            raw_finding=raw,
+            session_id=ws.pk,
+            kind="certificate",
+            family="ecc",
+            algorithm="ECDH",
+            curve="secp256r1",
+            protocol="tls",
+            library="openssl",
+            library_version="3.2.0",
+            confidence=0.9,
+        )
+
+        def search(term):
+            response = self.client.get(f"/api/normalized-findings/?search={term}")
+            self.assertEqual(response.status_code, 200, response.content[:200])
+            body = response.json()
+            payload = body.get("data", body)
+            return {row["id"] for row in payload["results"]}
+
+        for term in ("boring.pem", "secp256r1", "certificate", "ecc", "openssl", "3.2.0", "tls", "ECDH"):
+            with self.subTest(term=term):
+                self.assertIn(finding.id, search(term), f"searching {term!r} did not find the row")
+
+        # A term matching nothing must return an empty page, not the whole list.
+        self.assertEqual(search("definitely-not-present-anywhere"), set())
+
     def test_same_finding_in_two_sessions_creates_two_assets(self):
         from core.models import WorkSession
         from core.sessions import scope

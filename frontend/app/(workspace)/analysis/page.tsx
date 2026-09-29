@@ -39,6 +39,23 @@ function num(value: unknown) {
   return typeof value === "number" ? value : 0;
 }
 
+/*
+ * Confidence is shown as a bare decimal, which on its own says nothing about
+ * whether the finding should be trusted. The tooltip gives the number as a
+ * percentage and says what that level actually implies, so a low score reads as
+ * "worth checking" rather than as a precise measurement.
+ */
+function confidenceTooltip(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "Confidence was not recorded.";
+  const pct = Math.round(value * 100);
+  let meaning: string;
+  if (value >= 0.9) meaning = "Parsed directly — the artefact was read, not guessed at.";
+  else if (value >= 0.7) meaning = "Strong signal from a name or structure matching a known pattern.";
+  else if (value >= 0.4) meaning = "Partial match. Worth reviewing before treating it as real.";
+  else meaning = "Weak. Usually a name that resembles an algorithm rather than a parsed key or certificate.";
+  return `${pct}% — ${meaning}`;
+}
+
 function displayValue(value: unknown) {
   if (value === null || value === undefined || value === "") return "—";
   if (typeof value === "object") return JSON.stringify(value);
@@ -637,10 +654,17 @@ function SummaryView({ run, summary, summaryStats, dataContext, networkContext }
 
   return (
     <div className="space-y-6">
+      {/*
+       * Three metrics across four tracks, so the third was squeezed into a
+       * quarter of the width and truncated the category list mid-token
+       * ("AES / HASH / PQC / PUBLIC_KEY / S"). Giving it two tracks doubles its
+       * width and uses the row exactly: 1 + 1 + 2 = 4. The category is a list,
+       * so it needs the room far more than the two counts do.
+       */}
       <div className="grid gap-3 sm:grid-cols-4">
         <SummaryMetric label="Findings processed" value={run.findings_count} />
         <SummaryMetric label="Summary assets" value={summaryStats.assets ?? rows.length} />
-        <SummaryMetric label="Algorithm category" value={algoCatVal} />
+        <SummaryMetric label="Algorithm category" value={algoCatVal} className="sm:col-span-2" wrap />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -724,9 +748,9 @@ function SummaryView({ run, summary, summaryStats, dataContext, networkContext }
   );
 }
 
-function SummaryMetric({ label, value, tone = "default" }: { label: string; value: unknown; tone?: "default" | "success" | "warning" | "danger" }) {
+function SummaryMetric({ label, value, tone = "default", className, wrap = false }: { label: string; value: unknown; tone?: "default" | "success" | "warning" | "danger"; className?: string; wrap?: boolean }) {
   const accent = tone === "success" ? "border-success/40" : tone === "warning" ? "border-warning/40" : tone === "danger" ? "border-destructive/40" : "";
-  return <div className={`border p-3 ${accent}`}><p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{label}</p><p className="tnum mt-2 truncate text-lg font-semibold" title={displayValue(value)}>{displayValue(value)}</p></div>;
+  return <div className={`border p-3 ${accent} ${className || ""}`}><p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{label}</p><p className={`tnum mt-2 text-lg font-semibold ${wrap ? "break-words" : "truncate"}`} title={displayValue(value)}>{displayValue(value)}</p></div>;
 }
 
 function AssessmentView({ assessments }: { assessments: unknown[] }) {
@@ -745,5 +769,28 @@ function AssessmentView({ assessments }: { assessments: unknown[] }) {
 function CbomView({ cbom, runId }: { cbom: JsonRecord; runId: number }) {
   const assets = array(cbom.crypto_assets);
   const cbomSummary = record(cbom.summary);
-  return <div className="space-y-4"><div className="flex flex-wrap items-end justify-between gap-3"><div className="grid flex-1 gap-3 sm:grid-cols-3"><SummaryMetric label="Format" value={cbom.format} /><SummaryMetric label="Version" value={cbom.version} /><SummaryMetric label="Assets" value={String(assets.length)} /></div><div className="flex flex-col items-end gap-1"><SectionLabel>Export</SectionLabel><CbomExport runId={runId} /></div></div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><SummaryMetric label="Confirmed" value={formatNumber(num(cbomSummary.confirmed_assets))} tone="success" /><SummaryMetric label="Partial" value={formatNumber(num(cbomSummary.partial_assets))} tone="warning" /><SummaryMetric label="Needs review" value={formatNumber(num(cbomSummary.needs_review_assets))} tone="warning" /><SummaryMetric label="Invalid" value={formatNumber(num(cbomSummary.invalid_assets))} tone="danger" /></div>{assets.length ? <div className="overflow-x-auto border"><Table><TableHeader><TableRow><TableHead>CBOM asset</TableHead><TableHead>Algorithm</TableHead><TableHead>Family</TableHead><TableHead>Location</TableHead><TableHead>Validation</TableHead><TableHead>Confidence</TableHead></TableRow></TableHeader><TableBody>{assets.map((value, index) => { const asset = record(value); const location = record(asset.location); return <TableRow key={String(asset.asset_id || index)}><TableCell className="font-mono text-xs">{displayValue(asset.asset_id)}</TableCell><TableCell className="font-mono text-xs">{displayValue(asset.algorithm)}</TableCell><TableCell>{titleCase(asset.family)}</TableCell><TableCell className="max-w-[260px] truncate font-mono text-[11px]" title={displayValue(location.file)}>{displayValue(location.file)}</TableCell><TableCell><StatusBadge status={String(asset.validation_status || "needs_review")} /></TableCell><TableCell className="tnum">{displayValue(asset.confidence)}</TableCell></TableRow>; })}</TableBody></Table></div> : <EmptyState title="No CBOM assets" description="This analysis did not produce an inventory of cryptographic assets." />}</div>;
+  return <div className="space-y-4"><div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="grid flex-1 gap-3 sm:grid-cols-3">
+            <SummaryMetric label="Format" value={cbom.format} />
+            <SummaryMetric label="Version" value={cbom.version} />
+            <SummaryMetric label="Assets" value={String(assets.length)} />
+          </div>
+          {/*
+           * Top-aligned with the metrics rather than bottom-aligned to them. The
+           * group was `items-end` in a flex row of its own, so it hung off the
+           * bottom-right corner of the metric strip and drifted down as the boxes
+           * changed height. It also needs the full width on narrow screens,
+           * where three stacked buttons would otherwise be squeezed.
+           */}
+          <div className="flex shrink-0 flex-col gap-1.5 lg:w-auto lg:max-w-md lg:items-end">
+            <SectionLabel className="lg:text-right">Export</SectionLabel>
+            <CbomExport runId={runId} />
+          </div>
+        </div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><SummaryMetric label="Confirmed" value={formatNumber(num(cbomSummary.confirmed_assets))} tone="success" /><SummaryMetric label="Partial" value={formatNumber(num(cbomSummary.partial_assets))} tone="warning" /><SummaryMetric label="Needs review" value={formatNumber(num(cbomSummary.needs_review_assets))} tone="warning" /><SummaryMetric label="Invalid" value={formatNumber(num(cbomSummary.invalid_assets))} tone="danger" /></div>{/*
+         * One row per crypto asset, and this run has 371 of them. It had
+         * horizontal scrolling only, so the page grew until the export controls
+         * and the validation summary were scrolled out of reach. Bounded height,
+         * scrolls within its own panel, header stays named.
+         */}
+        {assets.length ? <div className="max-h-[32rem] overflow-auto border"><Table><TableHeader><TableRow><TableHead className="sticky top-0 z-10 bg-card" title="The identifier ECDAT assigned to this asset. It is the key used to join this row to the assessments and the dependency graph.">CBOM asset</TableHead><TableHead className="sticky top-0 z-10 bg-card" title="The algorithm in use on this asset.">Algorithm</TableHead><TableHead className="sticky top-0 z-10 bg-card" title="The algorithm family - RSA, ECC, AES, PQC and so on. The family, rather than the exact algorithm name, is what drives migration priority.">Family</TableHead><TableHead className="sticky top-0 z-10 bg-card" title="The file this asset was found in, so the finding can be traced back to its source.">Location</TableHead><TableHead className="sticky top-0 z-10 bg-card" title="How far ECDAT could verify the asset: confirmed it parsed cleanly, only partially identified it, found it invalid, or could not decide and left it for review.">Validation</TableHead><TableHead className="sticky top-0 z-10 bg-card" title="How sure discovery is that this is a real cryptographic artefact, from 0 to 1.">Confidence</TableHead></TableRow></TableHeader><TableBody>{assets.map((value, index) => { const asset = record(value); const location = record(asset.location); return <TableRow key={String(asset.asset_id || index)}><TableCell className="font-mono text-xs" title={displayValue(asset.asset_id)}>{displayValue(asset.asset_id)}</TableCell><TableCell className="font-mono text-xs" title={displayValue(asset.algorithm)}>{displayValue(asset.algorithm)}</TableCell><TableCell title={titleCase(asset.family)}>{titleCase(asset.family)}</TableCell><TableCell className="max-w-[260px] truncate font-mono text-[11px]" title={displayValue(location.file)}>{displayValue(location.file)}</TableCell><TableCell><StatusBadge status={String(asset.validation_status || "needs_review")} /></TableCell><TableCell className="tnum" title={confidenceTooltip(num(asset.confidence))}>{displayValue(asset.confidence)}</TableCell></TableRow>; })}</TableBody></Table></div> : <EmptyState title="No CBOM assets" description="This analysis did not produce an inventory of cryptographic assets." />}</div>;
 }
