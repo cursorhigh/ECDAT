@@ -479,23 +479,27 @@ def _run_pipeline(run, db, mode):
         done_refs.add(ref)
         pri = str(m.get("migration_priority") or "").upper()
         risk = str(m.get("overall_risk") or "").upper()
+        h_risk = h.get("future_decryption_risk", "")
+        cb = existing.cbom_asset or {}
+        if (not h_risk or h_risk in ("NOT_ASSESSABLE", "UNKNOWN")) and cb.get("hndl_exposure"):
+            h_risk = str(cb.get("hndl_exposure")).upper()
         rows.append(
             {
                 "asset_id": ref,
-                "algorithm": ((existing.cbom_asset or {}).get("algorithm") or ""),
+                "algorithm": (cb.get("algorithm") or ""),
                 "algorithm_category": m.get("algorithm_category", ""),
                 "classical_security": m.get("classical_security", ""),
-                "hndl_risk": h.get("future_decryption_risk", ""),
+                "hndl_risk": h_risk,
                 "overall_risk": m.get("overall_risk", ""),
                 "migration_priority": m.get("migration_priority", ""),
                 "quantum_vulnerable": m.get("quantum_vulnerable"),
             }
         )
-        if pri in ("URGENT", "CRITICAL"):
+        if pri in ("URGENT", "CRITICAL") or risk == "URGENT":
             urgent += 1
-        if risk in ("CRITICAL", "HIGH") or pri in ("URGENT", "CRITICAL"):
+        if risk in ("CRITICAL", "HIGH", "URGENT") or pri in ("URGENT", "CRITICAL"):
             critical += 1
-        if h.get("applicable"):
+        if h.get("applicable") or h_risk in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
             hndl_applicable += 1
     if done_refs:
         logger.info(
@@ -551,33 +555,42 @@ def _run_pipeline(run, db, mode):
         m_assessment = m_res.get("mosca_assessment") or {}
         h_body = h_res.get("hndl") or {}
         algo_name = str(asset.get("algorithm") or asset.get("name") or "").upper()
-        algo_clean = algo_name.replace("-", "").replace("_", "")
         fam = str(asset.get("family") or "").lower()
 
-        # Classical-weak security-use primitives must have minimum HIGH priority
-        is_classical_weak = any(k in algo_clean for k in ["MD5", "SHA1", "DES", "3DES", "RC4", "RC2", "BLOWFISH"])
-        is_checksum = "checksum" in str(asset.get("purpose") or "").lower() or "checksum" in str(asset.get("role") or "").lower()
-        if is_classical_weak and not is_checksum:
-            m_assessment["classical_security"] = "WEAK"
-            if m_assessment.get("migration_priority") in ("LOW", "MEDIUM", "UNKNOWN", None):
-                m_assessment["migration_priority"] = "HIGH"
-            if m_assessment.get("overall_risk") in ("LOW", "MEDIUM", "UNKNOWN", None):
-                m_assessment["overall_risk"] = "HIGH"
+        # Authoritative Deterministic Classification
+        from segments.ml.risk_classifier import classify_canonical_asset
 
-        # Propagate Mosca At Risk into risk and priority for Shor-vulnerable assets
-        if threat_ctx.mosca_at_risk and m_assessment.get("quantum_vulnerable"):
-            is_key_est = any(k in algo_clean for k in ["RSA", "DH", "ECDH", "X25519", "X448"]) or fam in ("dh", "rsa")
-            if is_key_est:
-                if threat_ctx.internet_facing or threat_ctx.network_exposure in ("public", "external"):
-                    m_assessment["migration_priority"] = "URGENT"
-                    m_assessment["overall_risk"] = "CRITICAL"
-                elif m_assessment.get("migration_priority") in ("LOW", "MEDIUM", None):
-                    m_assessment["migration_priority"] = "HIGH"
-                    m_assessment["overall_risk"] = "HIGH"
-            else:
-                # Signature-only Shor asset: forgery-before-CRQC timeline evaluation
-                if m_assessment.get("migration_priority") in ("LOW", "MEDIUM", None):
-                    m_assessment["migration_priority"] = "HIGH"
+        hndl_risk_val = h_body.get("future_decryption_risk") or asset.get("hndl_exposure") or ""
+        mosca_params = m_assessment.get("mosca_parameters") or {}
+        mosca_def_val = m_assessment.get("timeline_deficit_years") or mosca_params.get("deficit_margin")
+
+        classification_input = {
+            "algorithm": algo_name,
+            "family": fam,
+            "key_size": (asset.get("parameters") or {}).get("key_size") or asset.get("key_size"),
+            "role": asset.get("role") or asset.get("purpose") or m_assessment.get("algorithm_category"),
+            "network_exposure": asset.get("network_exposure") or asset.get("exposure") or threat_ctx.network_exposure,
+            "internet_facing": bool(
+                asset.get("internet_facing")
+                or asset.get("public_endpoint")
+                or threat_ctx.internet_facing
+                or threat_ctx.network_exposure in ("public", "external")
+            ),
+            "hndl_risk": hndl_risk_val,
+            "migration_time_years": asset.get("migration_time_years") or mosca_params.get("x_migration_time"),
+            "data_shelf_life_years": asset.get("data_shelf_life_years") or mosca_params.get("y_shelf_life"),
+            "quantum_horizon_years": threat_ctx.crqc_year_z,
+            "mosca_at_risk": threat_ctx.mosca_at_risk or (float(mosca_def_val) > 0 if mosca_def_val is not None else False),
+            "mosca_status": m_assessment.get("mosca_status"),
+            "exploitability_score": asset.get("exploitability_score"),
+        }
+        cls_res = classify_canonical_asset(classification_input)
+
+        m_assessment["migration_priority"] = cls_res["priority"]
+        m_assessment["overall_risk"] = cls_res["risk_tier"]
+        m_assessment["remediation_wave"] = cls_res["remediation_wave"]
+        m_assessment["urgency_reason"] = cls_res["urgency_reason"]
+        m_assessment["classical_security"] = cls_res["classical_security"]
 
         AssetAssessment.objects.using(db).create(
             run=run,
@@ -589,27 +602,29 @@ def _run_pipeline(run, db, mode):
             session_id=run.session_id,
         )
 
+        hndl_risk_final = cls_res.get("hndl_exposure") or h_body.get("future_decryption_risk", "")
+        if (not hndl_risk_final or hndl_risk_final in ("NOT_ASSESSABLE", "UNKNOWN")) and asset.get("hndl_exposure"):
+            hndl_risk_final = str(asset.get("hndl_exposure")).upper()
+
         rows.append(
             {
                 "asset_id": asset.get("asset_id"),
                 "algorithm": asset.get("algorithm", ""),
                 "algorithm_category": m_assessment.get("algorithm_category", ""),
-                "classical_security": m_assessment.get("classical_security", ""),
-                "hndl_risk": h_body.get("future_decryption_risk", ""),
-                "overall_risk": m_assessment.get("overall_risk", ""),
-                "migration_priority": m_assessment.get("migration_priority", ""),
-                "quantum_vulnerable": m_assessment.get("quantum_vulnerable"),
+                "classical_security": cls_res.get("classical_security") or m_assessment.get("classical_security", ""),
+                "hndl_risk": hndl_risk_final,
+                "overall_risk": cls_res.get("risk_tier") or m_assessment.get("overall_risk", ""),
+                "migration_priority": cls_res.get("priority") or m_assessment.get("migration_priority", ""),
+                "quantum_vulnerable": cls_res.get("quantum_vulnerable") if cls_res.get("quantum_vulnerable") is not None else m_assessment.get("quantum_vulnerable"),
             }
         )
-        pri = str(m_assessment.get("migration_priority") or "").upper()
-        risk = str(m_assessment.get("overall_risk") or "").upper()
-        if pri in ("URGENT", "CRITICAL"):
+        pri = str(cls_res.get("priority") or m_assessment.get("migration_priority") or "").upper()
+        risk = str(cls_res.get("risk_tier") or m_assessment.get("overall_risk") or "").upper()
+        if pri in ("URGENT", "CRITICAL") or risk == "URGENT":
             urgent += 1
-        elif pri == "HIGH" and threat_ctx.mosca_at_risk and m_assessment.get("quantum_vulnerable"):
-            urgent += 1
-        if risk in ("CRITICAL", "HIGH") or pri in ("URGENT", "CRITICAL"):
+        if risk in ("CRITICAL", "HIGH", "URGENT") or pri in ("URGENT", "CRITICAL"):
             critical += 1
-        if h_body.get("applicable"):
+        if h_body.get("applicable") or hndl_risk_final in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
             hndl_applicable += 1
 
         run.progress = 50 + int(45 * (i + 1) / total)

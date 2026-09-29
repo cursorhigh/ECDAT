@@ -37,6 +37,9 @@ def finding_from_raw(
     else:
         code = f"{algorithm} artefact detected in {location_val}"
 
+    # Extract operational context and threat metadata from raw and normalized finding
+    evidence = norm.evidence if (norm and isinstance(norm.evidence, dict)) else {}
+    
     finding = {
         "id": finding_id_for(norm) if norm else "N-1",
         "file": location_val,
@@ -50,6 +53,21 @@ def finding_from_raw(
             "key_size": (getattr(norm, "key_size", None) if norm else data.get("key_size")),
             "curve": ((getattr(norm, "curve", "") or "") if norm else data.get("curve", "")),
         },
+        # Operational and threat context propagation
+        "exposure": data.get("exposure") or evidence.get("exposure") or data.get("network_exposure") or evidence.get("network_exposure"),
+        "network_exposure": data.get("network_exposure") or evidence.get("network_exposure") or data.get("exposure") or evidence.get("exposure"),
+        "public_endpoint": bool(data.get("public_endpoint") or evidence.get("public_endpoint") or data.get("internet_facing") or evidence.get("internet_facing")),
+        "internet_facing": bool(data.get("internet_facing") or evidence.get("internet_facing") or data.get("public_endpoint") or evidence.get("public_endpoint")),
+        "hndl_exposure": data.get("hndl_exposure") or evidence.get("hndl_exposure") or data.get("hndl_risk") or evidence.get("hndl_risk"),
+        "hndl_risk": data.get("hndl_risk") or evidence.get("hndl_risk") or data.get("hndl_exposure") or evidence.get("hndl_exposure"),
+        "data_shelf_life_years": data.get("data_shelf_life_years") or evidence.get("data_shelf_life_years") or data.get("data_lifetime_years") or evidence.get("data_lifetime_years"),
+        "data_lifetime_years": data.get("data_lifetime_years") or evidence.get("data_lifetime_years") or data.get("data_shelf_life_years") or evidence.get("data_shelf_life_years"),
+        "data_sensitivity": data.get("data_sensitivity") or evidence.get("data_sensitivity") or data.get("data_classification") or evidence.get("data_classification"),
+        "migration_time_years": data.get("migration_time_years") or evidence.get("migration_time_years"),
+        "quantum_horizon_years": data.get("quantum_horizon_years") or evidence.get("quantum_horizon_years"),
+        "role": data.get("role") or evidence.get("role") or data.get("purpose") or evidence.get("purpose"),
+        "purpose": data.get("purpose") or evidence.get("purpose") or data.get("role") or evidence.get("role"),
+        "exploitability_score": data.get("exploitability_score") or evidence.get("exploitability_score"),
     }
 
     if "key_size" in data and finding["parameters"]["key_size"] is None:

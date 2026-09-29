@@ -581,6 +581,11 @@ def migration_wave_for(asset_ctx: Dict[str, Any], blast: Dict[str, Any]) -> int:
     Wave 2 is guaranteed non-empty when Shor-vulnerable assets exist outside
     Wave 1 criteria.
     """
+    if asset_ctx.get("remediation_wave") in (1, 2, 3):
+        return int(asset_ctx["remediation_wave"])
+    if str(asset_ctx.get("migration_priority") or "").upper() == "URGENT":
+        return 1
+
     priority = (asset_ctx.get("migration_priority") or "MEDIUM").upper()
     category = (asset_ctx.get("algorithm_category") or "").upper()
     algo = normalize_algorithm(asset_ctx.get("algorithm"))

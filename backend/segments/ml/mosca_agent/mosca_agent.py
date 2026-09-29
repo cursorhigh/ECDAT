@@ -169,7 +169,12 @@ class MOSCAAgent:
         dep_count = int(asset_ctx.get("dependency_count") or ctx.get("dependency_count", 0))
         hw_dep = bool(asset_ctx.get("hardware_dependency") or ctx.get("hardware_dependency", False))
 
-        migration_time_override = asset_params.get("migration_time_years") or asset_ctx.get("migration_time_years") or ctx.get("migration_time_years")
+        migration_time_override = (
+            asset_params.get("migration_time_years")
+            or asset_ctx.get("migration_time_years")
+            or cbom_asset.get("migration_time_years")
+            or ctx.get("migration_time_years")
+        )
 
         X = self.solver.derive_migration_time(
             migration_time_years=migration_time_override,
@@ -183,8 +188,11 @@ class MOSCAAgent:
         # Priority: explicit asset parameter -> purpose heuristic -> context override -> default
         raw_lifetime = (
             asset_params.get("data_lifetime_years")
+            or asset_params.get("data_shelf_life_years")
             or asset_ctx.get("data_lifetime_years")
+            or asset_ctx.get("data_shelf_life_years")
             or cbom_asset.get("data_lifetime_years")
+            or cbom_asset.get("data_shelf_life_years")
         )
         if raw_lifetime is not None:
             Y = float(raw_lifetime)

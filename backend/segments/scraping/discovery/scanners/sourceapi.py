@@ -13,6 +13,8 @@ use is safe or unsafe -- that judgement belongs to the Understand stage.
 from __future__ import annotations
 
 import ast
+import json
+from pathlib import Path
 import re
 
 # --- algorithm normalisation -------------------------------------------------
@@ -209,13 +211,35 @@ def _algorithm_hint(name: str, literals: list[str]) -> str:
 
 
 def detect_python(text: str) -> list[dict]:
-    """Detect cryptographic API use in Python source using the real AST."""
+    """Detect cryptographic API use and declarations in Python source using the real AST."""
     try:
         tree = ast.parse(text)
     except (SyntaxError, ValueError, RecursionError):
         # A file that is not valid Python is not a Python finding; other
         # detectors still apply. Recorded honestly rather than guessed at.
         return []
+
+    # 1. Parse module-level constants and declarations
+    module_constants: dict[str, Any] = {}
+    for node in getattr(tree, "body", []):
+        if isinstance(node, ast.Assign):
+            val = None
+            if isinstance(node.value, ast.Constant):
+                val = node.value.value
+            elif isinstance(node.value, ast.Str):
+                val = node.value.s
+            elif isinstance(node.value, ast.Num):
+                val = node.value.n
+            elif isinstance(node.value, ast.NameConstant):
+                val = node.value.value
+            elif isinstance(node.value, ast.UnaryOp) and isinstance(node.value.op, ast.USub):
+                if isinstance(node.value.operand, (ast.Constant, ast.Num)):
+                    val = -getattr(node.value.operand, "value", getattr(node.value.operand, "n", 0))
+
+            if val is not None:
+                for target in node.targets:
+                    if isinstance(target, ast.Name):
+                        module_constants[target.id.upper()] = val
 
     findings: list[dict] = []
     for node in ast.walk(tree):
@@ -261,23 +285,118 @@ def detect_python(text: str) -> list[dict]:
         if key_size:
             evidence_value = f"{evidence_value}, {key_size}"
 
-        findings.append(
-            {
-                "kind": kind,
-                "family": family_name,
-                "algorithm": display or (family.upper() if family != "unknown" else ""),
-                "key_size": key_size,
-                "library": name.split(".")[0] if "." in name else "",
-                "confidence": 0.95,
-                "line": getattr(node, "lineno", None),
-                "evidence": {
-                    "type": "ast_call",
-                    "detector": "python_ast",
-                    "value": evidence_value[:200],
-                },
-                "strength": classify_algorithm_strength(algorithm or display, key_size),
-            }
-        )
+        finding_dict = {
+            "kind": kind,
+            "family": family_name,
+            "algorithm": display or (family.upper() if family != "unknown" else ""),
+            "key_size": key_size,
+            "library": name.split(".")[0] if "." in name else "",
+            "confidence": 0.95,
+            "line": getattr(node, "lineno", None),
+            "evidence": {
+                "type": "ast_call",
+                "detector": "python_ast",
+                "value": evidence_value[:200],
+            },
+            "strength": classify_algorithm_strength(algorithm or display, key_size),
+        }
+        findings.append(finding_dict)
+
+    # Module-level operational context resolution
+    is_pub = bool(
+        module_constants.get("PUBLIC_ENDPOINT")
+        or module_constants.get("TLS_PUBLIC_ENDPOINT")
+        or module_constants.get("INTERNET_FACING")
+        or module_constants.get("PUBLIC")
+        or str(module_constants.get("NETWORK_EXPOSURE") or module_constants.get("EXPOSURE") or "").lower() in ("internet", "public", "external", "internet-facing")
+    )
+    hndl_raw = module_constants.get("HNDL_EXPOSURE") or module_constants.get("HNDL_RISK")
+    if hndl_raw is True or str(hndl_raw).upper() in ("TRUE", "1", "YES"):
+        hndl_val = "HIGH"
+    elif hndl_raw:
+        hndl_val = str(hndl_raw).upper()
+    else:
+        hndl_val = None
+
+    role_val = str(module_constants.get("ROLE") or module_constants.get("PURPOSE") or ("key_exchange" if "TLS_KEY_EXCHANGE" in module_constants else ""))
+
+    # Attach module constants to all call findings
+    for f in findings:
+        if "NETWORK_EXPOSURE" in module_constants or "EXPOSURE" in module_constants:
+            f["exposure"] = str(module_constants.get("NETWORK_EXPOSURE") or module_constants.get("EXPOSURE"))
+        if is_pub:
+            f["public_endpoint"] = True
+            f["internet_facing"] = True
+            if not f.get("exposure"):
+                f["exposure"] = "internet-facing"
+        if hndl_val:
+            f["hndl_exposure"] = hndl_val
+        if role_val:
+            f["role"] = role_val
+        if "DATA_SHELF_LIFE_YEARS" in module_constants or "DATA_LIFETIME_YEARS" in module_constants:
+            try:
+                f["data_shelf_life_years"] = float(module_constants.get("DATA_SHELF_LIFE_YEARS", module_constants.get("DATA_LIFETIME_YEARS")))
+            except (TypeError, ValueError):
+                pass
+        if "MIGRATION_TIME_YEARS" in module_constants:
+            try:
+                f["migration_time_years"] = float(module_constants["MIGRATION_TIME_YEARS"])
+            except (TypeError, ValueError):
+                pass
+        if "QUANTUM_HORIZON_YEARS" in module_constants:
+            try:
+                f["quantum_horizon_years"] = float(module_constants["QUANTUM_HORIZON_YEARS"])
+            except (TypeError, ValueError):
+                pass
+        if "CLASSICAL_EXPLOITABILITY_SCORE" in module_constants or "EXPLOITABILITY_SCORE" in module_constants:
+            try:
+                f["exploitability_score"] = float(module_constants.get("CLASSICAL_EXPLOITABILITY_SCORE", module_constants.get("EXPLOITABILITY_SCORE")))
+            except (TypeError, ValueError):
+                pass
+
+    # If CRYPTO_ALGORITHM or TLS_KEY_EXCHANGE constant is present and not yet covered by AST calls, emit finding
+    algo_val = str(module_constants.get("CRYPTO_ALGORITHM") or module_constants.get("TLS_KEY_EXCHANGE") or module_constants.get("ALGORITHM") or "").strip()
+    if algo_val and not any((f.get("algorithm") or "").upper() == algo_val.upper() for f in findings):
+        fam_name, display = normalise_algorithm(algo_val)
+        ks = module_constants.get("KEY_SIZE")
+        if not ks:
+            m_ks = _SMALL_RSA.search(algo_val)
+            if m_ks:
+                try:
+                    ks = int(m_ks.group(1))
+                except ValueError:
+                    pass
+            elif "256" in algo_val:
+                ks = 256
+            elif "128" in algo_val:
+                ks = 128
+
+        f_const = {
+            "kind": "crypto_configuration",
+            "family": fam_name,
+            "algorithm": display or algo_val,
+            "key_size": ks,
+            "library": "config",
+            "confidence": 0.95,
+            "line": 1,
+            "evidence": {
+                "type": "module_constant",
+                "detector": "python_ast",
+                "value": f"CRYPTO_ALGORITHM = {algo_val}",
+            },
+            "strength": classify_algorithm_strength(display or algo_val, ks),
+            "exposure": module_constants.get("NETWORK_EXPOSURE") or module_constants.get("EXPOSURE"),
+            "public_endpoint": is_pub,
+            "internet_facing": is_pub,
+            "hndl_exposure": hndl_val,
+            "data_shelf_life_years": float(module_constants.get("DATA_SHELF_LIFE_YEARS", module_constants.get("DATA_LIFETIME_YEARS"))) if ("DATA_SHELF_LIFE_YEARS" in module_constants or "DATA_LIFETIME_YEARS" in module_constants) else None,
+            "migration_time_years": float(module_constants["MIGRATION_TIME_YEARS"]) if "MIGRATION_TIME_YEARS" in module_constants else None,
+            "quantum_horizon_years": float(module_constants["QUANTUM_HORIZON_YEARS"]) if "QUANTUM_HORIZON_YEARS" in module_constants else None,
+            "exploitability_score": float(module_constants.get("CLASSICAL_EXPLOITABILITY_SCORE", module_constants.get("EXPLOITABILITY_SCORE"))) if ("CLASSICAL_EXPLOITABILITY_SCORE" in module_constants or "EXPLOITABILITY_SCORE" in module_constants) else None,
+            "role": str(module_constants.get("ROLE") or module_constants.get("PURPOSE") or "key_exchange"),
+        }
+        findings.append(f_const)
+
     return findings
 
 
@@ -396,8 +515,185 @@ def detect_symbols(text: str) -> list[dict]:
 
 CONFIG_SUFFIXES = {
     ".conf", ".cfg", ".ini", ".cnf", ".properties", ".yaml", ".yml",
-    ".toml", ".env", ".xml", ".pem",
+    ".toml", ".env", ".xml", ".pem", ".json",
 }
+
+
+def detect_structured_config(text: str, filename: str) -> list[dict]:
+    """Detect cryptographic configurations from structured JSON and YAML manifests."""
+    findings: list[dict] = []
+    fn_lower = filename.lower()
+
+    # 1. JSON Manifests (e.g. asset-metadata.json)
+    if fn_lower.endswith(".json"):
+        try:
+            parsed = json.loads(text)
+        except Exception:
+            return findings
+
+        items = parsed if isinstance(parsed, list) else [parsed] if isinstance(parsed, dict) else []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            algo_raw = item.get("canonical_algorithm") or item.get("crypto_algorithm") or item.get("algorithm") or item.get("cipher")
+            if not algo_raw:
+                continue
+            algo_str = str(algo_raw).strip()
+            fam_name, display = normalise_algorithm(algo_str)
+            ks = item.get("key_size")
+            if not ks:
+                m_ks = _SMALL_RSA.search(algo_str)
+                if m_ks:
+                    try:
+                        ks = int(m_ks.group(1))
+                    except ValueError:
+                        pass
+                elif "256" in algo_str:
+                    ks = 256
+                elif "128" in algo_str:
+                    ks = 128
+
+            exp_str = str(item.get("exposure") or item.get("network_exposure") or "").lower()
+            is_pub = bool(
+                item.get("public_endpoint")
+                or item.get("internet_facing")
+                or exp_str in ("internet-facing", "internet", "public", "external")
+            )
+            hndl_val = str(item.get("hndl_exposure") or item.get("hndl_risk") or "").upper() or None
+
+            f = {
+                "kind": "crypto_configuration",
+                "family": fam_name,
+                "algorithm": display or algo_str,
+                "key_size": ks,
+                "library": "manifest",
+                "confidence": 0.95,
+                "line": 1,
+                "evidence": {
+                    "type": "structured_manifest",
+                    "detector": "json_parser",
+                    "value": f"{algo_str} in {filename}",
+                },
+                "strength": classify_algorithm_strength(display or algo_str, ks),
+                "exposure": item.get("exposure") or item.get("network_exposure"),
+                "public_endpoint": is_pub,
+                "internet_facing": is_pub,
+                "hndl_exposure": hndl_val,
+                "data_shelf_life_years": float(item["data_shelf_life_years"]) if "data_shelf_life_years" in item else None,
+                "migration_time_years": float(item["migration_time_years"]) if "migration_time_years" in item else None,
+                "quantum_horizon_years": float(item["quantum_horizon_years"]) if "quantum_horizon_years" in item else None,
+                "exploitability_score": float(item["exploitability_score"]) if "exploitability_score" in item else None,
+                "role": str(item.get("role") or item.get("purpose") or "key_exchange"),
+                "asset_id": str(item.get("asset_id") or ""),
+            }
+            findings.append(f)
+        return findings
+
+    # 2. YAML Manifests (e.g. tls-production.yaml)
+    if fn_lower.endswith((".yaml", ".yml")):
+        parsed_yaml = None
+        try:
+            import yaml
+            parsed_yaml = yaml.safe_load(text)
+        except Exception:
+            parsed_yaml = None
+
+        if isinstance(parsed_yaml, dict):
+            tls_block = parsed_yaml.get("tls") if isinstance(parsed_yaml.get("tls"), dict) else {}
+            qrisk_block = parsed_yaml.get("quantum_risk") if isinstance(parsed_yaml.get("quantum_risk"), dict) else {}
+            algo_raw = (
+                tls_block.get("key_exchange")
+                or tls_block.get("cipher")
+                or tls_block.get("algorithm")
+                or parsed_yaml.get("algorithm")
+                or parsed_yaml.get("key_exchange")
+            )
+            if algo_raw:
+                algo_str = str(algo_raw).strip()
+                fam_name, display = normalise_algorithm(algo_str)
+                ks = tls_block.get("key_size") or parsed_yaml.get("key_size")
+                if not ks:
+                    m_ks = _SMALL_RSA.search(algo_str)
+                    if m_ks:
+                        try:
+                            ks = int(m_ks.group(1))
+                        except ValueError:
+                            pass
+                exp_str = str(parsed_yaml.get("exposure") or tls_block.get("exposure") or "").lower()
+                is_pub = bool(
+                    parsed_yaml.get("public_endpoint")
+                    or exp_str in ("internet-facing", "internet", "public", "external")
+                )
+                hndl_val = str(qrisk_block.get("hndl_exposure") or parsed_yaml.get("hndl_exposure") or "").upper() or None
+                f = {
+                    "kind": "crypto_configuration",
+                    "family": fam_name,
+                    "algorithm": display or algo_str,
+                    "key_size": ks,
+                    "library": "yaml_config",
+                    "confidence": 0.95,
+                    "line": 1,
+                    "evidence": {
+                        "type": "structured_manifest",
+                        "detector": "yaml_parser",
+                        "value": f"{algo_str} in {filename}",
+                    },
+                    "strength": classify_algorithm_strength(display or algo_str, ks),
+                    "exposure": parsed_yaml.get("exposure") or tls_block.get("exposure"),
+                    "public_endpoint": is_pub,
+                    "internet_facing": is_pub,
+                    "hndl_exposure": hndl_val,
+                    "data_shelf_life_years": float(qrisk_block["data_shelf_life_years"]) if "data_shelf_life_years" in qrisk_block else None,
+                    "migration_time_years": float(qrisk_block["migration_time_years"]) if "migration_time_years" in qrisk_block else None,
+                    "quantum_horizon_years": float(qrisk_block["quantum_horizon_years"]) if "quantum_horizon_years" in qrisk_block else None,
+                    "role": "key_exchange",
+                }
+                findings.append(f)
+                return findings
+
+        # Fallback regex for YAML if yaml parsing produces no findings
+        m_ke = re.search(r"(?:key_exchange|algorithm|cipher):\s*[\"']?([A-Za-z0-9_-]+)[\"']?", text, re.I)
+        if m_ke:
+            algo_str = m_ke.group(1).strip()
+            fam_name, display = normalise_algorithm(algo_str)
+            m_hndl = re.search(r"hndl_exposure:\s*[\"']?([A-Za-z0-9_-]+)[\"']?", text, re.I)
+            m_exp = re.search(r"exposure:\s*[\"']?([A-Za-z0-9_-]+)[\"']?", text, re.I)
+            m_shelf = re.search(r"data_shelf_life_years:\s*([0-9.]+)", text, re.I)
+            m_mig = re.search(r"migration_time_years:\s*([0-9.]+)", text, re.I)
+            exp_str = m_exp.group(1).lower() if m_exp else ""
+            is_pub = exp_str in ("internet-facing", "internet", "public", "external")
+            hndl_val = m_hndl.group(1).upper() if m_hndl else None
+            ks = None
+            m_ks = _SMALL_RSA.search(algo_str)
+            if m_ks:
+                try:
+                    ks = int(m_ks.group(1))
+                except ValueError:
+                    pass
+            f = {
+                "kind": "crypto_configuration",
+                "family": fam_name,
+                "algorithm": display or algo_str,
+                "key_size": ks,
+                "library": "yaml_config",
+                "confidence": 0.90,
+                "line": 1,
+                "evidence": {
+                    "type": "config_directive",
+                    "detector": "yaml_regex",
+                    "value": f"{algo_str} in {filename}",
+                },
+                "strength": classify_algorithm_strength(display or algo_str, ks),
+                "exposure": exp_str,
+                "public_endpoint": is_pub,
+                "internet_facing": is_pub,
+                "hndl_exposure": hndl_val,
+                "data_shelf_life_years": float(m_shelf.group(1)) if m_shelf else None,
+                "migration_time_years": float(m_mig.group(1)) if m_mig else None,
+                "role": "key_exchange",
+            }
+            findings.append(f)
+    return findings
 
 
 def detect_config(text: str) -> list[dict]:

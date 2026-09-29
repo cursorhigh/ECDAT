@@ -105,25 +105,38 @@ class HNDLValidator:
     ) -> Tuple[bool, str]:
         """
         Check if all required HNDL operational context inputs are present and explicitly labelled.
-        If data shelf-life, data sensitivity/types, or network exposure is missing or unlabelled,
-        HNDL is NOT_ASSESSABLE.
+        Inspects both explicit cbom_asset metadata and risk_context.
         """
+        ca = cbom_asset if isinstance(cbom_asset, dict) else {}
         ctx = risk_context if isinstance(risk_context, dict) else {}
         missing = []
 
+        # If cbom_asset explicitly carries a verified HNDL rating (e.g. HIGH/CRITICAL), it is assessable
+        explicit_hndl = ca.get("hndl_exposure") or ca.get("hndl_risk") or ctx.get("hndl_exposure")
+        if explicit_hndl and str(explicit_hndl).upper() in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
+            return True, f"Explicit HNDL exposure provided: {explicit_hndl}"
+
         # 1. Data Shelf-Life / Lifetime
         data_ctx = ctx.get("data_context") if isinstance(ctx.get("data_context"), dict) else {}
-        lifetime = ctx.get("data_lifetime_years")
-        if lifetime is None:
-            lifetime = data_ctx.get("data_lifetime_years")
+        lifetime = (
+            ca.get("data_lifetime_years")
+            or ca.get("data_shelf_life_years")
+            or ctx.get("data_lifetime_years")
+            or ctx.get("data_shelf_life_years")
+            or data_ctx.get("data_lifetime_years")
+        )
         if lifetime is None:
             missing.append("data shelf-life (missing)")
 
         # 2. Data Sensitivity / Data Types
-        sensitivity = ctx.get("data_sensitivity")
-        if sensitivity is None:
-            sensitivity = data_ctx.get("sensitivity") or data_ctx.get("data_sensitivity")
-        data_types = ctx.get("data_types") or data_ctx.get("data_types")
+        sensitivity = (
+            ca.get("data_sensitivity")
+            or ca.get("data_classification")
+            or ctx.get("data_sensitivity")
+            or data_ctx.get("sensitivity")
+            or data_ctx.get("data_sensitivity")
+        )
+        data_types = ca.get("data_types") or ctx.get("data_types") or data_ctx.get("data_types")
         if isinstance(data_types, list):
             data_types = [t for t in data_types if t and str(t).lower() not in ("none labelled", "none", "unknown", "unlabelled")]
         
@@ -132,15 +145,25 @@ class HNDLValidator:
 
         # 3. Network Exposure
         net_ctx = ctx.get("network_context") if isinstance(ctx.get("network_context"), dict) else {}
-        exposure = ctx.get("network_exposure") or net_ctx.get("exposure") or ctx.get("exposure")
-        internet_exp = ctx.get("internet_exposed")
-        if internet_exp is None:
-            internet_exp = net_ctx.get("internet_exposed")
+        exposure = (
+            ca.get("network_exposure")
+            or ca.get("exposure")
+            or ctx.get("network_exposure")
+            or net_ctx.get("exposure")
+            or ctx.get("exposure")
+        )
+        internet_exp = (
+            ca.get("internet_facing")
+            or ca.get("public_endpoint")
+            or ctx.get("internet_exposed")
+            or ctx.get("internet_facing")
+            or net_ctx.get("internet_exposed")
+        )
         if exposure is None and internet_exp is None:
             missing.append("network exposure (missing)")
 
         # 4. Explicit assessability flag from ThreatContext
-        if ctx.get("hndl_assessable") is False:
+        if ctx.get("hndl_assessable") is False and not explicit_hndl:
             if not missing:
                 missing.append("insufficient operational threat context")
 

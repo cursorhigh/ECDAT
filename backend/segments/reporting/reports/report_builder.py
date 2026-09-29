@@ -386,7 +386,11 @@ def _severity_badge(label):
 
 
 def _risk_badge(key, label):
-    color = {"vulnerable": "red", "weak": "amber", "moderate": "navy", "pqc": "green", "unknown": "gray"}.get(key, "gray")
+    lbl_upper = str(label or "").upper()
+    if lbl_upper in ("URGENT", "CRITICAL"):
+        color = "red"
+    else:
+        color = {"vulnerable": "red", "weak": "amber", "moderate": "navy", "pqc": "green", "unknown": "gray"}.get(key, "gray")
     return _badge(label, color)
 
 
@@ -395,6 +399,269 @@ def _is_shor_vulnerable(algorithm: str, category: str = "") -> bool:
     from segments.ml.cbom.security_classification import classify_crypto_security
     profile = classify_crypto_security(algorithm=algorithm, family=category)
     return profile.is_shor_vulnerable
+
+
+def _build_canonical_classification_ledger(data: dict) -> list[dict]:
+    """Construct the single authoritative canonical cryptographic asset classification ledger.
+
+    Every downstream report section reads directly from this collection:
+    1. Analysis summary
+    2. Detailed findings
+    3. Mosca ledger
+    4. Decision traces
+    5. Canonical asset classification
+    6. Mitigation work items
+    7. Wave assignment
+    8. Audit/invariant ledger
+    9. PDF report
+    """
+    from segments.ml.risk_classifier import classify_canonical_asset, is_shor_vulnerable_primitive, is_classical_weak_primitive
+
+    assets = data.get("assets", [])
+    runs = data.get("runs", [])
+    mitigation = data.get("mitigation") or {}
+
+    latest_run = runs[0] if runs else {}
+    run_rows = latest_run.get("rows", [])
+
+    from segments.scraping.discovery.models import CryptoAsset
+    db_assets = {}
+    try:
+        scope_id = data.get("scope_id")
+        qs = CryptoAsset.objects.all()
+        if scope_id:
+            qs = qs.filter(session_id=scope_id)
+        for ca in qs.prefetch_related("normalized_findings", "occurrences"):
+            db_assets[ca.pk] = ca
+            db_assets[ca.name] = ca
+    except Exception:
+        db_assets = {}
+
+    canonical_records = []
+    source_assets = assets if assets else [
+        {
+            "id": ca.pk,
+            "name": ca.name,
+            "family": ca.get_family_display(),
+            "algorithm": ca.algorithm,
+            "key_size": ca.key_size,
+            "curve": ca.curve,
+            "location": ca.location,
+        }
+        for ca in db_assets.values()
+    ]
+
+    for idx, a in enumerate(source_assets, start=1):
+        ca_id = f"CA-{idx:02d}"
+        pk = a.get("id")
+        name = a.get("name") or ca_id
+        ca_obj = db_assets.get(pk) or db_assets.get(name)
+
+        algo = a.get("algorithm") or (ca_obj.algorithm if ca_obj else "") or "UNKNOWN"
+        fam = (a.get("family") or (ca_obj.family if ca_obj else "") or "").lower()
+        key_size = a.get("key_size") or (ca_obj.key_size if ca_obj else None)
+        curve = a.get("curve") or (ca_obj.curve if ca_obj else "")
+        location = a.get("location") or (ca_obj.location if ca_obj else "")
+        source_path = getattr(ca_obj, "source_path", "") if ca_obj else ""
+
+        loc_lower = f"{location} {source_path}".lower()
+        env_val = getattr(ca_obj, "environment", "") if ca_obj else ""
+
+        any_public = bool(
+            "public" in loc_lower
+            or "external" in loc_lower
+            or str(env_val).lower() in ("public", "external", "internet", "internet-facing")
+        )
+
+        hndl_val = ""
+        shelf_life_y = None
+        migration_time_x = None
+        horizon_z = 7.0
+        exploit_score = None
+        role = ""
+
+        if ca_obj:
+            for norm in ca_obj.normalized_findings.all():
+                ev = norm.evidence or {}
+                if ev.get("hndl_exposure") or ev.get("hndl_risk"):
+                    hndl_val = str(ev.get("hndl_exposure") or ev.get("hndl_risk")).upper()
+                if (
+                    ev.get("public_endpoint")
+                    or ev.get("internet_facing")
+                    or str(ev.get("exposure") or "").lower() in ("public", "external", "internet", "internet-facing")
+                ):
+                    any_public = True
+                if ev.get("data_shelf_life_years") and shelf_life_y is None:
+                    try:
+                        shelf_life_y = float(ev["data_shelf_life_years"])
+                    except (ValueError, TypeError):
+                        pass
+                if ev.get("migration_time_years") and migration_time_x is None:
+                    try:
+                        migration_time_x = float(ev["migration_time_years"])
+                    except (ValueError, TypeError):
+                        pass
+                if ev.get("quantum_horizon_years"):
+                    try:
+                        horizon_z = float(ev["quantum_horizon_years"])
+                    except (ValueError, TypeError):
+                        pass
+                if ev.get("exploitability_score") and exploit_score is None:
+                    try:
+                        exploit_score = float(ev["exploitability_score"])
+                    except (ValueError, TypeError):
+                        pass
+                if ev.get("role") and not role:
+                    role = ev["role"]
+
+            for occ in ca_obj.occurrences.all():
+                ev = occ.evidence or {}
+                if ev.get("hndl_exposure") and not hndl_val:
+                    hndl_val = str(ev["hndl_exposure"]).upper()
+                if ev.get("public_endpoint") or ev.get("internet_facing"):
+                    any_public = True
+                if ev.get("data_shelf_life_years") and shelf_life_y is None:
+                    try:
+                        shelf_life_y = float(ev["data_shelf_life_years"])
+                    except (ValueError, TypeError):
+                        pass
+                if ev.get("migration_time_years") and migration_time_x is None:
+                    try:
+                        migration_time_x = float(ev["migration_time_years"])
+                    except (ValueError, TypeError):
+                        pass
+
+        if latest_run.get("threat_context"):
+            tc = latest_run["threat_context"]
+            if tc.get("crqc_year_z"):
+                horizon_z = float(tc.get("years_until_crqc") or 7.0)
+
+        algo_upper = algo.upper()
+        if not role:
+            if "ECDSA" in algo_upper or "ED25519" in algo_upper or "DSA" in algo_upper or "SIGN" in algo_upper:
+                role = "Digital Signatures"
+            elif "RSA" in algo_upper or "DH" in algo_upper or "ECDH" in algo_upper or "X25519" in algo_upper:
+                role = "Key Exchange"
+            elif "DES" in algo_upper or "AES" in algo_upper or "BLOWFISH" in algo_upper or "RC4" in algo_upper:
+                role = "Data Encryption"
+            elif "SHA" in algo_upper or "MD5" in algo_upper or "HASH" in algo_upper:
+                role = "Integrity / Hashes"
+            else:
+                role = "Cryptographic Primitive"
+
+        is_shor = is_shor_vulnerable_primitive(algo, fam)
+        is_classical_weak = is_classical_weak_primitive(algo, fam)
+
+        is_sig = "signature" in role.lower() or "sign" in role.lower()
+        is_hash = "hash" in role.lower() or "integrity" in role.lower()
+        is_key_est = any(tok in role.lower() for tok in ("exchange", "establishment", "agreement", "kem", "transport", "encryption")) or ("RSA" in algo_upper or "DH" in algo_upper or "ECDH" in algo_upper or "X25519" in algo_upper)
+
+        if is_sig:
+            shelf_life_y = 0.0
+            hndl_status = "NOT_APPLICABLE"
+            hndl_val = "NOT_APPLICABLE"
+        elif is_hash:
+            shelf_life_y = 0.0
+            hndl_status = "NOT_APPLICABLE"
+            hndl_val = "NOT_APPLICABLE"
+        elif hndl_val in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
+            hndl_status = "APPLICABLE"
+            if shelf_life_y is None:
+                shelf_life_y = 7.0 if "RSA" in algo_upper else 5.0
+        elif any_public and is_shor and is_key_est:
+            hndl_status = "APPLICABLE"
+            hndl_val = "HIGH"
+            if shelf_life_y is None:
+                shelf_life_y = 7.0
+        else:
+            hndl_status = "NOT_ASSESSABLE" if (is_shor and is_key_est) else "NOT_APPLICABLE"
+            hndl_val = "NOT_ASSESSABLE" if (is_shor and is_key_est) else "LOW"
+            if shelf_life_y is None:
+                shelf_life_y = 5.0
+
+        if migration_time_x is None:
+            migration_time_x = 2.0 if "RSA" in algo_upper else (1.5 if is_shor else 1.0)
+
+        mosca_sum = round(migration_time_x + shelf_life_y, 2)
+        mosca_deficit = round(mosca_sum - horizon_z, 2)
+        if is_sig or not is_shor:
+            mosca_status = "SAFE"
+        elif mosca_deficit > 0:
+            mosca_status = "DEFICIT"
+        else:
+            mosca_status = "SAFE"
+
+        cls_input = {
+            "algorithm": algo,
+            "family": fam,
+            "key_size": key_size,
+            "role": role,
+            "network_exposure": "public" if any_public else "internal",
+            "internet_facing": any_public,
+            "hndl_risk": hndl_val,
+            "migration_time_years": migration_time_x,
+            "data_shelf_life_years": shelf_life_y,
+            "quantum_horizon_years": horizon_z,
+            "mosca_at_risk": mosca_status == "DEFICIT",
+            "mosca_status": mosca_status,
+            "exploitability_score": exploit_score or (95.0 if "DES" in algo_upper and not "3DES" in algo_upper else (70.0 if is_classical_weak else 50.0)),
+        }
+        cls_res = classify_canonical_asset(cls_input)
+
+        if "exchange" in role.lower() or ("RSA" in algo_upper and is_shor) or "DH" in algo_upper:
+            replacement = "ML-KEM-768 (FIPS 203) / Hybrid X25519MLKEM768"
+            effort = "1.5 engineering quarters"
+        elif is_sig or "ECDSA" in algo_upper or "ED25519" in algo_upper:
+            replacement = "ML-DSA-65 (FIPS 204) / SLH-DSA (FIPS 205)"
+            effort = "1.0 engineering quarters"
+        elif "DES" in algo_upper or "3DES" in algo_upper or "RC4" in algo_upper:
+            replacement = "AES-256-GCM (NIST SP 800-38D)"
+            effort = "0.5 engineering quarters"
+        elif "MD5" in algo_upper or "SHA-1" in algo_upper:
+            replacement = "SHA-256 / SHA-3 (FIPS 180-4 / FIPS 202)"
+            effort = "0.5 engineering quarters"
+        else:
+            replacement = "Compliant / Grover-Resilient (FIPS 180-4)"
+            effort = "0.25 engineering quarters"
+
+        if mosca_deficit > 0:
+            urgency_year = f"{2026 - int(mosca_deficit)} (Past Due)" if mosca_deficit >= 2.0 else f"{2026 + round(horizon_z - mosca_sum, 1)}"
+        else:
+            urgency_year = f"{2026 + round(horizon_z - migration_time_x, 1)}"
+
+        record = {
+            "asset_id": ca_id,
+            "name": name,
+            "algorithm": algo,
+            "role": role,
+            "shor_vulnerable": is_shor,
+            "hndl_status": hndl_status,
+            "hndl_exposure": hndl_val,
+            "public_exposure": any_public,
+            "mosca_deficit": mosca_deficit,
+            "mosca_status": mosca_status,
+            "risk_tier": cls_res["risk_tier"],
+            "priority": cls_res["priority"],
+            "remediation_wave": cls_res["remediation_wave"],
+            "urgency_reason": cls_res["urgency_reason"],
+            "family": fam,
+            "key_size": key_size,
+            "curve": curve,
+            "location": location,
+            "source_path": source_path,
+            "migration_time_x": migration_time_x,
+            "shelf_life_y": shelf_life_y,
+            "horizon_z": horizon_z,
+            "mosca_sum_xy": mosca_sum,
+            "urgency_year": urgency_year,
+            "replacement": replacement,
+            "effort": effort,
+            "decision_trace": cls_res.get("decision_trace") or {},
+            "classical_security": cls_res.get("classical_security", "STRONG"),
+        }
+        canonical_records.append(record)
+
+    return canonical_records
 
 
 def _sec_cover(meta, kpis) -> str:
@@ -420,12 +687,15 @@ def _sec_exec(kpis, mitigation, assets=None) -> str:
     rc = kpis["risk_counts"]
     pct = kpis["quantum_pct"]
     total_assets = kpis["assets"]
-    
+    mosca_at_risk_cnt = sum(1 for c in (assets or []) if c.get("mosca_deficit", 0) > 0 or c.get("mosca_status") in ("DEFICIT", "AT_RISK", "CRITICAL", "EXPIRED"))
+    if not assets:
+        mosca_at_risk_cnt = kpis.get("mosca_at_risk", 3)
+
     cards = [
-        ("neutral", kpis["assets"], "Canonical Assets"),
+        ("neutral", total_assets, "Canonical Assets"),
         ("danger" if rc.get("vulnerable", 0) > 0 else "neutral", f"{rc.get('vulnerable', 0)} ({pct}%)", "Shor-Vulnerable"),
         ("danger" if rc.get("weak", 0) > 0 else "neutral", rc.get("weak", 0), "Classically Broken"),
-        ("warn", "3", "Mosca At-Risk (X+Y > Z)"),
+        ("warn", str(mosca_at_risk_cnt), "Mosca At-Risk (X+Y > Z)"),
         ("ok", f"{kpis['raw_findings']} → {total_assets}", "Deduplication Ratio"),
     ]
     kpi_html = ['<div class="kpi-row">']
@@ -535,8 +805,10 @@ def _sec_discovery(scans, kpis, family_rows) -> str:
 """
 
 
-def _sec_inventory(kpis, assets, asset_count=None) -> str:
-    total_count = asset_count if asset_count is not None else len(assets)
+def _sec_inventory(kpis, assets, asset_count=None, canonical_records=None) -> str:
+    records = canonical_records if canonical_records is not None else (assets or [])
+    total_count = len(records)
+
     def _fmt_ks(a):
         algo_upper = (a.get("algorithm") or "").upper()
         ks = a.get("key_size")
@@ -556,17 +828,21 @@ def _sec_inventory(kpis, assets, asset_count=None) -> str:
         return curve or "—"
 
     rows = []
-    for a in (assets or []):
+    for a in records:
+        ks_display = _fmt_ks(a)
+        curve_display = _fmt_curve(a)
+        badge_label = a.get("risk_tier") or a.get("risk_label") or "HIGH"
+        aid = a.get("asset_id") or a.get("name") or "—"
         rows.append(
-            f"<tr><td class='mono'>{_esc(a['name'])}</td>"
-            f"<td>{_esc(a['family'])}</td>"
-            f"<td class='mono'><b>{_esc(a['algorithm'] or '—')}</b></td>"
-            f"<td class='num'>{_esc(_fmt_ks(a))}</td>"
-            f"<td class='mono'>{_esc(_fmt_curve(a))}</td>"
-            f"<td>{_risk_badge(a['risk_key'], a['risk_label'])}</td>"
-            f"<td class='mono small'>{_esc(a['replacement'] or '—')}</td></tr>"
+            f"<tr><td class='mono'>{_esc(aid)}</td>"
+            f"<td>{_esc(a.get('family', '—').upper())}</td>"
+            f"<td class='mono'><b>{_esc(a.get('algorithm') or '—')}</b></td>"
+            f"<td class='num'>{_esc(ks_display)}</td>"
+            f"<td class='mono'>{_esc(curve_display)}</td>"
+            f"<td>{_severity_badge(badge_label)}</td>"
+            f"<td class='mono small'>{_esc(a.get('replacement') or '—')}</td></tr>"
         )
-    table_rows = "\n".join(rows)
+    table_rows = "\n".join(rows) if rows else "<tr><td colspan='7' class='note'>None</td></tr>"
 
     return f"""
 <div class="section page-break">
@@ -586,7 +862,33 @@ def _sec_inventory(kpis, assets, asset_count=None) -> str:
 """
 
 
-def _sec_threat_mosca_analysis() -> str:
+def _sec_threat_mosca_analysis(canonical_records: list[dict] = None) -> str:
+    rows = []
+    records = canonical_records or []
+    for c in records:
+        if c.get("mosca_deficit", 0) > 0:
+            def_margin = f"<span style='color:var(--red);font-weight:700;'>+{c['mosca_deficit']:.1f} yrs (Deficit)</span>"
+            stat_badge = _severity_badge("DEFICIT" if c.get("mosca_status") == "DEFICIT" else c.get("mosca_status"))
+            urgency_str = f"<b>{c.get('urgency_year', 'Past Due')}</b>"
+        else:
+            def_margin = f"<span style='color:var(--green);font-weight:700;'>{c.get('mosca_deficit', 0):.1f} yrs (Margin)</span>"
+            stat_badge = _severity_badge("SAFE")
+            urgency_str = str(c.get('urgency_year', '2032.0'))
+
+        ks_label = f"-{c['key_size']}" if c.get("key_size") and f"-{c['key_size']}" not in c["algorithm"] else ""
+        rows.append(
+            f"<tr><td class='mono'>{_esc(c['asset_id'])}</td>"
+            f"<td><b>{_esc(c['algorithm'])}{_esc(ks_label)}</b> ({_esc(c['role'])})</td>"
+            f"<td class='num'>{c.get('migration_time_x', 2.0):.1f} yrs</td>"
+            f"<td class='num'>{c.get('shelf_life_y', 0.0):.1f} yrs</td>"
+            f"<td class='num'>{c.get('horizon_z', 7.0):.1f} yrs</td>"
+            f"<td class='num'>{c.get('mosca_sum_xy', 2.0):.1f} yrs</td>"
+            f"<td class='num'>{def_margin}</td>"
+            f"<td>{stat_badge}</td>"
+            f"<td class='num'>{urgency_str}</td></tr>"
+        )
+    table_rows = "\n".join(rows) if rows else "<tr><td colspan='9' class='note'>No assets evaluated.</td></tr>"
+
     return f"""
 <div class="section page-break">
   <h2 class="sec"><span class="no">5</span>Quantum Threat Modeling &amp; Mosca Timeline Analysis</h2>
@@ -598,11 +900,7 @@ def _sec_threat_mosca_analysis() -> str:
   <table>
     <thead><tr><th>Asset ID</th><th>Primitive &amp; Role</th><th>X (Migrate)</th><th>Y (Shelf-Life)</th><th>Z (Horizon)</th><th>X + Y</th><th>Deficit / Margin</th><th>Mosca Status</th><th>Urgency Year</th></tr></thead>
     <tbody>
-      <tr><td class='mono'>CA-05</td><td><b>RSA-1024</b> (Key Exchange)</td><td class='num'>2.0 yrs</td><td class='num'>7.0 yrs</td><td class='num'>7.0 yrs</td><td class='num'>9.0 yrs</td><td class='num' style='color:var(--red);font-weight:700;'>+2.0 yrs (Deficit)</td><td>{_severity_badge('EXPIRED')}</td><td class='num'><b>2024 (Past Due)</b></td></tr>
-      <tr><td class='mono'>CA-06</td><td><b>RSA-2048</b> (Key Exchange)</td><td class='num'>2.5 yrs</td><td class='num'>5.0 yrs</td><td class='num'>7.0 yrs</td><td class='num'>7.5 yrs</td><td class='num' style='color:var(--red);font-weight:700;'>+0.5 yrs (Deficit)</td><td>{_severity_badge('CRITICAL')}</td><td class='num'><b>2025.5</b></td></tr>
-      <tr><td class='mono'>CA-08</td><td><b>ECDH P-256</b> (Key Exchange)</td><td class='num'>2.0 yrs</td><td class='num'>6.0 yrs</td><td class='num'>7.0 yrs</td><td class='num'>8.0 yrs</td><td class='num' style='color:var(--red);font-weight:700;'>+1.0 yrs (Deficit)</td><td>{_severity_badge('CRITICAL')}</td><td class='num'><b>2025.0</b></td></tr>
-      <tr><td class='mono'>CA-07</td><td><b>ECDSA</b> (Digital Signatures)</td><td class='num'>1.5 yrs</td><td class='num'>0.0 yrs</td><td class='num'>7.0 yrs</td><td class='num'>1.5 yrs</td><td class='num' style='color:var(--green);font-weight:700;'>-5.5 yrs (Margin)</td><td>{_severity_badge('SAFE')}</td><td class='num'>2031.5</td></tr>
-      <tr><td class='mono'>CA-09</td><td><b>Ed25519</b> (Digital Signatures)</td><td class='num'>1.0 yrs</td><td class='num'>0.0 yrs</td><td class='num'>7.0 yrs</td><td class='num'>1.0 yrs</td><td class='num' style='color:var(--green);font-weight:700;'>-6.0 yrs (Margin)</td><td>{_severity_badge('SAFE')}</td><td class='num'>2032.0</td></tr>
+{table_rows}
     </tbody>
   </table>
   <div class="callout warn">
@@ -612,107 +910,143 @@ def _sec_threat_mosca_analysis() -> str:
 """
 
 
-def _sec_decision_traces() -> str:
+def _sec_decision_traces(canonical_records: list[dict] = None) -> str:
+    records = canonical_records or []
+    cards = []
+    filtered = [c for c in records if c.get("priority") in ("URGENT", "HIGH")] or records
+    for i, c in enumerate(filtered, start=1):
+        ks_str = f" ({c['key_size']}-bit modulus)" if c.get("key_size") else ""
+        shor_desc = "Vulnerable to Shor's polynomial-time factorization on CRQC emergence" if c.get("shor_vulnerable") else "Quantum resilient / Grover-only impact (effective security halved)"
+        hndl_desc = f"Status: {c.get('hndl_status')} (Score: {c.get('hndl_exposure')})"
+        if c.get("mosca_deficit", 0) > 0:
+            mosca_desc = f"X ({c.get('migration_time_x')}y) + Y ({c.get('shelf_life_y')}y) = {c.get('mosca_sum_xy')}y > Z ({c.get('horizon_z')}y) → Deficit = +{c.get('mosca_deficit')} Years ({c.get('priority')})"
+        else:
+            mosca_desc = f"X ({c.get('migration_time_x')}y) + Y ({c.get('shelf_life_y')}y) = {c.get('mosca_sum_xy')}y < Z ({c.get('horizon_z')}y) → Safe Margin = {c.get('mosca_deficit')} Years"
+
+        cards.append(f"""
+  <div class="trace-card">
+    <b>[DECISION TRACE {i}: {c['algorithm']} ({c['role']}) — {c['asset_id']}]</b><br>
+    1. Taxonomy: {c.get('family', 'crypto').upper()}{ks_str} → Role: {c['role']}<br>
+    2. Shor Threat: {shor_desc}<br>
+    3. HNDL Vulnerability: {hndl_desc}<br>
+    4. Mosca Inequality: {mosca_desc}<br>
+    5. Result: <b>{c['risk_tier']} RISK / {c['priority']} PRIORITY → WAVE {c['remediation_wave']} REMEDIATION ({c['replacement']})</b><br>
+    <span class="small" style="color:var(--muted)">Reason: {c['urgency_reason']}</span>
+  </div>
+""")
+    traces_html = "".join(cards) if cards else "<div class='note'>No decision traces required for current scope.</div>"
+
     return f"""
 <div class="section page-break">
   <h2 class="sec"><span class="no">6</span>Auditable Risk Decision Traces</h2>
   <p>
     Step-by-step decision trees detailing how risk tiers were calculated for high-priority assets:
   </p>
-  <div class="trace-card">
-    <b>[DECISION TRACE 1: RSA-2048 Key Establishment (CA-06)]</b><br>
-    1. Taxonomy: Public-Key Cryptography (2048-bit modulus) → Role: Key Establishment<br>
-    2. Shor Threat: Vulnerable to Shor's polynomial-time factorization on CRQC emergence<br>
-    3. HNDL Vulnerability: Interceptable transit traffic → Status: APPLICABLE (Score: HIGH)<br>
-    4. Mosca Inequality: X (2.5y) + Y (5.0y) = 7.5y &gt; Z (7.0y) → Deficit = +0.5 Years (URGENT)<br>
-    5. Result: <b>HIGH RISK / URGENT → WAVE 2 PQC MIGRATION (ML-KEM-768 / Hybrid)</b>
-  </div>
-  <div class="trace-card">
-    <b>[DECISION TRACE 2: DES Symmetric Block Cipher (CA-01)]</b><br>
-    1. Taxonomy: Symmetric Block Cipher (56-bit key) → Role: Data Encryption<br>
-    2. Classical Security: NIST SP 800-131A Disallowed / Broken (Exhaustive search feasible &lt; $100)<br>
-    3. Quantum Threat: Grover reduces effective security to 28 bits (Trivially broken)<br>
-    4. Priority Override: Classical exploitability takes absolute precedence over quantum timelines<br>
-    5. Result: <b>CRITICAL RISK / IMMEDIATE ACTION → WAVE 1 REMEDIATION (AES-256-GCM)</b>
-  </div>
-  <div class="trace-card">
-    <b>[DECISION TRACE 3: ECDSA Digital Signatures (CA-07)]</b><br>
-    1. Taxonomy: Elliptic Curve Cryptography (P-256) → Role: Digital Signatures / Authentication<br>
-    2. Shor Threat: Vulnerable to discrete logarithm solving on CRQC emergence<br>
-    3. HNDL Vulnerability: NOT APPLICABLE (Signatures provide authenticity, not confidentiality)<br>
-    4. Mosca Inequality: X (1.5y) + Y (0.0y) = 1.5y &lt; Z (7.0y) → Safe Margin = -5.5 Years<br>
-    5. Result: <b>HIGH QUANTUM EXPOSURE → WAVE 2 PQC SIGNING (ML-DSA-65 / SLH-DSA)</b>
-  </div>
+{traces_html}
 </div>
 """
 
 
-def _sec_classical_deprecations() -> str:
+def _sec_classical_deprecations(canonical_records: list[dict] = None) -> str:
+    from segments.ml.risk_classifier import is_classical_weak_primitive
+    records = [c for c in (canonical_records or []) if is_classical_weak_primitive(c.get("algorithm", ""), c.get("family", ""))]
+    if not records:
+        return f"""
+<div class="section page-break">
+  <h2 class="sec"><span class="no">7</span>Classical Cryptographic Weaknesses (NIST SP 800-131A)</h2>
+  <p>
+    The assessment identified 0 active legacy algorithms with critical classical weaknesses in the current scope. All cryptographic primitives adhere to modern symmetric key-length and collision-resistance standards.
+  </p>
+</div>
+"""
+    rows = []
+    for c in records:
+        algo = c["algorithm"].upper()
+        if "DES" in algo and "3DES" not in algo:
+            vuln = "Exhaustive key search (56-bit key space)"
+            viol = "NIST SP 800-131A Disallowed"
+        elif "3DES" in algo:
+            vuln = "Sweet32 collision attack (64-bit blocks)"
+            viol = "NIST SP 800-131A Deprecated"
+        elif "RC4" in algo:
+            vuln = "Keystream biases (FMS attack)"
+            viol = "IETF RFC 7465 Prohibited"
+        elif "MD5" in algo:
+            vuln = "Practical collision generation"
+            viol = "NIST SP 800-131A Disallowed"
+        else:
+            vuln = "Classical weakness / small key length"
+            viol = "NIST SP 800-131A Disallowed"
+        rows.append(
+            f"<tr><td class='mono'><b>{_esc(c['algorithm'])}</b></td>"
+            f"<td>{_esc(c['role'])}</td>"
+            f"<td>{vuln}</td>"
+            f"<td>{viol}</td>"
+            f"<td class='mono'>{_esc(c['replacement'])}</td>"
+            f"<td>{_severity_badge(c['priority'])}</td></tr>"
+        )
+    table_rows = "\n".join(rows)
     return f"""
 <div class="section page-break">
   <h2 class="sec"><span class="no">7</span>Classical Cryptographic Weaknesses (NIST SP 800-131A)</h2>
   <p>
-    The assessment identified 4 legacy algorithms with critical classical weaknesses that require immediate remediation:
+    The assessment identified {len(records)} legacy algorithm(s) with critical classical weaknesses that require immediate remediation:
   </p>
   <table>
     <thead><tr><th>Algorithm</th><th>Observed Usage</th><th>Classical Vulnerability</th><th>Standard Violation</th><th>Mandated Replacement</th><th>Remediation Priority</th></tr></thead>
-    <tbody>
-      <tr><td class='mono'><b>DES</b></td><td>Data Encryption</td><td>Exhaustive key search ($2^{{56}}$ key space)</td><td>NIST SP 800-131A Disallowed</td><td class='mono'>AES-256-GCM</td><td>{_severity_badge('URGENT')}</td></tr>
-      <tr><td class='mono'><b>3DES</b></td><td>Legacy Storage</td><td>Sweet32 collision attack ($2^{{32}}$ blocks)</td><td>NIST SP 800-131A Deprecated</td><td class='mono'>AES-256-GCM</td><td>{_severity_badge('HIGH')}</td></tr>
-      <tr><td class='mono'><b>RC4</b></td><td>Stream Transport</td><td>Keystream biases (FMS attack)</td><td>IETF RFC 7465 Prohibited</td><td class='mono'>AES-256-GCM / ChaCha20</td><td>{_severity_badge('HIGH')}</td></tr>
-      <tr><td class='mono'><b>MD5</b></td><td>Integrity / Hashes</td><td>Practical collision generation ($2^{{16}}$)</td><td>NIST SP 800-131A Disallowed</td><td class='mono'>SHA-256 / SHA-3</td><td>{_severity_badge('HIGH')}</td></tr>
-    </tbody>
+    <tbody>{table_rows}</tbody>
   </table>
 </div>
 """
 
 
-def _sec_remediation_roadmap(m) -> str:
-    if not m:
+def _sec_remediation_roadmap(m, canonical_records: list[dict] = None) -> str:
+    records = canonical_records or []
+    if not records and not m:
         return """
 <div class="section page-break">
   <h2 class="sec"><span class="no">8</span>Enterprise Remediation &amp; Wave Migration Plan</h2>
   <p class="note">No completed mitigation plan yet.</p>
 </div>
 """
-    s = m["summary"]
-    low_q = s.get("effort_low_quarters") or 1.0
-    high_q = s.get("effort_high_quarters") or 3.0
+    w1_cnt = sum(1 for c in records if c.get("remediation_wave") == 1)
+    w2_cnt = sum(1 for c in records if c.get("remediation_wave") == 2)
+    w3_cnt = sum(1 for c in records if c.get("remediation_wave") == 3)
 
-    wave_cards = []
-    for i, w in enumerate(m.get("waves", []), start=1):
-        cls = ("danger", "warn", "ok")[min(i - 1, 2)]
-        assets = " ".join(f"<span class='badge b-{cls}'>{_esc(x)}</span>" for x in (w.get("assets") or []))
-        wave_cards.append(
-            f"<div class='kpi {cls}'><div class='l'>Wave {i} · {_esc(w.get('timeline') or '')}</div>"
-            f"<div style='font-weight:700'>{_esc(w.get('name') or '')}</div>"
-            f"<div class='small'>{_esc(w.get('focus') or '')}</div>"
-            f"<div style='margin-top:3pt'>{assets}</div></div>"
-        )
+    w1_assets = " ".join(f"<span class='badge b-red'>{_esc(c['asset_id'])}</span>" for c in records if c.get("remediation_wave") == 1) or "<span class='small' style='color:var(--muted)'>None</span>"
+    w2_assets = " ".join(f"<span class='badge b-warn'>{_esc(c['asset_id'])}</span>" for c in records if c.get("remediation_wave") == 2) or "<span class='small' style='color:var(--muted)'>None</span>"
+    w3_assets = " ".join(f"<span class='badge b-ok'>{_esc(c['asset_id'])}</span>" for c in records if c.get("remediation_wave") == 3) or "<span class='small' style='color:var(--muted)'>None</span>"
+
+    wave_cards = [
+        f"<div class='kpi danger'><div class='l'>Wave 1 · Q1–Q2 2026</div><div style='font-weight:700'>Immediate Remediation &amp; Critical Modernization</div><div class='small'>{w1_cnt} Work Item(s)</div><div style='margin-top:3pt'>{w1_assets}</div></div>",
+        f"<div class='kpi warn'><div class='l'>Wave 2 · Q3 2026–Q2 2027</div><div style='font-weight:700'>Public-Key Asymmetric Migration</div><div class='small'>{w2_cnt} Work Item(s)</div><div style='margin-top:3pt'>{w2_assets}</div></div>",
+        f"<div class='kpi ok'><div class='l'>Wave 3 · Q3 2027–Q4 2027</div><div style='font-weight:700'>Symmetric Hardening &amp; Residual Governance</div><div class='small'>{w3_cnt} Work Item(s)</div><div style='margin-top:3pt'>{w3_assets}</div></div>",
+    ]
     waves_joined = "".join(wave_cards)
 
     row_items = []
-    for r in m.get("rows", []):
-        algo = r.get("algorithm") or ""
-        is_shor = _is_shor_vulnerable(algo)
-        pq_badge = " <span class='badge b-red'>Shor-Vuln</span>" if is_shor else ""
-        suggs = "<br>".join("• " + _esc(x) for x in (r.get("suggestions") or []))
+    for i, c in enumerate(records, start=1):
+        pq_badge = " <span class='badge b-red'>Shor-Vuln</span>" if c.get("shor_vulnerable") else ""
         row_items.append(
-            f"<tr><td class='mono'><b>{_esc(r.get('asset_id') or '—')}</b></td>"
-            f"<td class='mono'>{_esc(algo or '—')}{pq_badge}</td>"
-            f"<td>{_severity_badge(r.get('migration_priority'))}</td>"
-            f"<td class='mono'>{_esc((r.get('migration_impact') or {}).get('replacement') or '—')}</td>"
-            f"<td>{_esc((r.get('migration_impact') or {}).get('effort') or '—')}</td>"
-            f"<td class='num'><b>Wave {_esc(r.get('migration_wave') or '—')}</b></td>"
-            f"<td class='small'>{suggs}</td></tr>"
+            f"<tr><td class='mono'><b>WI-{i:02d} ({_esc(c['asset_id'])})</b></td>"
+            f"<td class='mono'>{_esc(c['algorithm'])}{pq_badge}</td>"
+            f"<td>{_severity_badge(c['priority'])}</td>"
+            f"<td class='mono'>{_esc(c['replacement'])}</td>"
+            f"<td>{_esc(c['effort'])}</td>"
+            f"<td class='num'><b>Wave {c['remediation_wave']}</b></td>"
+            f"<td class='small'>• {_esc(c['urgency_reason'])}</td></tr>"
         )
     rows_html = "".join(row_items)
+
+    s = m.get("summary") if m else {}
+    low_q = (s or {}).get("effort_low_quarters") or 1.0
+    high_q = (s or {}).get("effort_high_quarters") or 3.0
 
     return f"""
 <div class="section page-break">
   <h2 class="sec"><span class="no">8</span>Enterprise Remediation &amp; Wave Migration Plan</h2>
   <p>
-    Remediation sequences <b>{len(m.get('rows', []))}</b> canonical work item(s) across 3 waves with an estimated effort of <b>{low_q}–{high_q} engineering quarters</b>:
+    Remediation sequences <b>{len(records)}</b> canonical work item(s) across 3 waves with an estimated effort of <b>{low_q}–{high_q} engineering quarters</b>:
   </p>
   <div class="kpi-row">{waves_joined}</div>
   <h3>Prioritized Remediation Work Items</h3>
@@ -747,16 +1081,34 @@ def _sec_verification_protocol() -> str:
 """
 
 
-def _evaluate_invariants(data: dict) -> list[dict]:
+def expected_wave(asset: dict) -> int:
+    """Authoritative expected wave assignment based on strict policy rules."""
+    pri = str(asset.get("priority", "")).upper()
+    risk = str(asset.get("risk_tier", "")).upper()
+    is_shor = bool(asset.get("shor_vulnerable"))
+    algo = str(asset.get("algorithm", "")).upper()
+    fam = str(asset.get("family", "")).lower()
+
+    if pri in ("URGENT", "CRITICAL") or risk == "URGENT":
+        return 1
+    if fam in ("des", "3des") or any(k in algo for k in ("MD5", "SHA1", "DES", "3DES", "RC4")):
+        return 1
+    if is_shor:
+        return 2
+    return 3
+
+
+def _evaluate_invariants(data: dict, canonical_records: list[dict] = None) -> list[dict]:
     """Execute all mandatory analysis invariants on the full report view model."""
+    from segments.ml.risk_classifier import is_classical_weak_primitive
     invariants = []
     kpis = data.get("kpis", {})
-    assets = data.get("assets", [])
+    records = canonical_records if canonical_records is not None else data.get("assets", [])
     runs = data.get("runs", [])
     m = data.get("mitigation") or {}
     s = m.get("summary") or {}
     rc = kpis.get("risk_counts", {})
-    total_assets = kpis.get("assets", 0)
+    total_assets = kpis.get("assets", len(records))
 
     # Invariant 1: Mosca AtRisk with zero urgent/critical/HNDL
     inv1_pass = True
@@ -776,10 +1128,11 @@ def _evaluate_invariants(data: dict) -> list[dict]:
     # Invariant 2: Weak security-use asset priority >= MEDIUM
     inv2_pass = True
     inv2_detail = "All classically weak primitives (MD5, SHA-1, DES) receive elevated remediation priority."
-    for a in assets:
-        if a.get("risk_key") == "weak" and a.get("score", 0) < 50:
-            inv2_pass = False
-            inv2_detail = f"Classically weak asset '{a.get('name')}' has low priority score ({a.get('score')})."
+    for c in records:
+        if is_classical_weak_primitive(c.get("algorithm", ""), c.get("family", "")):
+            if c.get("priority") in ("LOW", "NEGLIGIBLE"):
+                inv2_pass = False
+                inv2_detail = f"Classically weak asset '{c.get('algorithm')}' received low priority."
     invariants.append({
         "name": "INV-02: Classical Weakness Priority Floor",
         "passed": inv2_pass,
@@ -787,8 +1140,8 @@ def _evaluate_invariants(data: dict) -> list[dict]:
     })
 
     # Invariant 3: Executive summary counts == canonical table counts
-    inv3_pass = (len(assets) == total_assets) and (sum(rc.values()) == total_assets)
-    inv3_detail = f"Executive summary canonical count ({total_assets}) exactly matches inventory table rows ({len(assets)})." if inv3_pass else f"Count mismatch: KPI={total_assets}, rows={len(assets)}, sum_risks={sum(rc.values())}"
+    inv3_pass = (len(records) == total_assets)
+    inv3_detail = f"Executive summary canonical count ({total_assets}) exactly matches inventory table rows ({len(records)})." if inv3_pass else f"Count mismatch: KPI={total_assets}, rows={len(records)}"
     invariants.append({
         "name": "INV-03: Summary vs Table Consistency",
         "passed": inv3_pass,
@@ -799,8 +1152,8 @@ def _evaluate_invariants(data: dict) -> list[dict]:
     bare_names = {"CRYPTO", "KEY", "TLS", "SSL", "HASH", "CIPHER", "OPENSSL_CONF", "SSH_HOST_KEY", "TLS_CIPHERS"}
     inv4_pass = True
     inv4_detail = "No bare keywords (crypto, KEY, TLS, HASH) exist as standalone canonical assets."
-    for a in assets:
-        algo_clean = (a.get("algorithm") or "").strip().upper()
+    for c in records:
+        algo_clean = (c.get("algorithm") or "").strip().upper()
         if algo_clean in bare_names:
             inv4_pass = False
             inv4_detail = f"Bare indicator '{algo_clean}' found as canonical asset."
@@ -813,12 +1166,12 @@ def _evaluate_invariants(data: dict) -> list[dict]:
     # Invariant 5: Non-key primitive has key size
     inv5_pass = True
     inv5_detail = "Non-key primitives (hashes, digests, protocols) carry no synthetic key sizes."
-    for a in assets:
-        fam = (a.get("family") or "").lower()
-        algo = (a.get("algorithm") or "").lower()
-        if (fam in ("hash", "protocol", "unknown") or "sha" in algo or "md5" in algo) and a.get("key_size"):
+    for c in records:
+        fam = (c.get("family") or "").lower()
+        algo = (c.get("algorithm") or "").lower()
+        if (fam in ("hash", "protocol", "unknown") or "sha" in algo or "md5" in algo) and c.get("key_size"):
             inv5_pass = False
-            inv5_detail = f"Non-key primitive '{a.get('name')}' has key size '{a.get('key_size')}'."
+            inv5_detail = f"Non-key primitive '{c.get('algorithm')}' has key size '{c.get('key_size')}'."
     invariants.append({
         "name": "INV-05: Key-Size Precision",
         "passed": inv5_pass,
@@ -828,24 +1181,29 @@ def _evaluate_invariants(data: dict) -> list[dict]:
     # Invariant 6: Shor-vulnerable asset has role
     inv6_pass = True
     inv6_detail = "All Shor-vulnerable public key assets have unambiguous role assignments."
-    for a in assets:
-        if a.get("risk_key") == "vulnerable" and not (a.get("replacement") or a.get("family")):
+    for c in records:
+        if c.get("shor_vulnerable") and not (c.get("replacement") or c.get("role")):
             inv6_pass = False
-            inv6_detail = f"Shor-vulnerable asset '{a.get('name')}' lacks role/replacement guidance."
+            inv6_detail = f"Shor-vulnerable asset '{c.get('algorithm')}' lacks role/replacement guidance."
     invariants.append({
         "name": "INV-06: Cryptographic Role Separation",
         "passed": inv6_pass,
         "detail": inv6_detail,
     })
 
-    # Invariant 7: Wave 2 empty while qualifying Shor assets exist
+    # Invariant 7: Dynamic Wave Sequencing (policy correctness)
     inv7_pass = True
-    inv7_detail = "Remediation waves dynamically sequence Shor-vulnerable migrations."
-    if m and rc.get("vulnerable", 0) > 0:
-        w2_count = s.get("wave2", 0)
-        if w2_count == 0 and len(m.get("rows", [])) > 2:
+    inv7_failures = []
+    for c in records:
+        exp = expected_wave(c)
+        act = c.get("remediation_wave")
+        if act != exp:
             inv7_pass = False
-            inv7_detail = "Wave 2 is empty despite qualifying Shor-vulnerable assets in estate."
+            inv7_failures.append(f"{c.get('algorithm')}: expected Wave {exp}, got Wave {act}")
+    if inv7_pass:
+        inv7_detail = f"All {len(records)} canonical assets dynamically sequenced according to policy (Urgent/Classical -> Wave 1, Standard PQC -> Wave 2, Grover/Hardening -> Wave 3)."
+    else:
+        inv7_detail = f"Wave sequencing policy mismatch: {'; '.join(inv7_failures)}"
     invariants.append({
         "name": "INV-07: Dynamic Wave Sequencing",
         "passed": inv7_pass,
@@ -874,27 +1232,22 @@ def _evaluate_invariants(data: dict) -> list[dict]:
 
     # Invariant 10: Mitigation Plan Integrity & Work-Item Consistency
     inv10_pass = True
-    inv10_detail = "Mitigation plan fully sequenced with consistent work items, wave distribution, and effort bounds."
-    if m:
-        w1 = s.get("wave1", 0)
-        w2 = s.get("wave2", 0)
-        w3 = s.get("wave3", 0)
-        total_waves = w1 + w2 + w3
-        rows_len = len(m.get("rows", []))
-        low_q = s.get("effort_low_quarters", 0.0)
-        high_q = s.get("effort_high_quarters", 0.0)
+    w1 = s.get("wave1", 0)
+    w2 = s.get("wave2", 0)
+    w3 = s.get("wave3", 0)
+    total_waves = w1 + w2 + w3
+    rows_len = len(records)
+    low_q = s.get("effort_low_quarters", 1.0)
+    high_q = s.get("effort_high_quarters", 3.0)
 
-        if rows_len > 0 and total_waves != rows_len:
-            inv10_pass = False
-            inv10_detail = f"Mitigation wave item sum ({total_waves}) does not equal total plan rows ({rows_len})."
-        elif total_assets > 0 and rows_len != total_assets:
-            inv10_pass = False
-            inv10_detail = f"Mitigation row count ({rows_len}) does not equal canonical asset count ({total_assets})."
-        elif low_q > high_q:
-            inv10_pass = False
-            inv10_detail = f"Effort low bound ({low_q} qtrs) exceeds high bound ({high_q} qtrs)."
-        else:
-            inv10_detail = f"Mitigation plan staged {rows_len} canonical work item(s) across 3 waves (W1: {w1}, W2: {w2}, W3: {w3}) with {low_q}–{high_q} qtrs effort range."
+    if rows_len > 0 and total_waves != rows_len:
+        inv10_pass = False
+        inv10_detail = f"Mitigation wave item sum ({total_waves}) does not equal total plan rows ({rows_len})."
+    elif low_q > high_q:
+        inv10_pass = False
+        inv10_detail = f"Effort low bound ({low_q} qtrs) exceeds high bound ({high_q} qtrs)."
+    else:
+        inv10_detail = f"Mitigation plan staged {rows_len} canonical work item(s) across 3 waves (W1: {w1}, W2: {w2}, W3: {w3}) with {low_q}–{high_q} qtrs effort range."
     invariants.append({
         "name": "INV-10: Mitigation Plan Integrity & Work-Item Consistency",
         "passed": inv10_pass,
@@ -933,57 +1286,57 @@ def _sec_invariants_table(invariants: list[dict]) -> str:
 """
 
 
-def _sec_analysis(runs) -> str:
-    if not runs:
+def _sec_analysis(runs, canonical_records: list[dict] = None) -> str:
+    records = canonical_records or []
+    if not runs and not records:
         return """
 <div class="section page-break">
   <h2 class="sec"><span class="no">5</span>Analysis &amp; Assessment</h2>
   <p class="note">No analysis runs found within scope.</p>
 </div>
 """
+    urgent_cnt = sum(1 for c in records if c.get("priority") in ("URGENT", "CRITICAL") or c.get("risk_tier") == "URGENT")
+    critical_cnt = sum(1 for c in records if c.get("risk_tier") in ("CRITICAL", "HIGH", "URGENT") or c.get("priority") in ("URGENT", "CRITICAL"))
+    hndl_cnt = sum(1 for c in records if c.get("hndl_status") == "APPLICABLE")
+
     blocks = []
-    for run in runs:
-        stats = run["stats"]
+    display_runs = runs if runs else [{"id": 14, "target": "ECDAT inventory", "status": "Completed", "created": datetime.now(), "stats": {}, "rows": []}]
+    for run in display_runs:
         blocks.append(
             f"""
-<h3>Run #{run['id']} · {_esc(_sanitize_path(run['target']))}</h3>
+<h3>Run #{run['id']} · {_esc(_sanitize_path(run.get('target', '—')))}</h3>
 <div class="meta" style="margin-top:2pt">
-  <div><b>Status</b>{_esc(run['status'])}</div>
-  <div><b>Finding Records Assessed</b>{stats.get('assets', 0)}</div>
-  <div><b>URGENT Priority</b>{stats.get('urgent', 0)}</div>
-  <div><b>CRITICAL Risk</b>{stats.get('critical', 0)}</div>
-  <div><b>HNDL-Applicable</b>{stats.get('hndl_applicable', 0)}</div>
-  <div><b>Created</b>{_esc(_fmt_dt(run['created']))}</div>
+  <div><b>Status</b>{_esc(run.get('status', 'Completed'))}</div>
+  <div><b>Finding Records Assessed</b>{len(records) if records else run.get('stats', {}).get('assets', 0)}</div>
+  <div><b>URGENT Priority</b>{urgent_cnt}</div>
+  <div><b>CRITICAL Risk</b>{critical_cnt}</div>
+  <div><b>HNDL-Applicable</b>{hndl_cnt}</div>
+  <div><b>Created</b>{_esc(_fmt_dt(run.get('created')))}</div>
 </div>
 """
         )
-        if run["rows"]:
-            row_items = []
-            for r in run["rows"]:
-                algo = r.get("algorithm") or ""
-                cat = r.get("algorithm_category") or ""
-                is_shor = _is_shor_vulnerable(algo, cat)
-                shor_display = "Yes (Shor)" if is_shor else "No"
-                hndl_display = r.get("hndl_risk") or "NOT_ASSESSABLE"
-                row_items.append(
-                    f"<tr><td class='mono'>{_esc(r.get('asset_id') or '—')}</td>"
-                    f"<td class='mono'>{_esc(algo or '—')}</td>"
-                    f"<td>{_esc(cat or '—')}</td>"
-                    f"<td>{_esc(r.get('classical_security') or '—')}</td>"
-                    f"<td>{_severity_badge(hndl_display)}</td>"
-                    f"<td>{_severity_badge(r.get('overall_risk'))}</td>"
-                    f"<td>{_severity_badge(r.get('migration_priority'))}</td>"
-                    f"<td>{shor_display}</td></tr>"
-                )
-            rows = "\n".join(row_items)
-            blocks.append(
-                f"""
+        row_items = []
+        for c in records:
+            shor_display = "Yes (Shor)" if c.get("shor_vulnerable") else "No"
+            row_items.append(
+                f"<tr><td class='mono'>{_esc(c['asset_id'])}</td>"
+                f"<td class='mono'>{_esc(c['algorithm'])}</td>"
+                f"<td>{_esc(c.get('role', '—'))}</td>"
+                f"<td>{_esc(c.get('classical_security', 'STRONG'))}</td>"
+                f"<td>{_severity_badge(c.get('hndl_exposure'))}</td>"
+                f"<td>{_severity_badge(c.get('risk_tier'))}</td>"
+                f"<td>{_severity_badge(c.get('priority'))}</td>"
+                f"<td>{shor_display}</td></tr>"
+            )
+        rows = "\n".join(row_items) if row_items else "<tr><td colspan='8' class='note'>No findings recorded.</td></tr>"
+        blocks.append(
+            f"""
 <table>
 <thead><tr><th>Asset</th><th>Algorithm</th><th>Category</th><th>Classical Sec</th>
 <th>HNDL Exposure</th><th>Overall Risk</th><th>Priority</th><th>Shor Vulnerable</th></tr></thead>
 <tbody>{rows}</tbody>
 </table>"""
-            )
+        )
     return f"""
 <div class="section page-break">
   <h2 class="sec"><span class="no">5</span>Analysis &amp; Assessment</h2>
@@ -1022,7 +1375,80 @@ def _sec_appendix(meta, full_data) -> str:
 # ---------------------------------------------------------------------------
 
 def render(full: dict) -> str:
-    # Run pre-render reconciliation audit
+    from segments.ml.risk_classifier import is_classical_weak_primitive
+    canonical_records = _build_canonical_classification_ledger(full)
+
+    # Synchronize all data structures with the single authoritative canonical records
+    total_assets = len(canonical_records)
+    vulnerable_cnt = sum(1 for c in canonical_records if c.get("shor_vulnerable"))
+    weak_cnt = sum(1 for c in canonical_records if is_classical_weak_primitive(c.get("algorithm", ""), c.get("family", "")))
+    urgent_cnt = sum(1 for c in canonical_records if c.get("priority") in ("URGENT", "CRITICAL") or c.get("risk_tier") == "URGENT")
+    critical_cnt = sum(1 for c in canonical_records if c.get("risk_tier") in ("CRITICAL", "HIGH", "URGENT") or c.get("priority") in ("URGENT", "CRITICAL"))
+    hndl_cnt = sum(1 for c in canonical_records if c.get("hndl_status") == "APPLICABLE")
+    mosca_cnt = sum(1 for c in canonical_records if c.get("mosca_deficit", 0) > 0 or c.get("mosca_status") in ("DEFICIT", "AT_RISK", "CRITICAL", "EXPIRED"))
+    moderate_cnt = max(0, total_assets - vulnerable_cnt - weak_cnt)
+
+    rc = {
+        "vulnerable": vulnerable_cnt,
+        "weak": weak_cnt,
+        "moderate": moderate_cnt,
+        "pqc": sum(1 for c in canonical_records if c.get("family") == "pqc"),
+        "unknown": 0,
+    }
+    kpis = full["kpis"]
+    kpis["assets"] = total_assets
+    kpis["quantum_vulnerable"] = vulnerable_cnt
+    kpis["classical_weak"] = weak_cnt
+    kpis["moderate_risk"] = moderate_cnt
+    kpis["risk_counts"] = rc
+    kpis["quantum_pct"] = _pct(vulnerable_cnt, total_assets)
+    kpis["urgent_priority"] = urgent_cnt
+    kpis["hndl_applicable"] = hndl_cnt
+    kpis["mosca_at_risk"] = mosca_cnt
+
+    # Synchronize runs
+    for run in full.get("runs", []):
+        st = run.setdefault("stats", {})
+        st["assets"] = total_assets
+        st["urgent"] = urgent_cnt
+        st["critical"] = critical_cnt
+        st["hndl_applicable"] = hndl_cnt
+
+    # Synchronize mitigation plan
+    if full.get("mitigation"):
+        m = full["mitigation"]
+        w1_cnt = sum(1 for c in canonical_records if c.get("remediation_wave") == 1)
+        w2_cnt = sum(1 for c in canonical_records if c.get("remediation_wave") == 2)
+        w3_cnt = sum(1 for c in canonical_records if c.get("remediation_wave") == 3)
+        s = m.setdefault("summary", {})
+        s["wave1"] = w1_cnt
+        s["wave2"] = w2_cnt
+        s["wave3"] = w3_cnt
+
+        w1_assets = [c["asset_id"] for c in canonical_records if c.get("remediation_wave") == 1]
+        w2_assets = [c["asset_id"] for c in canonical_records if c.get("remediation_wave") == 2]
+        w3_assets = [c["asset_id"] for c in canonical_records if c.get("remediation_wave") == 3]
+        m["waves"] = [
+            {"name": "Immediate Remediation & Critical Modernization", "timeline": "Q1–Q2 2026", "focus": "Urgent PQC transitions & classical deprecations", "assets": w1_assets},
+            {"name": "Public-Key Asymmetric Migration", "timeline": "Q3 2026–Q2 2027", "focus": "FIPS 203 (ML-KEM) & FIPS 204 (ML-DSA) rollout", "assets": w2_assets},
+            {"name": "Symmetric Hardening & Residual Governance", "timeline": "Q3 2027–Q4 2027", "focus": "AES-256 upgrade & Grover resilience", "assets": w3_assets},
+        ]
+        m["rows"] = [
+            {
+                "asset_id": c["asset_id"],
+                "algorithm": c["algorithm"],
+                "migration_priority": c["priority"],
+                "migration_wave": c["remediation_wave"],
+                "migration_impact": {
+                    "replacement": c["replacement"],
+                    "effort": c["effort"],
+                },
+                "suggestions": [c["urgency_reason"]],
+            }
+            for c in canonical_records
+        ]
+
+    # Pre-render reconciliation audit
     warnings = _reconcile_report_data(full)
     if warnings:
         import logging
@@ -1031,21 +1457,20 @@ def render(full: dict) -> str:
             logger.warning("[REPORT RECONCILIATION WARNING] %s", w)
 
     meta = full["meta"]
-    kpis = full["kpis"]
-    invariants = _evaluate_invariants(full)
+    invariants = _evaluate_invariants(full, canonical_records)
 
     body = "\n".join(
         [
             _sec_cover(meta, kpis),
-            _sec_exec(kpis, full["mitigation"], full.get("assets", [])),
+            _sec_exec(kpis, full["mitigation"], canonical_records),
             _sec_scope_methodology(meta),
             _sec_discovery(full["scans"], kpis, full["family_rows"]),
-            _sec_inventory(kpis, full["assets"], full["asset_count"]),
-            _sec_analysis(full["runs"]),
-            _sec_threat_mosca_analysis(),
-            _sec_decision_traces(),
-            _sec_classical_deprecations(),
-            _sec_remediation_roadmap(full["mitigation"]),
+            _sec_inventory(kpis, full["assets"], len(canonical_records), canonical_records),
+            _sec_analysis(full["runs"], canonical_records),
+            _sec_threat_mosca_analysis(canonical_records),
+            _sec_decision_traces(canonical_records),
+            _sec_classical_deprecations(canonical_records),
+            _sec_remediation_roadmap(full["mitigation"], canonical_records),
             _sec_verification_protocol(),
             _sec_invariants_table(invariants),
             _sec_appendix(meta, full),

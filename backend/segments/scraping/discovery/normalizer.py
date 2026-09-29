@@ -483,6 +483,28 @@ def normalize_finding(raw: RawFinding, using=None, session_id=None) -> Normalize
     evidence["source_context"] = source_context
     evidence["evidence_confidence"] = evidence_confidence
 
+    # Propagate operational context and threat metadata
+    for op_key in (
+        "exposure", "network_exposure", "public_endpoint", "internet_facing",
+        "hndl_exposure", "hndl_risk", "data_shelf_life_years", "data_lifetime_years",
+        "data_sensitivity", "migration_time_years", "quantum_horizon_years",
+        "role", "purpose", "exploitability_score", "asset_id",
+    ):
+        if op_key in data and op_key not in evidence:
+            evidence[op_key] = data[op_key]
+
+    if data.get("public_endpoint") or data.get("internet_facing"):
+        evidence["public_endpoint"] = True
+        evidence["internet_facing"] = True
+    elif str(data.get("exposure") or data.get("network_exposure") or "").lower() in ("internet", "internet-facing", "public", "external"):
+        evidence["public_endpoint"] = True
+        evidence["internet_facing"] = True
+
+    if data.get("hndl_exposure") or data.get("hndl_risk"):
+        h_val = str(data.get("hndl_exposure") or data.get("hndl_risk")).upper()
+        evidence["hndl_exposure"] = h_val
+        evidence["hndl_risk"] = h_val
+
     # Tag bare indicators
     if is_bare_indicator(canonical_algo, family, kind):
         evidence["is_indicator"] = True

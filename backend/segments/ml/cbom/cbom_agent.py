@@ -203,6 +203,20 @@ class CBOMAgent:
                 "validation_status": finding.get("validation_status") or "unvalidated",
                 "crypto_properties": crypto_props,
                 "explainability": explainability,
+                # Operational & threat context propagation
+                "exposure": finding.get("exposure") or finding.get("network_exposure"),
+                "network_exposure": finding.get("network_exposure") or finding.get("exposure"),
+                "public_endpoint": bool(finding.get("public_endpoint") or finding.get("internet_facing")),
+                "internet_facing": bool(finding.get("internet_facing") or finding.get("public_endpoint")),
+                "hndl_exposure": finding.get("hndl_exposure") or finding.get("hndl_risk"),
+                "hndl_risk": finding.get("hndl_risk") or finding.get("hndl_exposure"),
+                "data_shelf_life_years": finding.get("data_shelf_life_years") or finding.get("data_lifetime_years"),
+                "data_lifetime_years": finding.get("data_lifetime_years") or finding.get("data_shelf_life_years"),
+                "data_sensitivity": finding.get("data_sensitivity"),
+                "migration_time_years": finding.get("migration_time_years"),
+                "quantum_horizon_years": finding.get("quantum_horizon_years"),
+                "role": finding.get("role") or finding.get("purpose") or extracted.get("crypto_role"),
+                "exploitability_score": finding.get("exploitability_score"),
             }
 
             # Step C: Quality validation
