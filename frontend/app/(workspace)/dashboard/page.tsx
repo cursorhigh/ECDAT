@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { Activity, ArrowRight, Boxes, Check, CircleHelp, Clock, FileBarChart, Radar, ScanLine, ShieldAlert } from "lucide-react";
-import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Sector, Tooltip, XAxis, YAxis } from "recharts";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { RefreshButton } from "@/components/ui/refresh-button";
@@ -18,7 +18,7 @@ import { riskBadge } from "@/components/data/status-badge";
 import { api } from "@/lib/api/client";
 import type { ReportingOverview } from "@/lib/api/types";
 import { useSession } from "@/lib/session-context";
-import { formatNumber, refetchAllOrThrow, titleCase, truncate } from "@/lib/utils";
+import { cn, formatNumber, refetchAllOrThrow, titleCase, truncate } from "@/lib/utils";
 
 const riskColors: Record<string, string> = {
   vulnerable: "hsl(var(--destructive))",
@@ -44,6 +44,36 @@ const FAMILY_COLORS = [
   "hsl(48 75% 48%)",
   "hsl(258 50% 58%)"
 ];
+
+const renderActiveShape = (props: any) => {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+  return (
+    <g>
+      <Sector
+        cx={cx}
+        cy={cy}
+        innerRadius={innerRadius - 3}
+        outerRadius={outerRadius + 8}
+        startAngle={startAngle}
+        endAngle={endAngle}
+        fill={fill}
+        style={{
+          filter: "drop-shadow(0px 6px 12px rgba(0, 0, 0, 0.45))",
+          cursor: "pointer",
+        }}
+      />
+      <Sector
+        cx={cx}
+        cy={cy}
+        startAngle={startAngle}
+        endAngle={endAngle}
+        innerRadius={outerRadius + 11}
+        outerRadius={outerRadius + 13}
+        fill={fill}
+      />
+    </g>
+  );
+};
 
 /**
  * How much of the above to believe.
@@ -100,6 +130,7 @@ function EvidenceNote({ kpis }: { kpis: ReportingOverview["kpis"] | undefined })
 export default function DashboardPage() {
   const { ready, scopeKey, info , hasSession } = useSession();
   const [processOpen, setProcessOpen] = useState(false);
+  const [activePieIndex, setActivePieIndex] = useState<number | null>(null);
   const overview = useQuery({ queryKey: ["dashboard", "overview", scopeKey], queryFn: api.reportingOverview, enabled: ready && hasSession });
   const stats = useQuery({ queryKey: ["dashboard", "stats", scopeKey], queryFn: api.stats, enabled: ready && hasSession });
 
@@ -213,60 +244,98 @@ export default function DashboardPage() {
               <p className="text-xs text-destructive">Stats are unavailable for this scope.</p>
             ) : familyRows.length ? (
               <>
-                <div className="flex items-center gap-4">
-                  <div className="h-[132px] w-[132px] shrink-0">
+                <div className="relative flex flex-col items-center justify-center">
+                  <div className="h-[190px] w-full max-w-[280px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
                           data={familyRows}
                           dataKey="value"
                           nameKey="name"
-                          innerRadius={38}
-                          outerRadius={62}
-                          paddingAngle={1.5}
-                          stroke="none"
-                          isAnimationActive={false}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={54}
+                          outerRadius={78}
+                          paddingAngle={2}
+                          stroke="hsl(var(--background))"
+                          strokeWidth={2}
+                          activeIndex={activePieIndex ?? undefined}
+                          activeShape={renderActiveShape}
+                          onMouseEnter={(_, index) => setActivePieIndex(index)}
+                          onMouseLeave={() => setActivePieIndex(null)}
+                          isAnimationActive={true}
                         >
                           {familyRows.map((row) => (
-                            <Cell key={row.name} fill={row.color} />
+                            <Cell key={row.name} fill={row.color} className="cursor-pointer" />
                           ))}
                         </Pie>
+                        <Tooltip content={() => null} />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
-                  {/*
-                    A legend rather than a recharts <Tooltip>: the family names
-                    are long, the counts are small, and a hover-only readout
-                    would hide the numbers on touch and in print.
-                  */}
-                  <ul className="min-w-0 flex-1 space-y-1.5">
-                    {familyRows.map((row) => (
-                      <li key={row.name} className="flex items-center gap-2 text-[11px]">
-                        <span
-                          aria-hidden="true"
-                          className="h-2 w-2 shrink-0"
-                          style={{ backgroundColor: row.color }}
-                        />
-                        <span className="min-w-0 flex-1 truncate text-muted-foreground" title={row.name}>
-                          {titleCase(row.name)}
+
+                  {/* Centered Donut Hole Information Overlay */}
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none text-center flex flex-col items-center justify-center select-none">
+                    {activePieIndex !== null && familyRows[activePieIndex] ? (
+                      <>
+                        <span className="text-[11px] font-semibold text-foreground/90 truncate max-w-[84px]">
+                          {titleCase(familyRows[activePieIndex].name)}
                         </span>
-                        <span className="tnum shrink-0 font-medium text-foreground">
-                          {formatNumber(row.value)}
+                        <span className="text-xl font-bold tracking-tight text-foreground tnum">
+                          {familyRows[activePieIndex].pct}%
                         </span>
-                        <span className="tnum w-9 shrink-0 text-right text-muted-foreground">
-                          {row.pct}%
+                        <span className="text-[10px] font-mono text-muted-foreground tnum">
+                          {familyRows[activePieIndex].value} asset{familyRows[activePieIndex].value === 1 ? "" : "s"}
                         </span>
-                      </li>
-                    ))}
-                  </ul>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          Total
+                        </span>
+                        <span className="text-xl font-bold tracking-tight text-foreground tnum">
+                          {formatNumber(stats.data?.asset_total || 0)}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          Assets
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
 
-                {/*
-                  Pipeline telemetry, kept as plain numbers. These are different
-                  measurements at different stages -- summing them into the pie
-                  above would double-count the same findings twice.
-                */}
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t pt-3 text-[11px] text-muted-foreground">
+                {/* Horizontal legend below the pie chart */}
+                <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1 px-1">
+                  {familyRows.map((row, index) => {
+                    const isHovered = activePieIndex === index;
+                    return (
+                      <button
+                        type="button"
+                        key={row.name}
+                        onMouseEnter={() => setActivePieIndex(index)}
+                        onMouseLeave={() => setActivePieIndex(null)}
+                        onClick={() => setActivePieIndex(activePieIndex === index ? null : index)}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs transition-all duration-150 cursor-pointer border",
+                          isHovered
+                            ? "bg-accent border-primary ring-1 ring-primary/40 text-foreground scale-105 shadow-sm"
+                            : "border-border/40 text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                        )}
+                      >
+                        <span
+                          aria-hidden="true"
+                          className="h-2 w-2 rounded-full shrink-0 shadow-sm"
+                          style={{ backgroundColor: row.color }}
+                        />
+                        <span className="font-medium">{titleCase(row.name)}</span>
+                        <span className="font-mono text-[11px] text-muted-foreground">({row.value})</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Pipeline telemetry */}
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-4 gap-y-1 border-t pt-3 text-[11px] text-muted-foreground">
                   {[
                     ["Findings", stats.data?.raw_total],
                     ["Normalized", stats.data?.normalized_total],
