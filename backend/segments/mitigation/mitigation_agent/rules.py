@@ -581,6 +581,11 @@ def migration_wave_for(asset_ctx: Dict[str, Any], blast: Dict[str, Any]) -> int:
     Wave 2 is guaranteed non-empty when Shor-vulnerable assets exist outside
     Wave 1 criteria.
     """
+    if asset_ctx.get("remediation_wave") in (1, 2, 3):
+        return int(asset_ctx["remediation_wave"])
+    if str(asset_ctx.get("migration_priority") or "").upper() == "URGENT":
+        return 1
+
     priority = (asset_ctx.get("migration_priority") or "MEDIUM").upper()
     category = (asset_ctx.get("algorithm_category") or "").upper()
     algo = normalize_algorithm(asset_ctx.get("algorithm"))
@@ -977,68 +982,188 @@ def get_standards_recommendations(profile: str = "nist_general") -> Dict[str, st
 
 def baseline_recommendations(bundle: Dict[str, Any]) -> List[Dict[str, Any]]:
     assets = bundle.get("assets") or []
-    urgent = sum(1 for a in assets if (a.get("migration_priority") or "").upper() == "URGENT")
-    qv = sum(1 for a in assets if a.get("quantum_vulnerable"))
-    hndl = sum(1 for a in assets if (a.get("hndl_risk") or "").upper() in ("HIGH", "CRITICAL"))
-    classical_weak = sum(
-        1 for a in assets
-        if normalize_algorithm(a.get("algorithm")) in ("MD5", "SHA1", "SHA-1", "DES", "3DES", "RC4", "RC2", "BLOWFISH")
-    )
+    if not assets:
+        return [
+            {
+                "priority": "LOW",
+                "wave": 1,
+                "title": "Continuous Cryptographic Posture Monitoring",
+                "description": (
+                    "No cryptographic assets were detected in this scope. "
+                    "Establish automated CBOM discovery in CI to monitor new dependencies."
+                ),
+                "actions": [
+                    "Maintain continuous discovery scans on code repositories",
+                    "Enforce approved cryptographic algorithm policy in pull requests",
+                ],
+            }
+        ]
+
+    app_name = bundle.get("application") or bundle.get("target") or "Scanned Target"
     exposure = exposure_for(bundle)
 
-    recs = [
-        {
-            "priority": "HIGH",
-            "wave": 1,
-            "title": "Classical-weak remediation",
-            "description": (
-                f"{classical_weak} canonical asset(s) use classically broken/deprecated primitives "
-                "(MD5, SHA-1, DES, 3DES, RC4, RC2, Blowfish). Remediate immediately regardless "
-                "of quantum timeline."
-            ),
-            "actions": ["Replace MD5/SHA-1 with SHA-256+", "Migrate DES/3DES/RC4 to AES-256-GCM"],
-        },
-        {
-            "priority": "HIGH",
-            "wave": 1,
-            "title": "HNDL exposure remediation & key protection",
-            "description": (
-                f"{hndl} canonical asset(s) face harvest-now-decrypt-later exposure. Address "
-                "HNDL-exposed confidentiality paths through algorithm migration or hybridization. "
-                "Rotate keys/certificates only where key hygiene, expiry, weakness, or compromise requires rotation."
-            ),
-            "actions": ["Enable hybrid PQC/classical handshakes (X25519MLKEM768)", "Rotate certificates only where expired or weak"],
-        },
-        {
-            "priority": "HIGH",
-            "wave": 2,
-            "title": "Post-quantum public-key migration",
-            "description": (
-                f"{qv} canonical asset(s) use Shor-vulnerable public-key primitives on a "
-                f"{exposure} surface. Migrate to NIST PQC (ML-KEM/ML-DSA) with hybrid "
-                "transition where interoperability requires."
-            ),
-            "actions": ["Schedule RSA/ECC -> ML-KEM/ML-DSA migration", "Update libraries & SDKs", "Rotate certificate chains"],
-        },
-        {
-            "priority": "MEDIUM",
-            "wave": 3,
-            "title": "Symmetric & digest hardening",
-            "description": (
-                "Consolidate data-at-rest to AES-256-GCM and strengthen hashes to "
-                "SHA-256/SHA-3; retire legacy cipher references."
-            ),
-            "actions": ["AES-256-GCM enforcement", "SHA-256+/SHA-3 adoption", "Retire legacy ciphers"],
-        },
-        {
-            "priority": "MEDIUM",
-            "wave": 3,
-            "title": "Crypto governance & policy",
-            "description": (
-                "Codify an approved-cryptography policy and wire CBOM-driven guardrails "
-                "into CI so new disallowed primitives fail the build."
-            ),
-            "actions": ["Publish approved algorithms policy", "CBOM guardrail in CI", "Quarterly crypto audit"],
-        },
+    # 1. Classical-weak primitives (MD5, SHA-1, DES, 3DES, RC4, etc.)
+    classical_weak_assets = [
+        a for a in assets
+        if normalize_algorithm(a.get("algorithm")) in ("MD5", "SHA1", "SHA-1", "DES", "3DES", "RC4", "RC2", "BLOWFISH")
+        or (a.get("classical_security") or "").upper() in ("BROKEN", "LEGACY_DEPRECATED", "WEAK")
     ]
+
+    # 2. HNDL-exposed assets
+    hndl_assets = [
+        a for a in assets
+        if (a.get("hndl_risk") or "").upper() in ("HIGH", "CRITICAL")
+        or a.get("hndl_status") == "APPLICABLE"
+        or (isinstance(a.get("hndl"), dict) and a.get("hndl", {}).get("applicable"))
+        or (isinstance(a.get("cbom_asset"), dict) and a.get("cbom_asset", {}).get("hndl_status") == "APPLICABLE")
+    ]
+
+    # 3. Shor / Quantum-vulnerable public-key assets
+    shor_vulnerable_assets = [
+        a for a in assets
+        if a.get("quantum_vulnerable")
+        or (a.get("algorithm_category") or "").upper() == "PUBLIC_KEY"
+        or any(k in normalize_algorithm(a.get("algorithm")) for k in ("RSA", "ECC", "ECDSA", "ECDH", "ED25519", "DSA", "DH", "X25519"))
+    ]
+
+    # 4. Symmetric encryption and hashing
+    symmetric_assets = [
+        a for a in assets
+        if (a.get("algorithm_category") or "").upper() in ("SYMMETRIC", "HASH")
+        and not a.get("quantum_vulnerable")
+        and a not in classical_weak_assets
+    ]
+
+    # 5. PQC-ready assets
+    pqc_ready_assets = [
+        a for a in assets
+        if any(k in normalize_algorithm(a.get("algorithm")) for k in ("MLKEM", "ML-KEM", "MLDSA", "ML-DSA", "SLHDSA", "SLH-DSA", "FALCON", "KYBER", "DILITHIUM", "SPHINCS"))
+        or (a.get("overall_risk") or "").upper() in ("PQC", "READY", "SAFE")
+    ]
+
+    recs: List[Dict[str, Any]] = []
+
+    # Recommendation 1: Classical Broken/Deprecated Primitives
+    if classical_weak_assets:
+        weak_algos = sorted({(a.get("algorithm") or "unknown").upper() for a in classical_weak_assets})
+        weak_algos_str = ", ".join(weak_algos)
+        actions = []
+        if any("MD5" in alg or "SHA" in alg for alg in weak_algos):
+            actions.append("Replace broken digests (MD5, SHA-1) with SHA-256 or SHA-384")
+        if any(alg in ("DES", "3DES", "RC4", "RC2", "BLOWFISH") for alg in weak_algos):
+            actions.append("Migrate legacy ciphers (DES, 3DES, RC4) to AES-256-GCM")
+        actions.append("Audit hardcoded keys or initialization vectors associated with legacy primitives")
+
+        recs.append({
+            "priority": "URGENT" if any((a.get("migration_priority") or "").upper() == "URGENT" for a in classical_weak_assets) else "HIGH",
+            "wave": 1,
+            "title": f"Legacy & Deprecated Primitive Remediation ({weak_algos_str})",
+            "description": (
+                f"{len(classical_weak_assets)} asset(s) utilize broken/deprecated algorithms ({weak_algos_str}). "
+                "These fail classical security standards (NIST SP 800-131A) and require immediate replacement "
+                "before post-quantum cryptographic transitions."
+            ),
+            "actions": actions or ["Replace deprecated algorithms with NIST-approved primitives (AES-256-GCM, SHA-256+)"],
+        })
+
+    # Recommendation 2: HNDL Exposure
+    if hndl_assets:
+        hndl_algos = sorted({(a.get("algorithm") or "unknown").upper() for a in hndl_assets})
+        hndl_algos_str = ", ".join(hndl_algos)
+        recs.append({
+            "priority": "URGENT",
+            "wave": 1,
+            "title": f"Harvest-Now-Decrypt-Later (HNDL) Threat Remediation ({hndl_algos_str})",
+            "description": (
+                f"{len(hndl_assets)} asset(s) using ({hndl_algos_str}) protect data whose shelf-life extends into the "
+                f"quantum horizon on an {exposure} attack surface. Eavesdropped ciphertext is at risk of retroactive decryption."
+            ),
+            "actions": [
+                "Deploy hybrid key establishment (e.g. X25519 + ML-KEM-768) on TLS & key exchange endpoints",
+                "Re-encrypt sensitive archived datasets using post-quantum safe encapsulation",
+                "Enforce short certificate lifetimes and immediate rotation for exposed long-term keys",
+            ],
+        })
+
+    # Recommendation 3: Shor-Vulnerable Public-Key Infrastructure
+    if shor_vulnerable_assets:
+        shor_algos = sorted({(a.get("algorithm") or "unknown").upper() for a in shor_vulnerable_assets})
+        shor_algos_str = ", ".join(shor_algos)
+        has_kem = any(any(k in alg for k in ("RSA", "DH", "ECDH", "X25519")) for alg in shor_algos)
+        has_sig = any(any(k in alg for k in ("RSA", "DSA", "ECDSA", "ED25519")) for alg in shor_algos)
+
+        actions = []
+        if has_kem:
+            actions.append("Migrate public-key exchange & encryption to NIST FIPS 203 (ML-KEM-768/1024)")
+        if has_sig:
+            actions.append("Migrate digital signatures & PKI identity to NIST FIPS 204 (ML-DSA-65/87)")
+        actions.append(f"Upgrade crypto provider libraries to PQC-enabled toolchains across {exposure} services")
+
+        urgent_count = sum(1 for a in shor_vulnerable_assets if (a.get("migration_priority") or "").upper() == "URGENT")
+        recs.append({
+            "priority": "URGENT" if urgent_count > 0 else "HIGH",
+            "wave": 2,
+            "title": f"Post-Quantum Public-Key Transition ({shor_algos_str})",
+            "description": (
+                f"{len(shor_vulnerable_assets)} public-key asset(s) ({shor_algos_str}) are vulnerable to polynomial-time "
+                f"quantum cryptanalysis (Shor's algorithm). Execute phased rollout to NIST FIPS 203 & 204 standards."
+            ),
+            "actions": actions,
+        })
+
+    # Recommendation 4: Symmetric Hardening & Grover Margin
+    if symmetric_assets:
+        sym_algos = sorted({(a.get("algorithm") or "unknown").upper() for a in symmetric_assets})
+        has_128 = any("128" in alg for alg in sym_algos)
+        actions = [
+            "Standardize on AES-256-GCM as the default cipher suite for all data-at-rest and in-transit encryption",
+            "Adopt SHA-256 or SHA-3 for digital digests, HMACs, and integrity validation",
+        ]
+        if has_128:
+            actions.insert(0, "Upgrade 128-bit key configurations to 256-bit keys to preserve 128-bit quantum security against Grover")
+
+        recs.append({
+            "priority": "MEDIUM",
+            "wave": 3,
+            "title": f"Symmetric & Digest Resilience Hardening ({', '.join(sym_algos)})",
+            "description": (
+                f"Audit {len(symmetric_assets)} symmetric & hashing asset(s). Consolidate configurations to 256-bit keys "
+                "to ensure adequate security margins against quantum acceleration."
+            ),
+            "actions": actions,
+        })
+
+    # Recommendation 5: PQC-Ready Asset Verification (if applicable)
+    if pqc_ready_assets:
+        pqc_algos = sorted({(a.get("algorithm") or "unknown").upper() for a in pqc_ready_assets})
+        recs.append({
+            "priority": "LOW",
+            "wave": 3,
+            "title": f"Verified Post-Quantum Asset Maintenance ({', '.join(pqc_algos)})",
+            "description": (
+                f"{len(pqc_ready_assets)} asset(s) already utilize approved post-quantum or quantum-resistant primitives. "
+                "Maintain operational compliance and track ongoing NIST FIPS errata."
+            ),
+            "actions": [
+                "Verify parameter set configurations against NIST Special Publication benchmarks",
+                "Ensure cryptographic agility to accommodate future parameter updates",
+            ],
+        })
+
+    # Recommendation 6: Governance & Pipeline Guardrails
+    recs.append({
+        "priority": "MEDIUM",
+        "wave": 3,
+        "title": f"Cryptographic Agility & CI/CD Governance ({app_name})",
+        "description": (
+            f"Establish automated CBOM discovery and cryptographic linting in the build pipelines for {app_name}. "
+            "Prevent regressions and stop unapproved cryptographic algorithms at the pull request stage."
+        ),
+        "actions": [
+            f"Embed automated ECDAT CBOM generation into {app_name} CI/CD workflows",
+            "Codify an organization-wide Approved Cryptographic Algorithms Policy",
+            "Schedule quarterly quantum readiness re-assessments and audit trail reviews",
+        ],
+    })
+
     return recs

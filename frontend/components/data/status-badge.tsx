@@ -22,7 +22,8 @@ const statusMap: Record<string, { label: string; variant: BadgeProps["variant"];
   canceled: { label: "Cancelled", variant: "muted", icon: CircleAlert },
   active: { label: "Active", variant: "success", icon: ShieldCheck },
   dormant: { label: "Dormant", variant: "muted", icon: CircleDashed },
-  needs_review: { label: "Needs review", variant: "warning", icon: CircleAlert }
+  needs_review: { label: "Needs review", variant: "warning", icon: CircleAlert },
+  urgent: { label: "Urgent", variant: "purple", icon: CircleAlert }
 };
 
 export function StatusBadge({ status, label, className }: { status?: string | null; label?: string; className?: string }) {
@@ -34,7 +35,8 @@ export function StatusBadge({ status, label, className }: { status?: string | nu
 
 export function riskBadge(label?: unknown) {
   const value = String(label || "unknown").toLowerCase();
-  if (["vulnerable", "critical", "urgent", "high"].includes(value)) return <Badge variant="danger" className="normal-case tracking-normal">{titleCase(label)}</Badge>;
+  if (value === "urgent") return <Badge variant="purple" className="normal-case tracking-normal">{titleCase(label)}</Badge>;
+  if (["vulnerable", "critical", "high"].includes(value)) return <Badge variant="danger" className="normal-case tracking-normal">{titleCase(label)}</Badge>;
   if (["weak", "medium", "moderate"].includes(value)) return <Badge variant="warning" className="normal-case tracking-normal">{titleCase(label)}</Badge>;
   if (["pqc", "pqc-ready", "low", "ready"].includes(value)) return <Badge variant="success" className="normal-case tracking-normal">{titleCase(label)}</Badge>;
   return <Badge variant="muted" className="normal-case tracking-normal">{titleCase(label)}</Badge>;

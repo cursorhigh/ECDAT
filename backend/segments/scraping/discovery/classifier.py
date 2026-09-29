@@ -194,6 +194,11 @@ def classify_asset(norm: NormalizedFinding, using=None, session_id=None) -> Cryp
             "location": location,
             "source_path": source_path,
             "owner": _infer_owner(location),
+            "environment": "internet-facing" if (
+                (norm.evidence or {}).get("public_endpoint")
+                or (norm.evidence or {}).get("internet_facing")
+                or "internet" in str((norm.evidence or {}).get("exposure") or "").lower()
+            ) else "",
         },
     )
 
@@ -213,6 +218,9 @@ def classify_asset(norm: NormalizedFinding, using=None, session_id=None) -> Cryp
         ):
             if value and not getattr(asset, field):
                 updates[field] = value
+        ev = norm.evidence or {}
+        if (ev.get("public_endpoint") or ev.get("internet_facing") or "internet" in str(ev.get("exposure") or "").lower()) and not asset.environment:
+            updates["environment"] = "internet-facing"
         if updates:
             for field, value in updates.items():
                 setattr(asset, field, value)

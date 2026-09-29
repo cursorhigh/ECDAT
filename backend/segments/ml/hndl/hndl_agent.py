@@ -139,14 +139,27 @@ class HNDLAgent:
         curve = params.get("curve") or cbom_asset.get("curve")
         protocol = str(cbom_asset.get("protocol") or ctx.get("protocol") or "")
 
-        # Extract context attributes (supporting flat and nested legacy contexts)
+        # Extract context attributes (supporting cbom_asset fields, flat and nested legacy contexts)
         data_ctx = ctx.get("data_context") if isinstance(ctx.get("data_context"), dict) else {}
         net_ctx = ctx.get("network_context") if isinstance(ctx.get("network_context"), dict) else {}
 
-        lifetime_val = ctx.get("data_lifetime_years", data_ctx.get("data_lifetime_years", 5.0))
+        explicit_hndl = cbom_asset.get("hndl_exposure") or cbom_asset.get("hndl_risk") or ctx.get("hndl_exposure")
+
+        lifetime_val = (
+            cbom_asset.get("data_lifetime_years")
+            or cbom_asset.get("data_shelf_life_years")
+            or ctx.get("data_lifetime_years")
+            or ctx.get("data_shelf_life_years")
+            or data_ctx.get("data_lifetime_years", 5.0)
+        )
         data_lifetime = float(lifetime_val) if lifetime_val is not None else 5.0
 
-        raw_sensitivity = ctx.get("data_sensitivity", data_ctx.get("sensitivity", 3))
+        raw_sensitivity = (
+            cbom_asset.get("data_sensitivity")
+            or cbom_asset.get("data_classification")
+            or ctx.get("data_sensitivity")
+            or data_ctx.get("sensitivity", 3)
+        )
         if isinstance(raw_sensitivity, str):
             sens_upper = raw_sensitivity.upper()
             data_sensitivity = self.validator.SENSITIVITY_MAP.get(sens_upper, 3) if not sens_upper.isdigit() else int(sens_upper)
@@ -155,8 +168,20 @@ class HNDLAgent:
 
         business_crit = int(ctx.get("business_criticality", 3))
 
-        internet_exp = bool(ctx.get("internet_exposed", net_ctx.get("internet_exposed", False)))
-        external_fac = bool(ctx.get("external_facing", False))
+        internet_exp = bool(
+            cbom_asset.get("internet_facing")
+            or cbom_asset.get("public_endpoint")
+            or str(cbom_asset.get("exposure") or "").lower() in ("public", "external")
+            or str(cbom_asset.get("network_exposure") or "").lower() in ("public", "external")
+            or ctx.get("internet_exposed")
+            or ctx.get("internet_facing")
+            or net_ctx.get("internet_exposed", False)
+        )
+        external_fac = bool(
+            cbom_asset.get("public_endpoint")
+            or str(cbom_asset.get("exposure") or "").lower() in ("public", "external")
+            or ctx.get("external_facing", False)
+        )
         is_collectable = net_ctx.get("collectable", True)
         data_at_rest = bool(ctx.get("data_at_rest", not is_collectable if not internet_exp else False))
         data_in_transit = bool(ctx.get("data_in_transit", is_collectable and not data_at_rest))
@@ -296,7 +321,11 @@ class HNDLAgent:
         has_operational_context = True
         evidence_status = "ASSESSED"
         qv_val = qv
-        if not applicable or s_harvest == 0.0 or harvest_tier == "LOW":
+        if explicit_hndl and str(explicit_hndl).upper() in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
+            future_risk_val = str(explicit_hndl).upper()
+            applicable = True
+            urgency_tier = future_risk_val
+        elif not applicable or s_harvest == 0.0 or harvest_tier == "LOW":
             future_risk_val = "LOW" if (s_crypto > 0.0 and qv_val) else "NEGLIGIBLE"
         elif future_risk == "CRITICAL" and data_sensitivity >= 4:
             future_risk_val = "HIGH"

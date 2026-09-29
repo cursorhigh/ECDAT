@@ -572,8 +572,13 @@ class CryptoArtefactScanner(BaseScanner):
             for hit in sourceapi.detect_symbols(text):
                 emit(hit)
 
+        # Structured configuration manifests (JSON, YAML)
+        if filename.endswith((".json", ".yaml", ".yml")):
+            for hit in sourceapi.detect_structured_config(text, filename):
+                emit(hit)
+
         # Configuration directives, only for files that can actually hold them.
-        if Path(filename).suffix.lower() in sourceapi.CONFIG_SUFFIXES:
+        if Path(filename).suffix.lower() in sourceapi.CONFIG_SUFFIXES and not filename.endswith(".json"):
             for hit in sourceapi.detect_config(text):
                 emit(hit)
 

@@ -419,6 +419,9 @@ export interface MitigationOverview {
     plans: number;
     assets: number;
     urgent: number;
+    high: number;
+    medium: number;
+    low: number;
     quantum_vulnerable: number;
     hndl_exposed: number;
   };

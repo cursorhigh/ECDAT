@@ -10,9 +10,10 @@ const badgeVariants = cva("inline-flex items-center gap-1.5 whitespace-nowrap bo
       default: "border-primary/30 bg-primary/10 text-primary",
       secondary: "border-border bg-secondary text-secondary-foreground",
       outline: "border-border bg-transparent text-muted-foreground",
-      success: "border-success/35 bg-success/10 text-success",
+      success: "border-emerald-500/35 bg-emerald-500/10 text-emerald-400",
       warning: "border-warning/35 bg-warning/10 text-warning",
       danger: "border-destructive/35 bg-destructive/10 text-destructive",
+      purple: "border-purple-500/35 bg-purple-500/10 text-purple-400",
       info: "border-info/35 bg-info/10 text-info",
       muted: "border-border bg-muted text-muted-foreground"
     }

@@ -321,56 +321,125 @@ def _run_bundle(run, db):
     canonical_assets = (
         list(CryptoAsset.objects.using(db).filter(session_id=run.session_id).order_by("id"))
         if run.session_id
-        else []
+        else list(CryptoAsset.objects.using(db).all().order_by("id"))
     )
+
+    from segments.ml.risk_classifier import classify_canonical_asset
 
     if canonical_assets:
         assessments = list(run.assessments.all())
         for ca in canonical_assets:
-            key, label, _ = _asset_risk(ca)
-            score = _priority_score(ca, key)
             algo_upper = (ca.algorithm or "").upper()
-            qv = ca.family in ("rsa", "ecc", "dsa", "dh") or any(
-                k in algo_upper for k in ("RSA", "ECC", "ECDSA", "ECDH", "ED25519", "EDDSA", "DSA", "DH", "X25519")
-            )
+            algo_clean = algo_upper.replace("-", "").replace("_", "")
 
             if ca.family in ("rsa", "ecc", "dsa", "dh") or any(
-                k in algo_upper for k in ("RSA", "ECC", "ECDSA", "ECDH", "ED25519", "DSA", "DH", "X25519")
+                k in algo_clean for k in ("RSA", "ECC", "ECDSA", "ECDH", "ED25519", "DSA", "DH", "X25519")
             ):
                 cat = "PUBLIC_KEY"
             elif ca.family in ("aes", "des", "3des") or any(
-                k in algo_upper for k in ("AES", "DES", "3DES", "BLOWFISH", "RC4", "CHACHA20")
+                k in algo_clean for k in ("AES", "DES", "3DES", "BLOWFISH", "RC4", "CHACHA20")
             ):
                 cat = "SYMMETRIC"
-            elif ca.family in ("hash",) or any(k in algo_upper for k in ("SHA", "MD5", "HMAC")):
+            elif ca.family in ("hash",) or any(k in algo_clean for k in ("SHA", "MD5", "HMAC")):
                 cat = "HASH"
             else:
                 cat = "UNKNOWN"
 
-            is_weak = algo_upper in ("MD5", "SHA-1", "SHA1", "DES", "3DES", "RC4", "RC2", "BLOWFISH")
-
-            if is_weak:
-                prio = "URGENT" if score >= 80 else "HIGH"
-                overall_risk = "HIGH"
-            elif qv:
-                prio = "HIGH"
-                overall_risk = "HIGH"
-            else:
-                prio = "LOW" if score < 40 else "MEDIUM"
-                overall_risk = "LOW" if key == "pqc" else "MEDIUM"
-
             role = ""
             loc_lower = (ca.location or ca.source_path or "").lower()
-            # The old test also matched "demo_rsa" in the path, which only ever
-            # matched the synthetic demo fixture. Real assets have no such path.
             if "cert" in loc_lower:
                 role = "certificate"
             elif algo_upper in ("ECDSA", "ED25519"):
                 role = "digital_signature"
-            elif algo_upper in ("ECDH", "X25519", "DH"):
+            elif algo_upper in ("ECDH", "X25519", "DH") or "RSA" in algo_upper:
                 role = "key_establishment"
             elif "test_crypto_example" in loc_lower:
                 role = "password_hashing"
+
+            # Aggregate findings and assessments for this canonical asset
+            matching_assessments = []
+            for a in assessments:
+                cb = a.cbom_asset or {}
+                if (
+                    (cb.get("algorithm") or "").upper() == algo_upper
+                    or cb.get("location", {}).get("file") == (ca.location or ca.source_path)
+                    or (a.asset_id and a.asset_id == ca.pk)
+                ):
+                    matching_assessments.append(a)
+
+            # Aggregate operational exposure and HNDL signals
+            any_public = bool(
+                "public" in loc_lower
+                or "external" in loc_lower
+                or str(getattr(ca, "environment", "")).lower() in ("public", "external", "internet", "internet-facing")
+                or any(
+                    (a.cbom_asset or {}).get("internet_facing")
+                    or (a.cbom_asset or {}).get("public_endpoint")
+                    or str((a.cbom_asset or {}).get("exposure") or "").lower() in ("public", "external", "internet", "internet-facing")
+                    for a in matching_assessments
+                )
+            )
+
+            # Extract strongest HNDL exposure
+            hndl_val = "HIGH" if "cert" in loc_lower else ""
+            hndl_dict = {}
+            mosca_dict = {}
+            for a in matching_assessments:
+                if a.hndl_result and not hndl_dict:
+                    hndl_dict = a.hndl_result
+                    r = _hndl_risk(a)
+                    if r and r not in ("NOT_ASSESSABLE", "UNKNOWN"):
+                        hndl_val = r
+                if a.mosca_result and not mosca_dict:
+                    mosca_dict = a.mosca_result
+
+            # Extract Mosca parameters
+            mosca_body = mosca_dict.get("mosca_assessment") or {}
+            mosca_params = mosca_body.get("mosca_parameters") or {}
+
+            # Also inspect linked normalized findings for explicit operational metadata
+            try:
+                for norm in ca.normalized_findings.all():
+                    ev = norm.evidence or {}
+                    if ev.get("hndl_exposure"):
+                        hndl_val = str(ev["hndl_exposure"]).upper()
+                    if ev.get("public_endpoint") or ev.get("internet_facing") or str(ev.get("exposure") or "").lower() in ("public", "external", "internet", "internet-facing"):
+                        any_public = True
+                    if ev.get("data_shelf_life_years") and not mosca_params.get("y_shelf_life"):
+                        try:
+                            mosca_params["y_shelf_life"] = float(ev["data_shelf_life_years"])
+                        except (ValueError, TypeError):
+                            pass
+                    if ev.get("migration_time_years") and not mosca_params.get("x_migration_time"):
+                        try:
+                            mosca_params["x_migration_time"] = float(ev["migration_time_years"])
+                        except (ValueError, TypeError):
+                            pass
+                    if ev.get("role"):
+                        role = ev["role"]
+                    if ev.get("exploitability_score") and not getattr(ca, "exploitability_score", None):
+                        try:
+                            ca.exploitability_score = float(ev["exploitability_score"])
+                        except (ValueError, TypeError):
+                            pass
+            except Exception:
+                pass
+
+            cls_input = {
+                "algorithm": ca.algorithm,
+                "family": ca.family,
+                "key_size": ca.key_size,
+                "role": role or cat,
+                "network_exposure": "public" if any_public else "internal",
+                "internet_facing": any_public,
+                "hndl_risk": hndl_val,
+                "migration_time_years": mosca_params.get("x_migration_time"),
+                "data_shelf_life_years": mosca_params.get("y_shelf_life"),
+                "mosca_at_risk": mosca_body.get("mosca_at_risk") or (float(mosca_body.get("timeline_deficit_years", 0.0)) > 0),
+                "mosca_status": mosca_body.get("mosca_status"),
+                "exploitability_score": getattr(ca, "exploitability_score", None),
+            }
+            cls_res = classify_canonical_asset(cls_input)
 
             cbom = {
                 "asset_id": ca.name,
@@ -382,21 +451,6 @@ def _run_bundle(run, db):
                 "crypto_role": role,
             }
 
-            hndl_val = "HIGH" if "cert" in loc_lower else ""
-            mosca_dict = {}
-            hndl_dict = {}
-            for a in assessments:
-                cb = a.cbom_asset or {}
-                if (cb.get("algorithm") or "").upper() == algo_upper or (
-                    cb.get("location", {}).get("file") == (ca.location or ca.source_path)
-                ):
-                    if a.hndl_result and not hndl_dict:
-                        hndl_dict = a.hndl_result
-                        if _hndl_risk(a):
-                            hndl_val = _hndl_risk(a)
-                    if a.mosca_result and not mosca_dict:
-                        mosca_dict = a.mosca_result
-
             assets.append(
                 {
                     "id": f"asset-{ca.pk}",
@@ -404,11 +458,13 @@ def _run_bundle(run, db):
                     "algorithm": ca.algorithm,
                     "family": ca.family,
                     "algorithm_category": cat,
-                    "classical_security": "WEAK" if is_weak else "STANDARD",
-                    "overall_risk": overall_risk,
-                    "migration_priority": prio,
-                    "quantum_vulnerable": qv,
-                    "hndl_risk": hndl_val,
+                    "classical_security": cls_res["classical_security"],
+                    "overall_risk": cls_res["risk_tier"],
+                    "migration_priority": cls_res["priority"],
+                    "quantum_vulnerable": cls_res["quantum_vulnerable"],
+                    "hndl_risk": hndl_val or cls_res["hndl_exposure"],
+                    "remediation_wave": cls_res["remediation_wave"],
+                    "urgency_reason": cls_res["urgency_reason"],
                     "service": rules.service_for_location(ca.location or ca.source_path),
                     "cbom_asset": cbom,
                     "mosca": mosca_dict,
