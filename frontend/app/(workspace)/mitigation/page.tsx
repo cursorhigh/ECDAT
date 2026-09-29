@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, AlertTriangle, Clock3, Loader2, Map, Route, Shield, ShieldAlert, ShieldCheck, XCircle } from "lucide-react";
+import { AlertCircle, AlertTriangle, ArrowRight, Clock3, GitBranch, Loader2, Map, Route, Shield, ShieldAlert, ShieldCheck, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RefreshButton } from "@/components/ui/refresh-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,16 +46,9 @@ export default function MitigationPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const overview = useQuery({ queryKey: ["mitigation-overview", scopeKey], queryFn: api.mitigationOverview, enabled: ready && hasSession });
   const plans = useQuery({ queryKey: ["mitigation-plans", scopeKey], queryFn: api.mitigationList, enabled: ready && hasSession });
-  const runs = useQuery({ queryKey: ["mitigation-runs", scopeKey], queryFn: api.analysisList, enabled: ready && hasSession });
   const defaultPlanId = plans.data?.[0]?.id || null;
   const activePlanId = selectedId || defaultPlanId;
   const detail = useQuery({ queryKey: ["mitigation-detail", activePlanId, scopeKey], queryFn: () => api.mitigation(activePlanId!), enabled: Boolean(activePlanId), refetchInterval: (query) => terminalStatuses.has(String(query.state.data?.status || "").toLowerCase()) ? false : 3000 });
-
-  const generate = useMutation({
-    mutationFn: (runId: number) => api.generateMitigation(runId),
-    onSuccess: async (plan) => { setSelectedId(plan.id); pushToast(`Mitigation plan #${plan.id} is ${titleCase(plan.status)}.`, "success"); await queryClient.invalidateQueries({ queryKey: ["mitigation"] }); },
-    onError: (error) => pushToast(error instanceof Error ? error.message : "Mitigation plan could not be generated.", "error")
-  });
 
   const cancel = useMutation({
     mutationFn: (id: number) => api.cancelMitigation(id),
@@ -64,17 +57,12 @@ export default function MitigationPage() {
   });
 
   const refresh = async () => {
-    await refetchAllOrThrow([overview, plans, runs]);
+    await refetchAllOrThrow([overview, plans]);
     if (activePlanId) await refetchAllOrThrow([detail]);
   };
   const totals = overview.data?.totals;
   const unguarded = overview.data?.runs_unguarded || [];
   const selectedPlan = detail.data;
-  const completedRuns = (runs.data || []).filter((run) => run.status === "completed");
-  const plannedRunIds: Record<number, number> = {};
-  for (const plan of plans.data || []) {
-    if (typeof plan.run_id === "number") plannedRunIds[plan.run_id] = plan.id;
-  }
 
   return (
     <div className="space-y-6">
@@ -143,7 +131,6 @@ export default function MitigationPage() {
       </Card>
 
       {activePlanId ? <PlanDetail plan={selectedPlan} loading={detail.isLoading} error={detail.error instanceof Error ? detail.error.message : undefined} onCancel={() => cancel.mutate(activePlanId)} cancelling={cancel.isPending} /> : <Card><CardContent className="p-5"><EmptyState title="Select a plan" description="Choose a mitigation plan to inspect its plan document." /></CardContent></Card>}
-      {runs.isLoading ? null : runs.isError ? <Card><CardContent className="p-5"><ErrorState message={runs.error instanceof Error ? runs.error.message : undefined} onRetry={() => void runs.refetch()} /></CardContent></Card> : <Card><CardHeader><CardTitle>Generate from analysis</CardTitle><p className="mt-1 text-xs text-muted-foreground">Only completed analysis runs are eligible. Each run has a single plan; generating again resumes the existing one.</p></CardHeader><CardContent className="p-0">{completedRuns.length ? <Table><TableHeader><TableRow><TableHead>Run</TableHead><TableHead>Target</TableHead><TableHead>Assets</TableHead><TableHead>Created</TableHead><TableHead>Plan</TableHead><TableHead /></TableRow></TableHeader><TableBody>{completedRuns.map((run) => { const existing = plannedRunIds[run.id]; return <TableRow key={run.id}><TableCell className="font-mono text-xs">#{run.id}</TableCell><TableCell className="max-w-[320px] truncate" title={run.target || ""}>{run.target || "—"}</TableCell><TableCell className="tnum">{formatNumber(run.assets)}</TableCell><TableCell className="text-xs text-muted-foreground">{formatDate(run.created_at)}</TableCell><TableCell>{existing ? <button type="button" className="font-mono text-xs font-semibold hover:text-primary" onClick={() => setSelectedId(existing)}>Plan #{existing}</button> : <span className="text-[11px] text-muted-foreground">None yet</span>}</TableCell><TableCell><Button variant="outline" size="sm" onClick={() => generate.mutate(run.id)} disabled={generate.isPending}><Route className="h-3.5 w-3.5" aria-hidden="true" />{existing ? "Resume plan" : "Generate plan"}</Button></TableCell></TableRow>; })}</TableBody></Table> : <div className="p-5"><EmptyState title="No completed analysis runs" description="Run risk analysis first to make a mitigation plan available." /></div>}</CardContent></Card>}
     </div>
   );
 }
@@ -381,52 +368,83 @@ function PlanDetail({ plan, loading, error, onCancel, cancelling }: { plan?: Mit
             </div>
           )}
         </div>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
               <SectionLabel>Migration waves</SectionLabel>
               {hoveredWave !== null ? (
                 <span className="text-[11px] font-medium text-primary animate-pulse">
-                  Hovering Wave {hoveredWave}
+                  Inspecting Wave {hoveredWave}
                 </span>
-              ) : null}
+              ) : (
+                <span className="text-[11px] text-muted-foreground">Hover to trace pathway</span>
+              )}
             </div>
+
             {waves.length ? (
-              <div className="mt-3 space-y-2">
+              <div className="relative pl-6 space-y-3 before:absolute before:left-2.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-gradient-to-b before:from-purple-500 before:via-primary before:to-emerald-500/70">
                 {waves.map((value, index) => {
                   const wave = record(value);
                   const waveNum = parseWaveNum(wave, index);
                   const isHovered = hoveredWave === waveNum;
+                  const waveRecsCount = recommendations.filter((r) => parseRecWaveNum(record(r)) === waveNum).length;
+
+                  const nodeColor =
+                    waveNum === 1
+                      ? "bg-purple-500 text-white ring-purple-500/30"
+                      : waveNum === 2
+                      ? "bg-primary text-primary-foreground ring-primary/30"
+                      : "bg-emerald-500 text-white ring-emerald-500/30";
+
                   return (
-                    <div
-                      key={index}
-                      onMouseEnter={() => setHoveredWave(waveNum)}
-                      onMouseLeave={() => setHoveredWave(null)}
-                      className={cn(
-                        "flex items-center justify-between border p-3 text-sm transition-all duration-200 cursor-pointer rounded-sm",
-                        isHovered
-                          ? "border-primary bg-primary/10 shadow-sm ring-1 ring-primary/40 -translate-y-0.5"
-                          : "border-border/80 bg-muted/10 hover:border-border hover:bg-muted/30"
-                      )}
-                    >
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <span
-                          className={cn(
-                            "inline-flex items-center justify-center rounded px-2 py-0.5 text-xs font-semibold font-mono shrink-0 transition-colors",
-                            isHovered ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
-                          )}
-                        >
-                          Wave {waveNum}
-                        </span>
-                        <span className="truncate text-xs text-muted-foreground">
-                          {text(wave.name || wave.description || `${wave.asset_ids?.toString?.() || ""}`)}
-                        </span>
+                    <div key={index} className="relative group">
+                      {/* Luminous Node Bubble on Timeline Spine */}
+                      <span
+                        className={cn(
+                          "absolute -left-6 top-3.5 h-5 w-5 rounded-full flex items-center justify-center font-mono text-[10px] font-bold ring-4 transition-all duration-300 z-10",
+                          nodeColor,
+                          isHovered ? "scale-125 ring-8 ring-primary/40 shadow-lg" : "scale-100 ring-2"
+                        )}
+                      >
+                        {waveNum}
+                      </span>
+
+                      <div
+                        onMouseEnter={() => setHoveredWave(waveNum)}
+                        onMouseLeave={() => setHoveredWave(null)}
+                        className={cn(
+                          "flex flex-col gap-2 border p-3.5 text-sm transition-all duration-200 cursor-pointer rounded-md relative overflow-hidden",
+                          isHovered
+                            ? "border-primary bg-primary/10 shadow-md ring-1 ring-primary/40 -translate-y-0.5"
+                            : "border-border/70 bg-card hover:border-border hover:bg-muted/30"
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="font-semibold text-xs text-foreground tracking-tight">
+                              Wave {waveNum}
+                            </span>
+                            <span className="truncate text-xs text-muted-foreground font-medium" title={text(wave.name || wave.description)}>
+                              {text(wave.name || wave.description)}
+                            </span>
+                          </div>
+                          {wave.timeline ? (
+                            <span className="text-[11px] font-mono font-medium text-foreground px-2 py-0.5 rounded bg-muted/80 border border-border/50 shrink-0">
+                              {String(wave.timeline)}
+                            </span>
+                          ) : null}
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/30">
+                          <span className="flex items-center gap-1">
+                            <Route className="h-3 w-3 text-primary" aria-hidden="true" />
+                            {waveRecsCount} Linked Recommendation{waveRecsCount === 1 ? "" : "s"}
+                          </span>
+                          <span className={cn("inline-flex items-center gap-1 font-medium transition-colors", isHovered ? "text-primary" : "text-muted-foreground")}>
+                            Trace Wave <ArrowRight className={cn("h-3 w-3 transition-transform", isHovered ? "translate-x-1" : "")} aria-hidden="true" />
+                          </span>
+                        </div>
                       </div>
-                      {wave.timeline ? (
-                        <span className="text-[11px] text-muted-foreground shrink-0 ml-2 font-mono">
-                          {String(wave.timeline)}
-                        </span>
-                      ) : null}
                     </div>
                   );
                 })}
@@ -434,12 +452,85 @@ function PlanDetail({ plan, loading, error, onCancel, cancelling }: { plan?: Mit
             ) : (
               <p className="mt-3 text-xs text-muted-foreground">No waves returned.</p>
             )}
+
+            {/* Visual Connected Milestone Execution Topology Card */}
+            <div className="border rounded-md bg-muted/10 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <GitBranch className="h-4 w-4 text-primary" aria-hidden="true" />
+                  <span className="text-xs font-semibold uppercase tracking-wider text-foreground">Execution Flow Architecture</span>
+                </div>
+                <span className="text-[10px] font-mono font-medium text-primary px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20">
+                  Target 2033 Horizon
+                </span>
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <div
+                  onMouseEnter={() => setHoveredWave(1)}
+                  onMouseLeave={() => setHoveredWave(null)}
+                  className={cn(
+                    "flex items-start gap-3 p-2.5 rounded border transition-all duration-200 cursor-pointer",
+                    hoveredWave === 1
+                      ? "bg-purple-500/15 border-purple-500/60 ring-1 ring-purple-500/30 -translate-x-0.5"
+                      : "bg-background/60 border-border/40 hover:bg-muted/40"
+                  )}
+                >
+                  <span className="h-2 w-2 rounded-full bg-purple-500 mt-1.5 shrink-0 shadow-sm" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-foreground text-[11px]">Phase 1: Urgent Triage &amp; HNDL Isolation (0–3m)</p>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed mt-0.5">
+                      Eliminate classically weak primitives (MD5, DES, 3DES, RC4) and stage immediate hybrid handshakes for long-shelf-life data paths.
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  onMouseEnter={() => setHoveredWave(2)}
+                  onMouseLeave={() => setHoveredWave(null)}
+                  className={cn(
+                    "flex items-start gap-3 p-2.5 rounded border transition-all duration-200 cursor-pointer",
+                    hoveredWave === 2
+                      ? "bg-primary/15 border-primary/60 ring-1 ring-primary/30 -translate-x-0.5"
+                      : "bg-background/60 border-border/40 hover:bg-muted/40"
+                  )}
+                >
+                  <span className="h-2 w-2 rounded-full bg-primary mt-1.5 shrink-0 shadow-sm" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-foreground text-[11px]">Phase 2: Post-Quantum Standard Transition (3–12m)</p>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed mt-0.5">
+                      Upgrade vulnerable public-key architectures (RSA, ECC) to NIST FIPS 203 (ML-KEM) key exchange and FIPS 204 (ML-DSA) signatures.
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  onMouseEnter={() => setHoveredWave(3)}
+                  onMouseLeave={() => setHoveredWave(null)}
+                  className={cn(
+                    "flex items-start gap-3 p-2.5 rounded border transition-all duration-200 cursor-pointer",
+                    hoveredWave === 3
+                      ? "bg-emerald-500/15 border-emerald-500/60 ring-1 ring-emerald-500/30 -translate-x-0.5"
+                      : "bg-background/60 border-border/40 hover:bg-muted/40"
+                  )}
+                >
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 mt-1.5 shrink-0 shadow-sm" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-foreground text-[11px]">Phase 3: Symmetric Hardening &amp; CI/CD Guardrails (12–24m)</p>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed mt-0.5">
+                      Consolidate to AES-256-GCM / SHA-384 and embed automated ECDAT CBOM cryptographic linting into build pipelines to prevent regressions.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
+
           <div>
             <div className="flex items-center justify-between">
               <SectionLabel>Recommendations</SectionLabel>
               <span className="text-[11px] text-muted-foreground">
-                {hoveredWave !== null ? `Showing Wave ${hoveredWave}` : "Hover wave to inspect"}
+                {hoveredWave !== null ? `Filtered by Wave ${hoveredWave}` : "Hover wave to inspect"}
               </span>
             </div>
             {recommendations.length ? (
