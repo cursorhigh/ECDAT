@@ -36,11 +36,10 @@ class ScanJobSerializer(serializers.ModelSerializer):
             "skip_reasons",
             "skip_reason_labels",
             "findings_count",
-            # A multi-source run creates one ScanJob per source inside a single
-            # session, so the job list alone reads as several unrelated scans.
-            # Exposing the batch lets the client collapse them back into the one
-            # user action that produced them.
             "batch",
+            # Carries `source_types`, so the client can name every source the job
+            # covers. `source_type` alone only records the primary one.
+            "config",
             "error",
             "error_code",
             "error_scope",

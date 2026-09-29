@@ -58,7 +58,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             return <Link key={item.href} href={item.href} onClick={onNavigate} className={cn("group flex h-10 items-center gap-3 border-l-2 px-3 text-sm transition-colors", active ? "border-primary bg-primary/10 font-medium" : "border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground")} aria-current={active ? "page" : undefined}><Icon className="h-4 w-4" aria-hidden="true" />{item.label}</Link>;
           })}
         </nav>
-        <div className="mt-3 flex items-center justify-between border-t px-1 pt-3 text-[10px] text-muted-foreground"><span>ECDAT console</span><span className="tnum">v0.1</span></div>
+        <div className="mt-3 flex items-center justify-between border-t px-1 pt-3 text-[10px] text-muted-foreground"><span>ECDAT console</span><span className="tnum">v1.0</span></div>
       </div>
     </aside>
   );

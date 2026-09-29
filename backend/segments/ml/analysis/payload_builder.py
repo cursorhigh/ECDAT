@@ -110,10 +110,8 @@ def build_analysis_payload(scan_job: ScanJob, max_findings: int | None = None) -
     return _payload(scan_job, findings, total_available, max_findings)
 
 
-def default_raw_system_context(
-    scan_job: Optional[ScanJob] = None,
-) -> Dict[str, Any]:
-    """Conservative default input for RiskClassificationAgent.analyze."""
+def _baseline_context(scan_job: Optional[ScanJob] = None) -> Dict[str, Any]:
+    """The conservative, target-agnostic context used when nothing is known."""
     name = scan_job.target if (scan_job and scan_job.target) else "ECDAT inventory"
     return {
         "application": {
@@ -135,6 +133,58 @@ def default_raw_system_context(
             "long_term_value": False,
         },
     }
+
+
+def _last_custom_context(scan_job: Optional[ScanJob]) -> Optional[Dict[str, Any]]:
+    """The most recent context a human actually chose in this scan's session.
+
+    An unattended run should not be graded against the baseline when the operator
+    has already told us what this system is. Reusing their last real answer keeps
+    successive assessments consistent instead of silently reverting to
+    "internal system, not internet facing" for the same assets.
+
+    Only contexts that differ from the baseline count, so a chain of unattended
+    default runs cannot masquerade as a deliberate choice and lock the baseline in.
+    """
+    if scan_job is None or not getattr(scan_job, "session_id", None):
+        return None
+    try:
+        from .models import AnalysisRun
+
+        candidates = (
+            AnalysisRun.objects.using(scan_job._state.db or "default")
+            .filter(scan_job__session_id=scan_job.session_id)
+            .exclude(raw_system_context__isnull=True)
+            .order_by("-created_at", "-id")[:25]
+        )
+        baseline = _baseline_context()
+        for run in candidates:
+            ctx = run.raw_system_context
+            if isinstance(ctx, dict) and ctx and ctx != baseline:
+                return ctx
+            # Older runs stored free text rather than a structured context.
+            if isinstance(ctx, str) and ctx.strip():
+                return {"operator_notes": ctx.strip()}
+    except Exception:
+        # A DB read must never be the reason an assessment cannot be started.
+        return None
+    return None
+
+
+def default_raw_system_context(
+    scan_job: Optional[ScanJob] = None,
+) -> Dict[str, Any]:
+    """Context for an unattended run: the last one used, else the baseline.
+
+    The order matters and is deliberate -- remembered context beats the baseline,
+    because repeating what the operator last told us is a better guess than
+    asserting a system is not internet facing when they already said otherwise.
+    """
+    if scan_job is not None:
+        remembered = _last_custom_context(scan_job)
+        if remembered:
+            return remembered
+    return _baseline_context(scan_job)
 
 
 def parse_finding_id(finding_id: str) -> Optional[int]:

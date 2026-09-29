@@ -158,12 +158,26 @@ def analysis_start(request):
     except ScanJob.DoesNotExist:
         return JsonResponse({"detail": f"Scan job {scan_job_id} not found."}, status=400)
 
-    if scan_job.status != ScanJob.Status.COMPLETED:
+    # A scan is analysable once it has finished producing evidence, whether that
+    # finished cleanly or with recorded gaps.
+    #
+    # This used to require COMPLETED, which contradicted the auto-staging path:
+    # `_auto_analyze` parks an analysis for any finished scan, so a `partial` scan
+    # got a run created and the context modal opened -- and then submitting that
+    # modal was rejected with "only completed scans can be analyzed". One file out
+    # of 116 in an unrecognised format was enough to trigger it.
+    #
+    # `partial` is admitted because the gap is already explicit: the scan carries
+    # `skip_reasons`, and it is copied onto the run below so the assessment states
+    # its own coverage instead of implying a whole it did not inspect. Anything
+    # still running, queued or cancelled is refused, since there is nothing
+    # settled to reason over yet.
+    if scan_job.status not in (ScanJob.Status.COMPLETED, ScanJob.Status.PARTIAL):
         return JsonResponse(
             {
                 "detail": (
                     f"Scan job {scan_job_id} is {scan_job.status}; "
-                    "only completed scans can be analyzed."
+                    "only finished scans can be analyzed."
                 )
             },
             status=400,
@@ -412,6 +426,9 @@ def analysis_detail(request, run_id):
         "cbom": run.cbom_document,
         "findings_count": len((run.input_payload or {}).get("findings", [])),
         "truncation": (run.input_payload or {}).get("truncation"),
+        # Recorded when the underlying scan finished with gaps, so the UI can say
+        # the assessment rests on partial coverage instead of implying otherwise.
+        "coverage": run.coverage or {"partial": False},
         "assessments": [_assessment_summary(a) for a in assessments],
     }
     return JsonResponse(data)

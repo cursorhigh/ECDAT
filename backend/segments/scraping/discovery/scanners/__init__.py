@@ -57,10 +57,25 @@ _assert_planned_sources_are_unimplemented()
 
 
 
-def get_scanner(scan_job: ScanJob) -> BaseScanner:
-    """Return the appropriate scanner instance for a ScanJob."""
-    source_type = scan_job.source_type
+def get_scanner(scan_job: ScanJob, source_type: str | None = None) -> BaseScanner:
+    """Return the scanner for a ScanJob.
 
+    `source_type` overrides the job's primary source. A job can cover several
+    sources, so the pipeline asks for each in turn through this same entry point
+    rather than reaching into the registry itself -- which keeps `get_scanner` the
+    one seam that tests and callers patch.
+    """
+    return get_scanner_for_source(source_type or scan_job.source_type, scan_job)
+
+
+def get_scanner_for_source(source_type: str, scan_job: ScanJob) -> BaseScanner:
+    """Return the scanner for an explicit source type, bound to this job.
+
+    A single ScanJob can now cover several source types, so the scanner can no
+    longer be chosen from `scan_job.source_type` alone -- that field only records
+    the job's primary source. The registry lookup is split out so the pipeline
+    can ask for each source in turn against the same job.
+    """
     cls = SCANNER_REGISTRY.get(source_type)
     if cls is None:
         raise NotImplementedError(f"No scanner registered for source_type={source_type}")

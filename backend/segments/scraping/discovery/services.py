@@ -576,17 +576,127 @@ def run_scan(scan_job: ScanJob) -> ScanJob:
     context = ScanContext(on_progress=publish, is_cancelled=lambda: _scan_is_cancelled(scan_job, db))
 
     try:
-        scanner = get_scanner(scan_job)
-        raw_findings = scanner.run(context)
+        # One job, every selected source.
+        #
+        # Previously a multi-source request created one ScanJob per source, which
+        # made a single user action look like several scans and gave it several
+        # independent status lines. The sources share a session either way, so
+        # correlation and the dependency graph already saw them as one body of
+        # work -- splitting them across jobs only split the presentation. Now the
+        # job runs each source's scanner in turn and persists everything into
+        # itself, which is what the user meant by "one scan".
+        #
+        # `plan_sources` decides which sources suit the chosen target, so a
+        # folder target does not fail outright because certificates were also
+        # selected; those are recorded as skipped instead.
+        requested_sources = [
+            s
+            for s in (list(scan_job.config.get("source_types") or []) or [scan_job.source_type])
+            if s
+        ]
+        scan_kind = "folder" if (scan_job.config.get("scan_type") in ("quick", "whole")) else target_kind(scan_job.target)
+        runnable, excluded = [], []
+        for source in requested_sources:
+            from .scanners import PLANNED_SOURCES, SCANNER_REGISTRY
 
-        # Carry the scanner's measured coverage forward; deriving it from a
-        # finding count would report a meaningless "files inspected" figure.
-        context.report(
-            "persisting",
-            context.scanned if context.scanned is not None else len(raw_findings),
-            context.total,
+            if source not in SCANNER_REGISTRY:
+                label = PLANNED_SOURCES.get(source, {}).get("name", source)
+                excluded.append({"source": source, "reason": f"{label} is not implemented."})
+                continue
+            supported = SCANNER_REGISTRY[source].supported_targets
+            if supported and scan_kind not in supported:
+                excluded.append(
+                    {
+                        "source": source,
+                        "reason": f"Needs a {' or '.join(supported)} target; this target is a {scan_kind}.",
+                    }
+                )
+                continue
+            runnable.append(source)
+
+        if not runnable:
+            detail = " ".join(f"{item['source']}: {item['reason']}" for item in excluded)
+            raise ScanInspectionError(f"No selected source can run against this target. {detail}")
+
+        total_sources = len(runnable)
+        ingested = 0
+        scanned_total = 0
+        total_items = 0
+        any_measured = False
+
+        for index, source in enumerate(runnable, start=1):
+            if _scan_is_cancelled(scan_job, db):
+                raise ScanCancelled(scan_job.pk)
+
+            def publish_source(stage, scanned, total, _i=index):
+                # Inspection is 0-80% of the run, split evenly across the
+                # sources, so the bar still reflects real work as each one
+                # finishes rather than restarting at 0% for the next.
+                share = 80.0 / total_sources
+                ratio = (scanned / total) if total else None
+                progress = min(80, int((_i - 1) * share + (share if ratio is None else ratio * share)))
+                ScanJob.objects.using(db).filter(pk=scan_job.pk).update(
+                    progress=progress,
+                    progress_stage=f"{source}:{stage}",
+                    items_scanned=scanned_total + scanned,
+                    items_total=(total_items + total) if total is not None else None,
+                )
+
+            source_context = ScanContext(
+                on_progress=publish_source,
+                is_cancelled=lambda: _scan_is_cancelled(scan_job, db),
+            )
+            scanner = get_scanner(scan_job, source)
+            raw_findings = scanner.run(source_context)
+
+            # Carry the scanner's measured coverage forward; deriving it from a
+            # finding count would report a meaningless "files inspected" figure.
+            measured = source_context.scanned if source_context.scanned is not None else len(raw_findings)
+            if source_context.scanned is not None:
+                any_measured = True
+            source_context.report(
+                "persisting",
+                measured,
+                source_context.total,
+            )
+            if source_context.scanned is not None:
+                scanned_total += source_context.scanned
+            if source_context.total is not None:
+                total_items += source_context.total
+
+            ingested += scanner.ingest(raw_findings)
+            for reason, count in (getattr(source_context, "skipped", {}) or {}).items():
+                context.record_skip(reason, count)
+            ScanJob.objects.using(db).filter(pk=scan_job.pk).update(
+                progress=min(80, int(index * (80.0 / total_sources))),
+                progress_stage=f"{source}:persisted",
+            )
+
+        if excluded:
+            for item in excluded:
+                log_action(
+                    "scan_source_excluded",
+                    f"{item['source']} not run: {item['reason']}",
+                    "scanjob",
+                    scan_job.pk,
+                )
+
+        # Publish the run's aggregate coverage on the job-level context.
+        #
+        # Each source reports through its own ScanContext now, so without this the
+        # job's measured totals stayed unset and the persisting stage below
+        # reported a figure derived from a finding count instead -- which is
+        # exactly the "files inspected" number the coverage contract forbids.
+        context.scanned = scanned_total if any_measured else None
+        context.total = total_items if any_measured else None
+        context.stage = "persisted"
+        ScanJob.objects.using(db).filter(pk=scan_job.pk).update(
+            progress=min(80, int(len(runnable) * (80.0 / total_sources))),
+            progress_stage="persisted",
+            items_scanned=scanned_total,
+            items_total=total_items if any_measured else None,
         )
-        ingested = scanner.ingest(raw_findings)
+
 
         # Normalize + classify each raw finding (all inside the same DB).
         # Cancellation is honoured between findings so a user's cancel lands
@@ -937,8 +1047,8 @@ class ScanInspectionError(ValueError):
 
 
 def create_and_run_scan(source_type: str, target: str = "", config: dict | None = None,
-                        mode: str | None = None, scan_type: str = "specified",
-                        session_id: int | None = None) -> ScanJob:
+                        scan_type: str = "specified", session_id: int | None = None,
+                        source_types: list[str] | None = None) -> ScanJob:
     """Create and run a scan with user-supplied parameters.
 
     `scan_type` selects the scope of the run:
@@ -990,6 +1100,10 @@ def create_and_run_scan(source_type: str, target: str = "", config: dict | None 
 
     scan_config = dict(config or {})
     scan_config["scan_type"] = scan_type
+    # The full set of sources this job covers. `source_type` only records the
+    # primary one, so the list has to live on the job for run_scan to iterate.
+    if source_types:
+        scan_config["source_types"] = [s for s in source_types if s]
     job = ScanJob.objects.using(db).create(
         source_type=source_type,
         target=target,
@@ -1376,9 +1490,34 @@ def _auto_analyze(scan_job) -> None:
     """Once processing is done, stage analysis for a context choice (opt-out via env).
 
     The run is created awaiting the user's context choice (default context
-    auto-continues after the configurable timeout) — opt out by setting
+    auto-continues after the configurable timeout) - opt out by setting
     ECDAT_AUTO_ANALYSE=0.
+
+    Staging is deliberately allowed to fail. By the time this is called the scan
+    has already ingested, normalised, classified and correlated its findings, and
+    written its real terminal status. If `pending_analysis` raises -- a schema the
+    running process has not caught up with, a transient database error -- letting
+    that escape would land in `run_scan`'s generic handler and relabel a scan that
+    had in fact finished as FAILED, throwing away hundreds of collected findings
+    over a follow-on step. That is how job #70 lost 333 findings.
+
+    A failure here is recorded and the scan keeps the result it earned; the
+    operator can start the analysis by hand from the scans page.
     """
+    try:
+        _stage_auto_analysis(scan_job)
+    except Exception as exc:  # noqa: BLE001
+        log_action(
+            "system",
+            f"Analysis could not be staged for scan {scan_job.pk}: {exc}. "
+            "The scan itself completed; start the analysis manually.",
+            "scanjob",
+            scan_job.pk,
+        )
+
+
+def _stage_auto_analysis(scan_job) -> None:
+    """Create the awaiting-context run for a finished scan."""
     import os
 
     if os.environ.get("ECDAT_AUTO_ANALYSE", "1") == "0":

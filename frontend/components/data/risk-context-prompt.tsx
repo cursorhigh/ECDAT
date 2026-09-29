@@ -69,34 +69,21 @@ export function RiskContextPrompt() {
   });
 
   const parked = awaiting.data ?? [];
-  const next = parked[0] ?? null;
 
   /**
-   * Adopt a parked run the moment it is observed, and drop it once it is no
-   * longer waiting. Done during render rather than in an effect: it is React's
-   * sanctioned way to adjust state when an external value changes, and it keeps
-   * the modal from arriving a render late.
+   * Parked runs are deliberately NOT prompted for.
    *
-   * Only the newest is ever adopted, and everything else in the current backlog
-   * is marked handled at the same time. Discovery stages one assessment per
-   * completed scan, so finishing several scans leaves several runs parked at
-   * once -- and prompting for each in turn meant the same modal appeared again
-   * and again for runs the operator never chose. They are not dropped: each keeps
-   * its own deadline and continues on the conservative defaults if nobody
-   * answers, which is exactly the behaviour we want for unattended runs. They
-   * just stop interrupting.
+   * This used to adopt the newest parked run and interrupt the operator with the
+   * modal, which is wrong on two counts: it asked even when nobody had asked for
+   * an analysis, and it interrupted whatever they were doing. The intended flow
+   * is that discovery finishing lets its own analysis run on unattended -- the
+   * last-used context, or the conservative defaults -- and the modal appears only
+   * when someone presses Start analysis.
+   *
+   * So the poll below still runs, but only to keep the run list fresh for the
+   * analysis page. It never opens anything by itself.
    */
-  if (next && !isRiskPromptSurfaced(next.id) && openState?.scanJobId !== next.scan_job_id) {
-    markRiskPromptSurfaced(next.id);
-    for (const run of parked) {
-      if (run.id !== next.id) markRiskPromptSurfaced(run.id);
-    }
-    setOpenState({ scanJobId: next.scan_job_id, deadlineSeconds: next.seconds_left, source: "polled" });
-  } else if (!next && openState && openState.source === "polled") {
-    // Answered, or the window lapsed. Stop tracking an auto-discovered run, or
-    // the dialog would linger over a run that is no longer waiting for input.
-    setOpenState(null);
-  }
+  void parked;
 
   /**
    * A page that just pressed "Run Risk Analysis" asks here to open.

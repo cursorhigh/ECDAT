@@ -49,6 +49,24 @@ CONTRACT_QUESTIONS = (
 ASSET_REF = "CryptoAsset"
 
 
+def _normalise_skip_reasons(raw) -> dict:
+    """Collapse ``skip_reasons`` to a reason -> count mapping.
+
+    A single scanner reports a tally; the multi-source run may leave a list of
+    per-scanner "skipped entirely" notes. Both have to become a mapping, because
+    ``ScanCoverage.skip_reasons`` is read with ``.items()``.
+    """
+    if isinstance(raw, dict):
+        return {str(k): v for k, v in raw.items()}
+    if isinstance(raw, (list, tuple)):
+        out: dict = {}
+        for item in raw:
+            text = str(item)
+            out[text] = out.get(text, 0) + 1
+        return out
+    return {}
+
+
 @dataclass
 class FindingHandoff:
     """One finding, with every contract answer attached."""
@@ -371,7 +389,11 @@ def build_handoff(
         handoff.coverage.items_total = scan_job.items_total
         handoff.coverage.items_scanned = scan_job.items_scanned or 0
         handoff.coverage.items_skipped = scan_job.items_skipped or 0
-        handoff.coverage.skip_reasons = dict(scan_job.skip_reasons or {})
+        # `skip_reasons` is a tally for a single scanner but a list of notes once the
+        # multi-source run folds in per-scanner "skipped entirely" reasons, and the
+        # coverage dataclass below is consumed via `.items()`. Normalise rather than
+        # assume, so a partial scan from any source still builds its handoff.
+        handoff.coverage.skip_reasons = _normalise_skip_reasons(scan_job.skip_reasons)
         handoff.coverage.sources_run = [scan_job.source_type]
     else:
         jobs = ScanJob.objects.using(db)

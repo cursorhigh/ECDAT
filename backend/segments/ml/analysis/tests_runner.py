@@ -144,6 +144,138 @@ class AnalysisRunnerTests(TestCase):
         body = self.client.get(f"/api/analysis/{run.pk}/").json()["data"]
         self.assertIsNone(body["truncation"])
 
+    def test_coverage_is_nullable_so_a_stale_process_cannot_fail_a_scan(self):
+        """Regression for "NOT NULL constraint failed: analysis_analysisrun.coverage".
+
+        `coverage` was added as `JSONField(default=dict)`. That default is applied
+        by the ORM in Python, so it left the column itself NOT NULL -- and any
+        INSERT that does not name the column sends NULL and is rejected. A backend
+        process running code from before the field existed, against a database
+        migrated after it, therefore could not create a run at all. Job #70 died
+        at the correlation step for exactly that reason, discarding 333 findings
+        over a column its own running code had never heard of.
+
+        The column must accept NULL, and the API must turn "unknown" into a
+        definite "not partial" rather than handing a client a missing field.
+        """
+        from django.db import connection
+
+        with connection.cursor() as cur:
+            cur.execute(
+                "SELECT \"notnull\" FROM pragma_table_info('analysis_analysisrun') WHERE name = 'coverage'"
+            )
+            row = cur.fetchone()
+            self.assertIsNotNone(row, "coverage column is missing")
+            self.assertFalse(bool(row[0]), "coverage must be nullable at the database level")
+
+        # A run written without coverage, as that stale process would have written
+        # one, must still be readable and must not surface a null to the client.
+        job = self._make_job(target="work/app")
+        run = AnalysisRun.objects.using("default").create(
+            scan_job=job,
+            session=job.session,
+            status=AnalysisRun.Status.QUEUED,
+            raw_system_context="{}",
+            coverage=None,
+        )
+        self.assertIsNone(AnalysisRun.objects.using("default").get(pk=run.pk).coverage)
+
+        r = self.client.get("/api/analysis/%s/" % run.pk)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["data"]["coverage"], {"partial": False})
+
+    def test_unattended_runs_reuse_the_last_context_that_was_used(self):
+        """An unattended run should be graded on what the operator last said.
+
+        Otherwise every automatic assessment after a customised one silently
+        reverts to the baseline "internal system, not internet facing" claim, and
+        the same assets get two different verdicts depending on who was watching.
+        """
+        job = self._make_job(target="work/app")
+        custom = {
+            "application": {"name": "public-billing", "type": "web"},
+            "network": {"publicly_accessible": True, "internet_facing": True},
+        }
+        AnalysisRun.objects.using("default").create(
+            scan_job=job,
+            status=AnalysisRun.Status.COMPLETED,
+            raw_system_context=custom,
+        )
+
+        # A second, newer run on an unset context must inherit the remembered one.
+        later = self._make_job(target="work/app-2")
+        self.assertEqual(default_raw_system_context(later), custom)
+
+    def test_baseline_is_used_when_nothing_was_ever_customised(self):
+        """Runs that only ever used the baseline must not lock it in as a choice."""
+        job = self._make_job(target="work/app")
+        AnalysisRun.objects.using("default").create(
+            scan_job=job,
+            status=AnalysisRun.Status.COMPLETED,
+            raw_system_context=default_raw_system_context(job),
+        )
+        later = self._make_job(target="work/app-2")
+        self.assertEqual(
+            default_raw_system_context(later)["network"]["internet_facing"],
+            False,
+        )
+
+    @mock.patch("segments.ml.analysis.runner.threading.Thread")
+    def test_partial_scan_is_analysable_and_records_its_coverage_gap(self, mock_thread):
+        """A partial scan must be analysable, and must say what it missed.
+
+        This is the regression for the "Risk analysis locked" bug. `_auto_analyze`
+        parks an assessment for every finished scan, so a `partial` one already had
+        a run waiting for context -- but `/analysis/start/` demanded `completed`
+        and rejected the operator's answer, throwing the work away. The frontend
+        mirrored that same completed-only rule and refused to offer the scan at all.
+
+        Partial is admitted because the gap is explicit: the scan records what was
+        unreadable, and that is copied onto the run so the assessment states its
+        own limits instead of implying full coverage.
+        """
+        job = self._make_job(target="work/app", status=ScanJob.Status.PARTIAL)
+        ScanJob.objects.filter(pk=job.pk).update(
+            items_scanned=116, items_total=116, items_skipped=1
+        )
+        job.refresh_from_db()
+        # A list, not a tally: this is the shape the multi-source run produces
+        # once per-scanner "skipped entirely" notes are folded in.
+        job.skip_reasons = ["notes.txt: unrecognised_format"]
+        job.save(using="default", update_fields=["skip_reasons"])
+
+        r = self.client.post(
+            "/api/analysis/start/",
+            data=json.dumps({"scan_job": job.pk, "raw_system_context": "{}"}),
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 201, r.content[:300])
+        body = r.json()["data"]
+        self.assertEqual(body["status"], "queued")
+
+        run = AnalysisRun.objects.using("default").get(pk=body["id"])
+        self.assertEqual(run.coverage["partial"], True)
+        self.assertEqual(run.coverage["items_skipped"], 1)
+        self.assertIn("unrecognised_format", str(run.coverage["skip_reasons"]))
+
+        # The run detail must expose it, so the assessment can be held to it.
+        detail = self.client.get(f"/api/analysis/{run.pk}/")
+        self.assertEqual(detail.status_code, 200)
+        self.assertTrue(detail.json()["data"]["coverage"]["partial"])
+
+    @mock.patch("segments.ml.analysis.runner.threading.Thread")
+    def test_unfinished_scans_are_still_refused(self, mock_thread):
+        """Widening the gate to `partial` must not admit work still in progress."""
+        for status in (ScanJob.Status.QUEUED, ScanJob.Status.RUNNING, ScanJob.Status.CANCELLED):
+            with self.subTest(status=status):
+                job = self._make_job(target=f"work/{status}", status=status)
+                response = self.client.post(
+                    "/api/analysis/start/",
+                    data=json.dumps({"scan_job": job.pk, "raw_system_context": "{}"}),
+                    content_type="application/json",
+                )
+                self.assertEqual(response.status_code, 400, f"{status} should be refused")
+
     def test_execute_analysis_completes_with_artifacts(self):
         job = self._make_job()
         self._seed_raw(

@@ -25,14 +25,25 @@ const IN_FLIGHT = new Set(["queued", "validating", "running", "cancelling"]);
  * offering it here would only ever produce a 400. A partial scan means coverage
  * was incomplete, and that gap has to be closed by re-scanning, not reasoned over.
  */
-const ANALYZABLE_STATUS = "completed";
+/*
+ * Scans that finished producing evidence, and can therefore be reasoned over.
+ *
+ * `partial` belongs here alongside `completed`. A partial scan is not a failure:
+ * it means every source ran and one or more files were unreadable, and the
+ * backend records exactly what was missed on the run's `coverage` field so the
+ * assessment states its own limits. The old completed-only rule here disagreed
+ * with the backend, which accepts both -- so a finished scan produced this
+ * "Risk analysis locked" message and refused the very analysis the pipeline had
+ * already staged.
+ */
+const ANALYZABLE_STATUS = new Set(["completed", "partial"]);
 
 export interface RiskGate {
-  /** Completed scans, i.e. inspection finished AND correlation has run. */
+  /** Scans that finished, i.e. inspection finished AND correlation has run. */
   analyzable: ScanJob[];
   /** Scans still in progress, for the "why is this locked" message. */
   inFlight: number;
-  /** Scans that finished but cannot be analyzed (partial/failed/cancelled). */
+  /** Scans that finished but cannot be analyzed (failed/cancelled). */
   unusable: number;
   locked: boolean;
   reason: string;
@@ -43,12 +54,12 @@ export interface RiskGate {
  *
  * The rule mirrors the discovery pipeline: `build_correlations` runs at
  * `services.py:613`, and the terminal status is not written until `services.py:644`.
- * So `status === "completed"` is proof that inspection *and* correlation both
+ * So any terminal status is proof that inspection *and* correlation both
  * finished, which is exactly what the backend demands before reasoning.
  */
 export function evaluateRiskGate(scans: ScanJob[] | undefined, hasSession: boolean): RiskGate {
   const list = scans || [];
-  const analyzable = list.filter((scan) => scan.status === ANALYZABLE_STATUS);
+  const analyzable = list.filter((scan) => ANALYZABLE_STATUS.has(scan.status));
   const inFlight = list.filter((scan) => IN_FLIGHT.has(scan.status)).length;
   const unusable = list.length - analyzable.length - inFlight;
 
@@ -73,7 +84,7 @@ export function evaluateRiskGate(scans: ScanJob[] | undefined, hasSession: boole
       inFlight,
       unusable,
       locked: true,
-      reason: `No completed scan in this session. Only completed scans — where inspection and correlation have both finished — can be analyzed${unusable > 0 ? ` (${unusable} scan${unusable === 1 ? "" : "s"} finished with incomplete coverage or failed)` : ""}.`
+      reason: `No finished scan in this session. Risk analysis needs a scan whose inspection and correlation have both completed${unusable > 0 ? ` (${unusable} scan${unusable === 1 ? "" : "s"} failed or was cancelled)` : ""}.`
     };
   }
   return { analyzable, inFlight, unusable, locked: true, reason: "This session has no scans yet. Run a discovery scan first." };
@@ -210,9 +221,14 @@ export function RiskStartDialog({ open, onOpenChange, candidates, initialScanId,
   // Filtered here as well as at the call site, so a caller can never hand this
   // dialog a scan the backend would reject. `evaluateRiskGate` is for the button
   // state; this is the guarantee on the actual submit path.
-  const analyzable = useMemo(() => candidates.filter((scan) => scan.status === ANALYZABLE_STATUS), [candidates]);
+  // `.has`, not `===`: ANALYZABLE_STATUS is a Set, and comparing a string to it
+  // would be truthy for every scan and hand the dialog scans still in progress.
+  const analyzable = useMemo(
+    () => candidates.filter((scan) => ANALYZABLE_STATUS.has(scan.status)),
+    [candidates]
+  );
 
-  // `initialScanId` wins when resuming; otherwise fall back to the newest completed scan.
+  // `initialScanId` wins when resuming; otherwise fall back to the newest finished scan.
   const preferred = initialScanId && analyzable.some((scan) => scan.id === initialScanId) ? initialScanId : null;
   const targetId = chosenScanId ?? preferred ?? analyzable[0]?.id ?? null;
 
@@ -356,7 +372,7 @@ export function RiskStartDialog({ open, onOpenChange, candidates, initialScanId,
                 </option>
               ))}
             </Select>
-            <p className="text-[10px] text-muted-foreground">Only completed scans are listed.</p>
+            <p className="text-[10px] text-muted-foreground">Only finished scans are listed. Partial scans show their coverage gap on the assessment.</p>
           </div>
         ) : null}
 

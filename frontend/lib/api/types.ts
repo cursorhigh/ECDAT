@@ -84,8 +84,17 @@ export interface ScanJob {
     label: string;
   }>;
   findings_count: number;
-  /** Set when this job is one source of a multi-source run. */
+  /** Legacy: set when this job was one source of a multi-source run. */
   batch?: number | null;
+  /**
+   * Scan configuration. `source_types` lists every source this single job
+   * covers; `source_type` is only the primary one.
+   */
+  config?: {
+    scan_type?: string;
+    source_types?: string[];
+    [key: string]: unknown;
+  };
   error?: string | null;
   error_code?: string;
   error_scope?: string;

@@ -32,6 +32,17 @@ class AnalysisRun(TimeStampedModel):
     repository = models.JSONField(default=dict, blank=True)
     raw_system_context = models.JSONField(default=dict, blank=True)
     input_payload = models.JSONField(default=dict, blank=True)
+    # How much of the scan this run reasons over. A partial scan records its
+    # skip reasons here so the assessment states its own coverage rather than
+    # implying a whole target was inspected.
+    # `null=True` is deliberate. A Python-side `default=dict` is not enough on its
+    # own: the column is still NOT NULL, so any INSERT that omits `coverage` sends
+    # NULL and fails the write. That is not hypothetical -- a backend process
+    # running code from before this field existed, against a database migrated
+    # after it, made an entire discovery scan fail at the very end, losing the
+    # correlation step over a field the running code had never heard of. Unknown
+    # coverage is a legitimate state, so the column accepts NULL.
+    coverage = models.JSONField(default=dict, null=True, blank=True)
     cbom_document = models.JSONField(default=dict, blank=True)
     risk_context = models.JSONField(default=dict, blank=True)
     executive_summary = models.JSONField(default=dict, blank=True)

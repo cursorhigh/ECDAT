@@ -323,23 +323,18 @@ export default function ScansPage() {
       if (created.session) await adoptSession(created.session.id, created.session.name);
       // A multi-source run is a batch, not a job: it has no single job id to
       // follow, so it gets its own monitor and its own query.
-      if (Array.isArray(created.sources) && created.sources.length) {
-        const batch = created as unknown as ScanBatch;
-        setActiveBatchId(batch.id);
-        setTab("scan");
-        setReviewOpen(false);
-        const skipped = batch.excluded?.length || 0;
-        pushToast(
-          `Discovery started across ${batch.sources.length} source${batch.sources.length === 1 ? "" : "s"}${skipped ? `, ${skipped} skipped` : ""}.`,
-          skipped ? "info" : "success",
-        );
-      } else {
-        setActiveBatchId(null);
-        selectJob(created.id);
-        setTab("scan");
-        setReviewOpen(false);
-        pushToast(`Discovery job #${created.id} started.`, "success");
-      }
+      // One job covers every selected source, so there is nothing to branch on.
+      // It used to fan out into a ScanBatch with a job per source, which is what
+      // made a single click look like several scans.
+      setActiveBatchId(null);
+      selectJob(created.id);
+      setTab("scan");
+      setReviewOpen(false);
+      const sources = created.config?.source_types || [created.source_type];
+      pushToast(
+        `Discovery #${created.id} started across ${sources.length} source${sources.length === 1 ? "" : "s"}.`,
+        "success",
+      );
       await queryClient.invalidateQueries({ queryKey: ["scans"] });
       await queryClient.invalidateQueries({ queryKey: ["scan-batch"] });
     },
@@ -436,57 +431,27 @@ export default function ScansPage() {
    * has no batch id (older backend, or a genuine single-source run).
    */
   const followedJob = job.data;
-  const runJobs = useMemo(() => {
-    if (!followedJob) return [];
-    if (followedJob.batch == null) return [followedJob];
+  /*
+   * The scan the "Current scan" card reports.
+   *
+   * A running scan wins over the selected job: if something is working, that is
+   * the state worth showing, even when the operator has not clicked it. Otherwise
+   * the selected job is used, and with neither there is simply nothing running.
+   */
+  const currentScan = useMemo(() => {
     const rows = scans.data?.results || [];
-    return rows.filter((r) => r.batch === followedJob.batch);
-  }, [followedJob, scans.data?.results]);
-  const runJobsSafe = runJobs.length ? runJobs : followedJob ? [followedJob] : [];
-  const runStatus = (() => {
-    if (!runJobsSafe.length) return "";
-    const statuses = runJobsSafe.map((j) => String(j.status).toLowerCase());
-    if (statuses.some((s) => !TERMINAL_STATUSES.has(s))) return "running";
-    if (statuses.some((s) => s === "failed")) return "failed";
-    if (statuses.every((s) => s === "cancelled" || s === "canceled")) return "cancelled";
-    if (statuses.some((s) => s === "partial")) return "partial";
-    return statuses[0];
-  })();
-  const runRunning = Boolean(runStatus) && !TERMINAL_STATUSES.has(runStatus);
-  const runProgress = runJobsSafe.length
-    ? Math.round(runJobsSafe.reduce((sum, j) => sum + (j.progress || 0), 0) / runJobsSafe.length)
-    : 0;
-  const runFindings = runJobsSafe.reduce((sum, j) => sum + (j.findings_count || 0), 0);
-  const runSkipped = runJobsSafe.reduce((sum, j) => sum + (j.items_skipped || 0), 0);
-
-  const followedStrip = runJobsSafe.length ? (
-    <div className="flex items-center gap-3 border bg-card px-3 py-1.5 text-xs">
-      <StatusBadge status={runStatus} />
-      <span className="min-w-0 flex-1 truncate text-muted-foreground" title={runJobsSafe[0].target || undefined}>
-        {runJobsSafe[0].target || "Connected scope"}
-        {runJobsSafe.length > 1 ? (
-          <span className="ml-1.5 text-[11px]">
-            · {runJobsSafe.length} sources
-          </span>
-        ) : null}
-      </span>
-      {runRunning ? (
-        <>
-          <Progress value={runProgress} className="h-1.5 w-24" />
-          <span className="tnum w-9 text-right text-muted-foreground">{runProgress}%</span>
-        </>
-      ) : (
-        <>
-          <span className="tnum text-muted-foreground">
-            {formatNumber(runFindings)} finding{runFindings === 1 ? "" : "s"}
-          </span>
-          {runSkipped ? (
-            <span className="tnum text-warning">{formatNumber(runSkipped)} skipped</span>
-          ) : null}
-        </>
-      )}
-    </div>
-  ) : null;
+    const running = rows.find((r) => !TERMINAL_STATUSES.has(String(r.status).toLowerCase()));
+    return running || followedJob || null;
+  }, [scans.data?.results, followedJob]);
+  const currentRunning = Boolean(
+    currentScan && !TERMINAL_STATUSES.has(String(currentScan.status).toLowerCase())
+  );
+  const currentSources = currentScan?.config?.source_types || [];
+  // Progress reads "binary:scanning" while several sources share one job, so the
+  // source prefix is stripped rather than shown as a raw stage name.
+  const currentStage = currentScan?.progress_stage?.includes(":")
+    ? currentScan.progress_stage.split(":")[1]
+    : currentScan?.progress_stage;
 
   return (
     <div className="space-y-6">
@@ -496,9 +461,6 @@ export default function ScansPage() {
         title="Cryptographic discovery"
         description="Collect evidence-backed cryptographic observations across connected sources. Classification, risk, and migration reasoning are produced by later stages."
       />
-
-      {/* Status of the scan this page is following, if any. */}
-      {followedStrip}
 
       {/* Awaiting Risk Analysis Prompt */}
       {awaitingRows.length ? (
@@ -752,6 +714,57 @@ export default function ScansPage() {
               </form>
             </CardContent>
           </Card>
+
+            {/*
+              * The second track of the form grid. It held the "Discovery activity"
+              * panel until that was removed, which left the column empty and the
+              * start form stretched across a 1.2fr/0.8fr grid with nothing beside
+              * it. This is that space: the state of the current scan, or a plain
+              * statement that nothing is running.
+              */}
+            <Card className="h-fit">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">Current scan</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {currentScan ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <StatusBadge status={currentScan.status} />
+                      <span className="font-mono text-[11px] text-muted-foreground">
+                        #{currentScan.id}
+                      </span>
+                    </div>
+                    <p className="break-words text-xs text-muted-foreground" title={currentScan.target || undefined}>
+                      {currentScan.target || "Connected scope"}
+                    </p>
+                    {currentSources.length > 1 ? (
+                      <p className="text-[11px] text-muted-foreground">{currentSources.length} sources</p>
+                    ) : null}
+                    {currentRunning ? (
+                      <>
+                        <Progress value={currentScan.progress} />
+                        <p className="tnum text-[11px] text-muted-foreground">
+                          {currentScan.progress}%{currentStage ? ` · ${currentStage}` : ""}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-[11px] text-muted-foreground">
+                        {formatNumber(currentScan.findings_count || 0)} finding
+                        {currentScan.findings_count === 1 ? "" : "s"}
+                        {currentScan.items_skipped
+                          ? ` · ${formatNumber(currentScan.items_skipped)} skipped`
+                          : ""}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    No scan running. Start one and its state will appear here.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
         </div>
       ) : null}
 

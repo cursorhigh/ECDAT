@@ -492,6 +492,37 @@ class AutoAnalysisTests(TestCase):
 
         mock_pending.assert_not_called()
 
+    @mock.patch("segments.ml.analysis.runner.pending_analysis")
+    def test_a_failed_analysis_stage_does_not_fail_the_scan(self, mock_pending):
+        """A scan that already ingested and correlated must not be relabelled FAILED.
+
+        Job #70 collected 333 findings, finished inspection, and was then marked
+        `failed` because staging the follow-on analysis raised -- the running
+        process predated the `coverage` column. `run_scan`'s generic handler
+        cannot tell a discovery failure from a follow-on hiccup, so it overwrote a
+        terminal status the scan had already earned and every collected finding
+        became unreachable.
+
+        Discovery work is finished by the time analysis is staged, so a failure
+        there is recorded and the scan keeps what it earned.
+        """
+        from segments.scraping.discovery.models import ScanJob
+
+        job = self._job()
+        job.progress_stage = "done"
+        job.progress = 100
+        job.save(using="default", update_fields=["progress_stage", "progress"])
+        mock_pending.side_effect = RuntimeError(
+            "NOT NULL constraint failed: analysis_analysisrun.coverage"
+        )
+
+        discovery_services._auto_analyze(job)
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, ScanJob.Status.COMPLETED)
+        self.assertEqual(job.progress_stage, "done")
+        self.assertEqual(job.error, "")
+
     @mock.patch.dict(os.environ, {"ECDAT_AUTO_ANALYSE": "0"})
     @mock.patch("segments.ml.analysis.runner.pending_analysis")
     def test_auto_analyze_opt_out_env(self, mock_pending):
@@ -3227,6 +3258,15 @@ class MultiSourceScanTests(TestCase):
         )
 
     def test_start_scan_endpoint_accepts_several_sources(self):
+        """Several sources must produce ONE job, not one job per source.
+
+        This used to create a ScanBatch with a ScanJob per source, so a single
+        click looked like several scans and had to be shown and cancelled
+        separately. The sources already shared a session, so correlation and the
+        dependency graph treated them as one body of work -- the jobs only split
+        the presentation. Now one job runs each source's scanner in turn and
+        reports the set on its config.
+        """
         from .models import ScanJob
 
         with mock.patch(
@@ -3244,10 +3284,25 @@ class MultiSourceScanTests(TestCase):
             )
         self.assertEqual(r.status_code, 201, msg=r.content)
         body = r.json()["data"]
-        self.assertEqual(body["scan_type"], "specified")
-        self.assertEqual(sorted(body["source_types"]), ["certificate", "source_code"])
-        self.assertEqual(len(body["sources"]), 2)
-        self.assertTrue(all(s["status"] for s in body["sources"]))
+        self.assertEqual(body["config"]["scan_type"], "specified")
+        # One row, and it names every source it covered.
+        self.assertEqual(
+            ScanJob.objects.using("default").filter(session_id=body["session"]["id"]).count(),
+            1,
+        )
+        self.assertEqual(
+            sorted(body["config"]["source_types"]),
+            ["certificate", "source_code"],
+        )
+        # Findings still record which source produced them, so attribution and
+        # per-source coverage survive the merge.
+        sources = set(
+            ScanJob.objects.using("default")
+            .get(pk=body["id"])
+            .raw_findings.values_list("source_type", flat=True)
+        )
+        self.assertTrue(sources.issubset({"source_code", "certificate"}))
+        self.assertIn(body["id"], [j.id for j in ScanJob.objects.using("default").filter(session_id=body["session"]["id"])])
 
     def test_start_scan_endpoint_still_accepts_a_single_source(self):
         from .models import ScanJob

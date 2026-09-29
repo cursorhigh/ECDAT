@@ -202,34 +202,29 @@ def start_scan(request):
     label = os.path.basename(target.rstrip("\\/")) or scan_type or requested[0]
     ws = create_scan_session(request, label, using=using)
 
-    if len(requested) == 1:
-        try:
-            job = create_and_run_scan(
-                source_type=requested[0],
-                target=target,
-                config=options,
-                scan_type=scan_type,
-                session_id=ws.pk,
-            )
-        except ScanInspectionError as exc:
-            ws.delete()
-            return JsonResponse({"detail": str(exc)}, status=400)
-        single = ScanJobSerializer(job).data
-        single["session"] = {"id": ws.pk, "name": ws.name}
-        return JsonResponse(single, status=201)
-
+    # One job for every selected source.
+    #
+    # This used to fan a multi-source request out into one ScanJob per source
+    # inside a ScanBatch, so a single click produced four scans that had to be
+    # shown, tracked and cancelled separately. The sources already shared a
+    # session, so correlation and the dependency graph treated them as one body of
+    # work anyway -- the jobs only split the presentation. Now one job runs every
+    # applicable source's scanner in turn and correlates the result once.
+    primary = requested[0]
     try:
-        batch = create_batch_scan(
-            source_types=requested,
+        job = create_and_run_scan(
+            source_type=primary,
             target=target,
+            config=options,
             scan_type=scan_type,
             session_id=ws.pk,
+            source_types=requested,
         )
     except ScanInspectionError as exc:
         ws.delete()
         return JsonResponse({"detail": str(exc)}, status=400)
 
-    data = ScanBatchSerializer(batch).data
+    data = ScanJobSerializer(job).data
     data["session"] = {"id": ws.pk, "name": ws.name}
     return JsonResponse(data, status=201)
 

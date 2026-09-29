@@ -12,7 +12,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs } from "@/components/ui/tabs";
-import { EmptyState, ErrorState, LoadingState } from "@/components/feedback/data-state";
+import { EmptyState, ErrorState } from "@/components/feedback/data-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader, SectionLabel } from "@/components/data/page-header";
 import { StatusBadge, riskBadge } from "@/components/data/status-badge";
 import { CbomExport } from "@/components/data/cbom-export";
@@ -50,7 +51,6 @@ export default function AnalysisPage() {
   const { ready, scopeKey, info, hasSession } = useSession();
   const { pushToast } = useToast();
   const queryClient = useQueryClient();
-  const [scanJob, setScanJob] = useState("");
   const [context, setContext] = useState("");
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
   const [detailTab, setDetailTab] = useState("summary");
@@ -64,7 +64,20 @@ export default function AnalysisPage() {
   const [isPublicAccess, setIsPublicAccess] = useState(true);
   const [customAppName, setCustomAppName] = useState("");
 
-  const runs = useQuery({ queryKey: ["analysis-runs", scopeKey], queryFn: api.analysisList, enabled: ready && hasSession });
+  const runs = useQuery({
+    queryKey: ["analysis-runs", scopeKey],
+    queryFn: api.analysisList,
+    enabled: ready && hasSession,
+    // The rows have to move while the work does. Without this the table stayed
+    // frozen at whatever it first fetched, so a run that reached 100% continued
+    // to read "running" in the list while the detail panel beside it had already
+    // settled -- two truths on one screen. Same 3s cadence as the detail, and it
+    // stops once every run is terminal so an idle page costs nothing.
+    refetchInterval: (query) => {
+      const rows = query.state.data || [];
+      return rows.some((run) => !terminalStatuses.has(String(run.status).toLowerCase())) ? 3000 : false;
+    },
+  });
   const scans = useQuery({ queryKey: ["scans", scopeKey, "created_at"], queryFn: () => api.scans({ ordering: "created_at", page: 1 }), enabled: ready && hasSession });
   const awaiting = useQuery({ queryKey: ["analysis-awaiting", scopeKey], queryFn: api.analysisAwaiting, enabled: ready && hasSession, refetchInterval: 10000 });
   const defaultRunId = runs.data?.find((run) => run.status === "completed")?.id || runs.data?.[0]?.id || null;
@@ -103,8 +116,8 @@ export default function AnalysisPage() {
 
   const start = useMutation({
     mutationFn: () => {
-      const chosenScan = scanJob || (prioritizedScan?.id ? String(prioritizedScan.id) : "");
-      if (!chosenScan) throw new Error("Choose a completed scan first.");
+      if (!targetScan) throw new Error("Run a discovery scan first.");
+      const chosenScan = String(targetScan.id);
       let rawContext: any;
       if (context.trim()) {
         try { rawContext = JSON.parse(context); } catch { rawContext = context.trim(); }
@@ -174,10 +187,22 @@ export default function AnalysisPage() {
     await queryClient.invalidateQueries({ queryKey: ["analysis-runs"] });
     if (activeRunId) await queryClient.invalidateQueries({ queryKey: ["analysis-detail", activeRunId] });
   };
-  const completedScans = (scans.data?.results || []).filter((scan) => scan.status === "completed");
-  const scansWithFindings = completedScans.filter((s) => (s.findings_count || 0) > 0);
-  const prioritizedScan = scansWithFindings[0] || completedScans[0];
   const partialScans = (scans.data?.results || []).filter((scan) => scan.status === "partial");
+  /*
+   * Anything that finished producing evidence is analysable, partial included --
+   * a partial run records its own coverage gap on the assessment rather than
+   * being refused. Only scans still queued or running are excluded, because there
+   * is nothing settled to reason over yet.
+   *
+   * The newest one is already selected, so there is no dropdown to drive. A scan
+   * with findings outranks an empty one so a bare "no findings" run does not
+   * become the default.
+   */
+  const completedScans = (scans.data?.results || []).filter(
+    (scan) => scan.status === "completed" || scan.status === "partial"
+  );
+  const scansWithFindings = completedScans.filter((s) => (s.findings_count || 0) > 0);
+  const targetScan = scansWithFindings[0] || completedScans[0] || null;
   const awaitingRows = awaiting.data || [];
 
   // Anything the operator can still act on. `awaiting_context` counts as live
@@ -225,23 +250,28 @@ export default function AnalysisPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
+              {/* No dropdown. With one job per discovery run, there is one obvious
+                  scan to analyse: the most recent one that finished. The picker
+                  only earns its space when there is a genuine choice to make. */}
               <div className="space-y-2">
-                <Label htmlFor="analysis-scan">Completed scan</Label>
-                <Select id="analysis-scan" value={scanJob || (prioritizedScan ? String(prioritizedScan.id) : "")} onChange={(event) => setScanJob(event.target.value)}>
-                  <option value="">Select a scan</option>
-                  {completedScans.map((scan) => (
-                    <option key={scan.id} value={scan.id}>
-                      #{scan.id} · {truncate(scan.target || "Scan", 26)} ({scan.findings_count ?? 0} findings · {scan.source_type})
-                    </option>
-                  ))}
-                </Select>
-                {!completedScans.length ? (
+                <p className="text-xs text-muted-foreground">Scan</p>
+                {targetScan ? (
+                  <div className="border bg-muted/30 px-2.5 py-2">
+                    <p className="truncate text-sm font-medium" title={targetScan.target || undefined}>
+                      #{targetScan.id} · {truncate(targetScan.target || "Scan", 30)}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {formatNumber(targetScan.findings_count ?? 0)} findings
+                      {targetScan.status === "partial" ? " · partial coverage" : ""}
+                    </p>
+                  </div>
+                ) : (
                   <p className="text-[11px] text-muted-foreground">
                     {partialScans.length
-                      ? `No fully completed scans are available. ${partialScans.length} partial scan${partialScans.length === 1 ? " is" : "s are"} excluded — analysis needs complete coverage.`
-                      : "No completed scans are available in this scope."}
+                      ? `${partialScans.length} partial scan${partialScans.length === 1 ? " is" : "s are"} available. A partial scan can still be analysed, with its coverage gap recorded.`
+                      : "No finished scan is available in this scope. Run a discovery scan first."}
                   </p>
-                ) : null}
+                )}
               </div>
 
               <div className="flex gap-2">
@@ -250,7 +280,7 @@ export default function AnalysisPage() {
                   variant="outline"
                   className="flex-1"
                   onClick={() => {
-                    const target = Number(scanJob) || completedScans[0]?.id;
+                    const target = targetScan?.id;
                     if (!target) {
                       pushToast("No completed scan is available to analyze.", "error");
                       return;
@@ -264,7 +294,7 @@ export default function AnalysisPage() {
                 <Button
                   className="flex-1"
                   onClick={() => start.mutate()}
-                  disabled={start.isPending || (!scanJob && !completedScans.length)}
+                  disabled={start.isPending || !targetScan}
                 >
                   {start.isPending ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -304,28 +334,98 @@ export default function AnalysisPage() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            {runs.isLoading ? (
-              <div className="p-5">
-                <LoadingState label="Loading analysis runs" />
+            {/*
+             * `isPending`, not `isLoading`. This query is `enabled: ready &&
+             * hasSession`, and a query that is merely disabled reports
+             * `isLoading === false` while `isPending === true`. Keying off
+             * `isLoading` therefore fell through to the empty state and claimed
+             * "No analysis runs" during the moment before the session resolved --
+             * a flash of a false claim on every page load.
+             */}
+            {runs.isPending ? (
+              // Table-shaped, for the same reason as the detail panel: a loader
+              // that matches what it replaces keeps the column widths from
+              // jumping when the rows arrive.
+              <div className="p-5" role="status" aria-live="polite">
+                <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  Loading analysis runs
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Run</TableHead>
+                      <TableHead>Target</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Progress</TableHead>
+                      <TableHead>Assets</TableHead>
+                      <TableHead />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {[0, 1, 2, 3, 4].map((row) => (
+                      <TableRow key={row}>
+                        <TableCell><Skeleton className="h-4 w-14" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
+                        <TableCell><div className="flex items-center gap-2"><Skeleton className="h-2 w-20" /><Skeleton className="h-3 w-8" /></div></TableCell>
+                        <TableCell><Skeleton className="h-4 w-8" /></TableCell>
+                        <TableCell><Skeleton className="h-8 w-20" /></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             ) : runs.isError ? (
               <div className="p-5">
                 <ErrorState message={runs.error instanceof Error ? runs.error.message : undefined} onRetry={() => void runs.refetch()} />
               </div>
             ) : runs.data?.length ? (
+              /*
+               * Bounded and scrollable, with a sticky header. This list grows by
+               * one row per analysis ever started and nothing capped it, so after
+               * a few dozen runs the card pushed the detail panel clean off the
+               * screen. `overflow-y-auto` keeps the list a fixed panel and lets it
+               * scroll within itself; the header is sticky so the columns stay
+               * named while you scroll to find a run.
+               */
+              <div className="max-h-[26rem] overflow-y-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Run</TableHead>
-                    <TableHead>Target</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Progress</TableHead>
-                    <TableHead>Assets</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card">Run</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card">Target</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card">Status</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card">Progress</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card">Assets</TableHead>
                     <TableHead />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {runs.data.map((run) => (
+                  {runs.data.map((rowRun) => {
+                    /*
+                     * The selected row is rendered from the live detail, not from
+                     * the list. The two come from different endpoints and are
+                     * fetched a moment apart, so they genuinely disagree -- the
+                     * header could read "Terminal state 100%" while the row it
+                     * belongs to still said 60%, or showed pause controls for a
+                     * run that had already finished. Since the detail is the
+                     * authoritative view of the run being examined, its live
+                     * status, progress and asset count win here.
+                     */
+                    const live = rowRun.id === activeRunId ? detail.data : undefined;
+                    const run: AnalysisListItem = live
+                      ? {
+                          ...rowRun,
+                          status: live.status ?? rowRun.status,
+                          progress: live.progress ?? rowRun.progress,
+                          // The list item's `assets` is the count the table shows;
+                          // the detail carries the same number as its assessment
+                          // list, which is what the tab badge counts too.
+                          assets: array(live.assessments).length || rowRun.assets,
+                        }
+                      : rowRun;
+                    return (
                     <AnalysisRow
                       key={run.id}
                       run={run}
@@ -345,9 +445,11 @@ export default function AnalysisPage() {
                         />
                       }
                     />
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
+              </div>
             ) : (
               <div className="p-5">
                 <EmptyState title="No analysis runs" description="Start analysis from a completed scan to create the first run." />
@@ -357,6 +459,14 @@ export default function AnalysisPage() {
         </Card>
       </div>
 
+      {/*
+       * Full width. This is the third child of a two-column grid, so it wrapped
+       * onto its own row in the narrow 0.85fr track -- the primary content was
+       * confined to a column sized for a side form, which is what pushed its
+       * five-column tables into horizontal scrolling. Spanning both tracks gives
+       * it the width the tables were laid out for.
+       */}
+      <div className="xl:col-span-2">
       {activeRunId ? (
         <AnalysisDetailPanel
           run={detail.data}
@@ -378,6 +488,7 @@ export default function AnalysisPage() {
           </CardContent>
         </Card>
       )}
+      </div>
     </div>
   );
 }
@@ -425,8 +536,69 @@ function AnalysisRow({ run, selected, onSelect, controls }: { run: AnalysisListI
   return <TableRow className={selected ? "bg-primary/5" : undefined}><TableCell><button type="button" onClick={onSelect} className="font-mono text-xs font-semibold hover:text-primary">#{run.id}</button><p className="mt-0.5 text-[11px] text-muted-foreground">{formatDate(run.created_at)}</p></TableCell><TableCell><p className="max-w-[250px] truncate text-sm">{run.target || "—"}</p></TableCell><TableCell><StatusBadge status={run.status} /></TableCell><TableCell><div className="flex min-w-28 items-center gap-2"><Progress value={run.progress} className="w-20" /><span className="tnum text-[11px] text-muted-foreground">{run.progress}%</span></div></TableCell><TableCell className="tnum">{formatNumber(run.assets)}</TableCell><TableCell><div className="flex items-center gap-2"><Button variant={selected ? "secondary" : "ghost"} size="sm" onClick={onSelect}>{selected ? "Selected" : "View"}</Button>{controls}</div></TableCell></TableRow>;
 }
 
+/**
+ * A loader shaped like the panel it stands in for.
+ *
+ * The shared `LoadingState` is a four-across grid of tall cards over one big
+ * block -- right for a full-width page, wrong for this panel, which is a header,
+ * a progress bar, a tab strip and then a metrics row. Dropping the shared
+ * skeleton in here made the panel jump when the content arrived. Mirroring the
+ * real layout means the transition is only the values filling in.
+ *
+ * `runId` keeps the header reading "Run #N" while loading, so the loader stays
+ * attached to the run that was clicked instead of blanking back to nothing.
+ */
+function AnalysisDetailSkeleton({ runId }: { runId?: number }) {
+  return (
+    <Card aria-busy="true">
+      <CardHeader className="flex-row items-start justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-5 w-20 rounded-full" />
+          </div>
+          <Skeleton className="mt-2 h-4 w-2/3 max-w-xl" />
+          <Skeleton className="mt-1.5 h-3 w-52" />
+        </div>
+        <div className="flex shrink-0 gap-2">
+          <Skeleton className="h-8 w-20" />
+          <Skeleton className="h-8 w-20" />
+        </div>
+      </CardHeader>
+      <div className="border-b px-5 pt-4">
+        <Skeleton className="h-1.5 w-full" />
+        <div className="flex justify-between py-2">
+          <Skeleton className="h-3 w-32" />
+          <Skeleton className="h-3 w-8" />
+        </div>
+      </div>
+      <div className="px-5 pt-3">
+        <div className="flex gap-4">
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-4 w-12" />
+        </div>
+      </div>
+      <CardContent className="space-y-6 p-5">
+        <div className="grid gap-3 sm:grid-cols-4">
+          {[0, 1, 2, 3].map((item) => (
+            <div key={item} className="border p-4">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="mt-2 h-5 w-16" />
+            </div>
+          ))}
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Skeleton className="h-52" />
+          <Skeleton className="h-52" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function AnalysisDetailPanel({ run, loading, error, tab, onTabChange, onCancel, cancelling, onPause, pausing, onResume, resuming }: { run?: AnalysisDetail; loading: boolean; error?: string; tab: string; onTabChange: (value: string) => void; onCancel: () => void; cancelling: boolean; onPause: () => void; pausing: boolean; onResume: () => void; resuming: boolean }) {
-  if (loading) return <Card><CardContent className="p-5"><LoadingState label="Loading analysis detail" /></CardContent></Card>;
+  if (loading) return <AnalysisDetailSkeleton runId={run?.id} />;
   if (error) return <Card><CardContent className="p-5"><ErrorState message={error} /></CardContent></Card>;
   if (!run) return <Card><CardContent className="p-5"><EmptyState title="Analysis detail unavailable" description="The selected run is outside the active scope or has not returned data." /></CardContent></Card>;
   const summary = record(run.executive_summary);
@@ -516,15 +688,19 @@ function SummaryView({ run, summary, summaryStats, dataContext, networkContext }
           <span className="text-[11px] text-muted-foreground">Sorted by migration priority</span>
         </div>
         {rows.length ? (
-          <div className="overflow-x-auto border">
+          /* One row per assessed asset, so this is as long as the assessments tab
+             -- 371 rows here. Horizontal scrolling alone was not enough; the
+             height is capped so the summary metrics above stay on screen and the
+             table scrolls within its own bordered panel. */
+          <div className="max-h-[32rem] overflow-auto border">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Asset</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Overall risk</TableHead>
-                  <TableHead>Migration priority</TableHead>
-                  <TableHead>Quantum</TableHead>
+                  <TableHead className="sticky top-0 z-10 bg-card">Asset</TableHead>
+                  <TableHead className="sticky top-0 z-10 bg-card">Category</TableHead>
+                  <TableHead className="sticky top-0 z-10 bg-card">Overall risk</TableHead>
+                  <TableHead className="sticky top-0 z-10 bg-card">Migration priority</TableHead>
+                  <TableHead className="sticky top-0 z-10 bg-card">Quantum</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -555,7 +731,15 @@ function SummaryMetric({ label, value, tone = "default" }: { label: string; valu
 
 function AssessmentView({ assessments }: { assessments: unknown[] }) {
   if (!assessments.length) return <EmptyState title="No assessments" description="No asset assessments are available for this run." />;
-  return <div className="overflow-x-auto border"><Table><TableHeader><TableRow><TableHead>Asset</TableHead><TableHead>Family</TableHead><TableHead>HNDL</TableHead><TableHead>Risk</TableHead><TableHead>Recommended action</TableHead></TableRow></TableHeader><TableBody>{assessments.map((value, index) => { const item = record(value); const mosca = record(record(item.mosca).mosca_assessment); const hndl = record(item.hndl); return <TableRow key={String(item.id || index)}><TableCell><p className="font-medium">{displayValue(item.asset_name)}</p><p className="font-mono text-[11px] text-muted-foreground">{displayValue(item.asset_id)}</p></TableCell><TableCell className="text-xs">{titleCase(item.asset_family)}</TableCell><TableCell className="max-w-[180px] text-xs">{displayValue(hndl.reason || hndl.future_decryption_risk || hndl.applicable)}</TableCell><TableCell>{riskBadge(mosca.overall_risk)}</TableCell><TableCell className="max-w-[300px] text-xs text-muted-foreground">{displayValue(mosca.recommended_action || mosca.reason)}</TableCell></TableRow>; })}</TableBody></Table></div>;
+  /*
+   * Both axes scroll, and the height is bounded. A run over a real target
+   * produces one assessment per asset -- 371 of them for this one -- and the
+   * table had only `overflow-x-auto`, so the page grew to 371 rows tall and the
+   * header, tabs and controls were all scrolled out of reach. Capping the height
+   * keeps the surrounding panel usable and lets the list scroll inside itself,
+   * with sticky headers so Asset/Family/HNDL/Risk stay named throughout.
+   */
+  return <div className="max-h-[32rem] overflow-auto border"><Table><TableHeader><TableRow><TableHead className="sticky top-0 z-10 bg-card">Asset</TableHead><TableHead className="sticky top-0 z-10 bg-card">Family</TableHead><TableHead className="sticky top-0 z-10 bg-card">HNDL</TableHead><TableHead className="sticky top-0 z-10 bg-card">Risk</TableHead><TableHead className="sticky top-0 z-10 bg-card">Recommended action</TableHead></TableRow></TableHeader><TableBody>{assessments.map((value, index) => { const item = record(value); const mosca = record(record(item.mosca).mosca_assessment); const hndl = record(item.hndl); return <TableRow key={String(item.id || index)}><TableCell><p className="font-medium">{displayValue(item.asset_name)}</p><p className="font-mono text-[11px] text-muted-foreground">{displayValue(item.asset_id)}</p></TableCell><TableCell className="text-xs">{titleCase(item.asset_family)}</TableCell><TableCell className="max-w-[180px] text-xs">{displayValue(hndl.reason || hndl.future_decryption_risk || hndl.applicable)}</TableCell><TableCell>{riskBadge(mosca.overall_risk)}</TableCell><TableCell className="max-w-[300px] text-xs text-muted-foreground">{displayValue(mosca.recommended_action || mosca.reason)}</TableCell></TableRow>; })}</TableBody></Table></div>;
 }
 
 function CbomView({ cbom, runId }: { cbom: JsonRecord; runId: number }) {

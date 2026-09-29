@@ -31,6 +31,49 @@ from .payload_builder import build_analysis_payload, default_raw_system_context,
 logger = logging.getLogger("analysis")
 
 
+def _normalise_skip_reasons(raw) -> dict:
+    """Collapse ``skip_reasons`` to a JSON-safe reason -> count mapping.
+
+    The field is not one shape. A single scanner reports a tally
+    (``{"unreadable": 1}``), but the multi-source run folds in the per-scanner
+    "skipped entirely" notes that are plain strings, and `_merge_skip_reason`
+    produces a list when any of them appear. Assuming a dict and calling
+    ``dict()`` on it turned every such partial scan into a 500 at the exact point
+    the operator was trying to analyse it, so both shapes are accepted here.
+    """
+    if isinstance(raw, dict):
+        return {str(k): v for k, v in raw.items()}
+    if isinstance(raw, (list, tuple)):
+        out: dict = {}
+        for item in raw:
+            text = str(item)
+            out[text] = out.get(text, 0) + 1
+        return out
+    return {}
+
+
+def scan_coverage(scan_job) -> dict:
+    """Describe how much of the scan the assessment is reasoning over.
+
+    A `partial` scan finished with recorded gaps -- unreadable files, unsupported
+    locations -- and the run is now allowed to start on it. Without carrying the
+    gap, the report would read as if the whole target had been inspected. The
+    counts are the scanner's own measured figures, not a finding count.
+    """
+    from segments.scraping.discovery.models import ScanJob
+
+    if scan_job.status != ScanJob.Status.PARTIAL:
+        return {"partial": False, "items_scanned": scan_job.items_scanned, "items_total": scan_job.items_total}
+    return {
+        "partial": True,
+        "items_scanned": scan_job.items_scanned,
+        "items_total": scan_job.items_total,
+        "items_skipped": scan_job.items_skipped,
+        "skip_reasons": _normalise_skip_reasons(scan_job.skip_reasons),
+        "reason": scan_job.error or "Some locations could not be inspected.",
+    }
+
+
 def start_analysis(scan_job, raw_system_context=None, max_findings: int | None = None):
     """Create a queued AnalysisRun for a scan job and dispatch execution.
 
@@ -49,6 +92,7 @@ def start_analysis(scan_job, raw_system_context=None, max_findings: int | None =
     )
     run = AnalysisRun.objects.using(db).create(
         scan_job=scan_job,
+        coverage=scan_coverage(scan_job),
         status=AnalysisRun.Status.QUEUED,
         progress=0,
         repository=payload["repository"],
@@ -112,6 +156,7 @@ def pending_analysis(scan_job, raw_system_context=None, max_findings: int | None
     timeout = _context_timeout()
     run = AnalysisRun.objects.using(db).create(
         scan_job=scan_job,
+        coverage=scan_coverage(scan_job),
         status=AnalysisRun.Status.AWAITING_CONTEXT,
         progress=0,
         repository=payload["repository"],
