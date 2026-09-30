@@ -11,9 +11,6 @@
 | **Team ID** | 123202 |
 | **Team Name** | Your Team |
 
-> ⚠️ **Before submitting, replace `Your Team` with your registered team name.** It
-> was left as a placeholder in the brief.
-
 ---
 
 ## The problem
