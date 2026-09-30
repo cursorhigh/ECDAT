@@ -31,13 +31,42 @@ staticfiles/
 media/
 *.log
 
-# Local database backups
-#
-# `backend/backups/` holds timestamped SQLite snapshots. One of these was a 79 MB
-# demo database and ended up in a commit, which is why pushes started warning
-# about files over GitHub's 50 MB limit.
-backend/backups/
-backups/
+  # Local database backups
+  #
+  # `backend/backups/` holds timestamped SQLite snapshots. One of these was a 79 MB
+  # demo database and ended up in a commit, which is why pushes started warning
+  # about files over GitHub's 50 MB limit.
+  backend/backups/
+  backups/
+
+  # Generated pipeline output
+  #
+  # CBOM and risk-report artefacts written by the run scripts. These are results,
+  # not source: they are rewritten on every pipeline run, so tracking them means
+  # the diff is always dirty and nobody can tell a real change from regenerated
+  # output. Produce them by running the pipeline.
+backend/cbom_output.json
+backend/full_pipeline_cbom_output.json
+backend/live_gemini_cbom_output.json
+backend/ecdat_final_risk_report.json
+*output*.json
+*risk_report.json
+
+  # Ad-hoc scratch space for one-off diagnostics. Throwaway by definition.
+backend/scratch/
+scratch/
+
+  # Generated reports
+  #
+  # Every report build writes a timestamped PDF into the backend root, so the
+  # directory filled with near-duplicate artefacts and the diff was permanently
+  # dirty. Reports are outputs -- build them from the Reports page.
+  #
+  # Deliberately NOT `backend/SIH_*.pdf`: `SIH_arch_pqc.pdf` is a tracked
+  # architecture document, and a broad pattern would quietly drop it from future
+  # commits while leaving it in the working tree. Match the generated
+  # `ECDAT_<Pipeline>_<timestamp>.pdf` pattern instead.
+backend/ECDAT_*.pdf
 
 # Environment / secrets
 .env
